@@ -1,0 +1,648 @@
+﻿// src/components/Dashboard.jsx - Fixed Version
+import React, { useState, useEffect } from 'react';
+import incidentService from '../services/incidentService';
+import AnalyticsCharts from './AnalyticsCharts';
+import IncidentMap from './IncidentMap';
+import ExportButton from './ExportButton';
+import NotificationSystem from './NotificationSystem';
+import MLDashboard from './MLDashboard';
+
+function Dashboard({ user, onLogout }) {
+  const [incidents, setIncidents] = useState([]);
+  const [stats, setStats] = useState({ total: 0, active: 0, resolved: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showCharts, setShowCharts] = useState(true);
+  const [showMap, setShowMap] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(true);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Please login to view incidents');
+        setLoading(false);
+        return;
+      }
+      const [incidentsData, statsData] = await Promise.all([
+        incidentService.getAll(),
+        incidentService.getStats()
+      ]);
+      setIncidents(incidentsData.data || []);
+      setStats(statsData.data || { total: 0, active: 0, resolved: 0 });
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setError('Failed to load data. Please make sure backend is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    const csv = ['Type,Severity,Status,Location,Date'];
+    incidents.forEach(inc => {
+      csv.push(inc.type + ',' + inc.severity + ',' + inc.status + ',' + (inc.location_name || 'Unknown') + ',' + new Date(inc.created_at).toLocaleDateString());
+    });
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'incidents.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRegisterClick = () => {
+    setShowRegisterModal(true);
+  };
+
+  const closeRegisterModal = () => {
+    setShowRegisterModal(false);
+  };
+
+  const handleReportClick = () => {
+    setShowReportModal(true);
+  };
+
+  const closeReportModal = () => {
+    setShowReportModal(false);
+  };
+
+  if (loading) {
+    return <div style={styles.loading}>Loading dashboard...</div>;
+  }
+
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <div style={styles.headerContent}>
+          <div style={styles.headerLeft}>
+            <h1 style={styles.title}>🏫 Campus Security</h1>
+            <span style={styles.emergencyBadge}>🚨 EMERGENCY</span>
+          </div>
+          <div style={styles.userInfo}>
+            <div style={styles.userAvatar}>
+              <span style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase()}</span>
+            </div>
+            <div style={styles.userDetails}>
+              <span style={styles.userName}>{user?.name}</span>
+              <span style={styles.userRole}>{user?.role}</span>
+            </div>
+            <button onClick={handleReportClick} style={styles.reportBtn}>
+              ➕ Report
+            </button>
+            <button onClick={handleRegisterClick} style={styles.registerBtn}>
+              👤 Register
+            </button>
+            <button onClick={onLogout} style={styles.logoutBtn}>
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div style={styles.content}>
+        {error && (
+          <div style={styles.error}>
+            <span>⚠️</span>
+            <p>{error}</p>
+            <button onClick={loadData} style={styles.retryBtn}>Retry</button>
+          </div>
+        )}
+
+        <div style={styles.stats}>
+          <div style={styles.statCard}>
+            <h3>📊 Total Incidents</h3>
+            <p>{stats.total || 0}</p>
+          </div>
+          <div style={styles.statCard}>
+            <h3>🔥 Active Incidents</h3>
+            <p>{stats.active || 0}</p>
+          </div>
+          <div style={styles.statCard}>
+            <h3>✅ Resolved</h3>
+            <p>{stats.resolved || 0}</p>
+          </div>
+          <div style={styles.statCard}>
+            <h3>📁 Export</h3>
+            <ExportButton onExport={handleExport} type="csv" />
+          </div>
+        </div>
+
+        <div style={styles.actionBar}>
+          <button onClick={handleReportClick} style={styles.reportIncidentBtn}>
+            🚨 Report Incident
+          </button>
+        </div>
+
+        {showNotifications && <NotificationSystem />}
+
+        <MLDashboard incidents={incidents} />
+
+        {showCharts && incidents.length > 0 && <AnalyticsCharts incidents={incidents} />}
+
+        {showMap && <IncidentMap incidents={incidents} />}
+
+        <div style={styles.incidentList}>
+          <div style={styles.listHeader}>
+            <h2>📋 Incidents ({incidents.length})</h2>
+            <div style={styles.toggleButtons}>
+              <button onClick={() => setShowCharts(!showCharts)} style={styles.toggleBtn}>
+                {showCharts ? '📊 Hide Charts' : '📊 Show Charts'}
+              </button>
+              <button onClick={() => setShowMap(!showMap)} style={styles.toggleBtn}>
+                {showMap ? '🗺️ Hide Map' : '🗺️ Show Map'}
+              </button>
+            </div>
+          </div>
+          
+          {incidents.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyIcon}>📭</p>
+              <p>No incidents found</p>
+              <p style={styles.emptySubText}>Click "Report Incident" to get started</p>
+            </div>
+          ) : (
+            incidents.map(incident => (
+              <div key={incident.incident_id} style={styles.incidentCard}>
+                <div style={styles.incidentHeader}>
+                  <strong>{incident.type.toUpperCase()}</strong>
+                  <span style={styles.statusBadge}>{incident.status}</span>
+                </div>
+                <p>{incident.description || 'No description'}</p>
+                <div style={styles.incidentFooter}>
+                  <span style={styles.severityBadge}>{incident.severity}</span>
+                  <span>📍 {incident.location_name || 'Unknown'}</span>
+                  <span>🕐 {new Date(incident.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {showRegisterModal && (
+        <RegisterModal onClose={closeRegisterModal} />
+      )}
+
+      {showReportModal && (
+        <ReportModal onClose={closeReportModal} onSuccess={loadData} />
+      )}
+    </div>
+  );
+}
+
+// Register Modal Component
+const RegisterModal = ({ onClose }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'student'
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { confirmPassword, ...registerData } = formData;
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registerData)
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('✅ Registration successful!');
+        setTimeout(() => {
+          onClose();
+          window.location.reload();
+        }, 2000);
+      } else {
+        setError(data.message || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={modalStyles.overlay} onClick={onClose}>
+      <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={modalStyles.modalHeader}>
+          <h2>📝 Register New User</h2>
+          <button onClick={onClose} style={modalStyles.closeBtn}>✕</button>
+        </div>
+
+        {error && <div style={modalStyles.error}>{error}</div>}
+        {success && <div style={modalStyles.success}>{success}</div>}
+
+        <form onSubmit={handleSubmit} style={modalStyles.form}>
+          <div style={modalStyles.inputGroup}>
+            <label>Full Name *</label>
+            <input
+              type="text"
+              name="name"
+              placeholder="Enter full name"
+              value={formData.name}
+              onChange={handleChange}
+              style={modalStyles.input}
+              required
+            />
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Email *</label>
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter email"
+              value={formData.email}
+              onChange={handleChange}
+              style={modalStyles.input}
+              required
+            />
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Password * (min 8 characters)</label>
+            <input
+              type="password"
+              name="password"
+              placeholder="Enter password"
+              value={formData.password}
+              onChange={handleChange}
+              style={modalStyles.input}
+              required
+            />
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Confirm Password *</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="Confirm password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              style={modalStyles.input}
+              required
+            />
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Role</label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              style={modalStyles.select}
+            >
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+
+          <button type="submit" style={modalStyles.submitBtn} disabled={loading}>
+            {loading ? 'Registering...' : 'Register'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Report Modal Component
+const ReportModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    type: '',
+    description: '',
+    severity: 'medium',
+    location_name: '',
+    building: '',
+    room: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/incidents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        onSuccess();
+        onClose();
+      } else {
+        setError(data.message || 'Failed to report incident');
+      }
+    } catch (err) {
+      setError('Failed to report incident. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={modalStyles.overlay} onClick={onClose}>
+      <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={modalStyles.modalHeader}>
+          <h2>🚨 Report Incident</h2>
+          <button onClick={onClose} style={modalStyles.closeBtn}>✕</button>
+        </div>
+
+        {error && <div style={modalStyles.error}>{error}</div>}
+
+        <form onSubmit={handleSubmit} style={modalStyles.form}>
+          <div style={modalStyles.inputGroup}>
+            <label>Incident Type *</label>
+            <select
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              style={modalStyles.select}
+              required
+            >
+              <option value="">Select type...</option>
+              <option value="fire">🔥 Fire</option>
+              <option value="medical">🚑 Medical</option>
+              <option value="security_threat">🚨 Security Threat</option>
+              <option value="suspicious_package">📦 Suspicious Package</option>
+              <option value="flood">🌊 Flood</option>
+              <option value="assault">⚔️ Assault</option>
+              <option value="theft">💰 Theft</option>
+              <option value="other">⚠️ Other</option>
+            </select>
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Description *</label>
+            <textarea
+              name="description"
+              placeholder="Describe what happened..."
+              value={formData.description}
+              onChange={handleChange}
+              style={modalStyles.textarea}
+              rows="4"
+              required
+            />
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Severity</label>
+            <select
+              name="severity"
+              value={formData.severity}
+              onChange={handleChange}
+              style={modalStyles.select}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+
+          <div style={modalStyles.inputGroup}>
+            <label>Location</label>
+            <input
+              type="text"
+              name="location_name"
+              placeholder="Location name"
+              value={formData.location_name}
+              onChange={handleChange}
+              style={modalStyles.input}
+            />
+          </div>
+
+          <div style={modalStyles.row}>
+            <div style={modalStyles.halfGroup}>
+              <label>Building</label>
+              <input
+                type="text"
+                name="building"
+                placeholder="Building"
+                value={formData.building}
+                onChange={handleChange}
+                style={modalStyles.input}
+              />
+            </div>
+            <div style={modalStyles.halfGroup}>
+              <label>Room</label>
+              <input
+                type="text"
+                name="room"
+                placeholder="Room"
+                value={formData.room}
+                onChange={handleChange}
+                style={modalStyles.input}
+              />
+            </div>
+          </div>
+
+          <button type="submit" style={modalStyles.submitBtn} disabled={loading}>
+            {loading ? 'Reporting...' : 'Report Incident'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const modalStyles = {
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000
+  },
+  modal: {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '30px',
+    maxWidth: '500px',
+    width: '90%',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px'
+  },
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    fontSize: '24px',
+    cursor: 'pointer',
+    color: '#999'
+  },
+  error: {
+    backgroundColor: '#ffebee',
+    color: '#c62828',
+    padding: '10px',
+    borderRadius: '6px',
+    marginBottom: '15px'
+  },
+  success: {
+    backgroundColor: '#e8f5e9',
+    color: '#2e7d32',
+    padding: '10px',
+    borderRadius: '6px',
+    marginBottom: '15px'
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px'
+  },
+  inputGroup: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  row: {
+    display: 'flex',
+    gap: '15px'
+  },
+  halfGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1
+  },
+  input: {
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    fontSize: '14px'
+  },
+  textarea: {
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    fontSize: '14px',
+    resize: 'vertical',
+    fontFamily: 'Arial'
+  },
+  select: {
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    fontSize: '14px',
+    backgroundColor: 'white'
+  },
+  submitBtn: {
+    backgroundColor: '#2196F3',
+    color: 'white',
+    padding: '12px',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  }
+};
+
+const styles = {
+  container: { minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Arial, sans-serif' },
+  header: { background: '#2196F3', color: 'white', padding: '15px 30px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
+  headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: '15px' },
+  title: { margin: 0, fontSize: '24px' },
+  emergencyBadge: { backgroundColor: '#FF1744', color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' },
+  userInfo: { display: 'flex', alignItems: 'center', gap: '15px' },
+  userAvatar: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#4CAF50', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: 'white', fontSize: '18px', fontWeight: 'bold' },
+  userDetails: { display: 'flex', flexDirection: 'column' },
+  userName: { color: 'white', fontSize: '14px', fontWeight: 'bold' },
+  userRole: { color: 'rgba(255,255,255,0.7)', fontSize: '12px', textTransform: 'capitalize' },
+  reportBtn: { backgroundColor: '#FF9800', color: 'white', border: 'none', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer' },
+  registerBtn: { backgroundColor: '#4CAF50', color: 'white', border: 'none', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer' },
+  logoutBtn: { background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer' },
+  content: { padding: '30px', maxWidth: '1200px', margin: '0 auto' },
+  stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '20px' },
+  statCard: { backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center' },
+  actionBar: { marginBottom: '20px', textAlign: 'center' },
+  reportIncidentBtn: { backgroundColor: '#F44336', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', width: '100%' },
+  incidentList: { backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
+  listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' },
+  toggleButtons: { display: 'flex', gap: '10px' },
+  toggleBtn: { background: '#e0e0e0', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' },
+  incidentCard: { border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '10px' },
+  incidentHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
+  statusBadge: { backgroundColor: '#FF9800', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '12px' },
+  severityBadge: { backgroundColor: '#F44336', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', marginRight: '10px' },
+  incidentFooter: { display: 'flex', gap: '15px', alignItems: 'center', fontSize: '13px', color: '#666', marginTop: '8px', flexWrap: 'wrap' },
+  emptyState: { textAlign: 'center', padding: '40px', color: '#999' },
+  emptyIcon: { fontSize: '48px', display: 'block', marginBottom: '10px' },
+  emptySubText: { fontSize: '14px', marginTop: '5px' },
+  error: { background: '#ffebee', color: '#c62828', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' },
+  retryBtn: { background: '#c62828', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '4px', cursor: 'pointer' },
+  loading: { textAlign: 'center', padding: '50px', fontSize: '18px', color: '#666' }
+};
+
+export default Dashboard;

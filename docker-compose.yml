@@ -1,0 +1,114 @@
+﻿services:
+  mysql:
+    image: mysql:8.0
+    container_name: campus-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: campus_security
+      MYSQL_USER: campus_user
+      MYSQL_PASSWORD: campus_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: campus-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: campus_security
+      DB_USER: root
+      DB_PASSWORD: root123
+      DB_DIALECT: mysql
+      JWT_SECRET: your_jwt_secret_123456789
+      REFRESH_TOKEN_SECRET: your_refresh_token_key_987654321
+      ML_SERVICE_URL: http://ml-service:5001
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    networks:
+      - campus-network
+
+  ml-service:
+    build: ./ml-service
+    container_name: campus-ml
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      MODEL_PATH: /app/models
+    volumes:
+      - ./ml-service/models:/app/models
+      - ./ml-service/data:/app/data
+    networks:
+      - campus-network
+
+  web-dashboard:
+    build: ./web-dashboard
+    container_name: campus-dashboard
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://backend:5000/api
+      REACT_APP_API_URL: http://backend:5000/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - campus-network
+
+  mobile-app:
+    build: ./mobile-app
+    container_name: campus-mobile
+    restart: unless-stopped
+    environment:
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+    ports:
+      - "8081:8081"
+      - "19000:19000"
+      - "19001:19001"
+    depends_on:
+      - backend
+    networks:
+      - campus-network
+    stdin_open: true
+    tty: true
+
+  nginx:
+    image: nginx:alpine
+    container_name: campus-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - web-dashboard
+    networks:
+      - campus-network
+
+volumes:
+  mysql_data:
+
+networks:
+  campus-network:
+    driver: bridge

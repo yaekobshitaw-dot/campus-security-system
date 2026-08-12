@@ -1,0 +1,29 @@
+// backend/server.js
+const express = require('express');
+const { sequelize } = require('./models');
+
+const app = express();
+
+async function startServer() {
+  try {
+    await sequelize.authenticate();
+    console.log('✅ MySQL connection established successfully.');
+
+    // ❌ REMOVE or DISABLE { alter: true } on every restart!
+    // await sequelize.sync({ alter: true }); <-- THIS WAS CREATING DUPLICATE INDEXES
+
+    // ✅ RECOMMENDED FOR DEVELOPMENT:
+    // Standard sync without 'alter: true' won't keep altering existing constraints
+    await sequelize.sync(); 
+    
+    console.log('✅ Database synchronized cleanly.');
+
+    app.listen(5000, () => {
+      console.log('🚀 Server listening on port 5000');
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+  }
+}
+
+startServer();
