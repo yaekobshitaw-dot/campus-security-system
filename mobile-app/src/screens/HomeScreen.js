@@ -1,26 +1,26 @@
 // mobile-app/src/screens/HomeScreen.js
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  RefreshControl,
-  Alert,
-  Dimensions
-} from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SOSButton } from '../components/SOSButton';
-import { IncidentCard } from '../components/IncidentCard';
+import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
-import { fetchRecentIncidents } from '../store/incidentSlice';
-import { fetchAlerts } from '../store/alertSlice';
+import { IncidentCard } from '../components/IncidentCard';
+import { SOSButton } from '../components/SOSButton';
 import { getLocation, startLocationTracking } from '../services/location';
 import { socketService } from '../services/socket';
+import { fetchAlerts } from '../store/alertSlice';
+import { fetchRecentIncidents } from '../store/incidentSlice';
 
 const { width } = Dimensions.get('window');
 
@@ -29,7 +29,7 @@ const HomeScreen = () => {
   const dispatch = useDispatch();
   const [refreshing, setRefreshing] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
-  
+
   const { user } = useSelector(state => state.auth);
   const { recentIncidents, loading: incidentsLoading } = useSelector(
     state => state.incidents
@@ -41,7 +41,7 @@ const HomeScreen = () => {
     startLocationTracking();
     getCurrentLocation();
     setupSocketListeners();
-    
+
     return () => {
       socketService.off('new-incident');
     };
@@ -64,7 +64,7 @@ const HomeScreen = () => {
   const setupSocketListeners = () => {
     socketService.on('new-incident', (incident) => {
       dispatch(fetchRecentIncidents());
-      
+
       // Show notification for critical incidents
       if (incident.severity === 'critical' || incident.severity === 'high') {
         Alert.alert(
@@ -92,8 +92,8 @@ const HomeScreen = () => {
       'This will immediately send an emergency alert to campus security with your current location.\n\n⚠️ Only use in genuine emergencies!',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Send SOS', 
+        {
+          text: 'Send SOS',
           style: 'destructive',
           onPress: () => navigation.navigate('SOS')
         }
@@ -106,7 +106,7 @@ const HomeScreen = () => {
   };
 
   const navigateToReport = () => {
-    navigation.navigate('ReportIncident');
+    navigation.navigate('Report');
   };
 
   return (
@@ -124,7 +124,7 @@ const HomeScreen = () => {
             <Text style={styles.greeting}>Hello, {user?.name || 'Student'}!</Text>
             <Text style={styles.subGreeting}>Welcome to Campus Safety</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => navigation.navigate('Profile')}
             style={styles.profileButton}
           >
@@ -155,7 +155,7 @@ const HomeScreen = () => {
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={navigateToReport}
           >
@@ -164,8 +164,8 @@ const HomeScreen = () => {
             </View>
             <Text style={styles.actionText}>Report</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={navigateToAlerts}
           >
@@ -174,8 +174,8 @@ const HomeScreen = () => {
             </View>
             <Text style={styles.actionText}>Alerts</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('SafetyResources')}
           >
@@ -185,7 +185,7 @@ const HomeScreen = () => {
             <Text style={styles.actionText}>Safety Info</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('EmergencyContacts')}
           >
@@ -204,15 +204,15 @@ const HomeScreen = () => {
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          
+
           {incidentsLoading ? (
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading incidents...</Text>
             </View>
           ) : recentIncidents && recentIncidents.length > 0 ? (
             recentIncidents.slice(0, 3).map((incident) => (
-              <IncidentCard 
-                key={incident.incident_id} 
+              <IncidentCard
+                key={incident.incident_id}
                 incident={incident}
                 onPress={() => navigation.navigate('IncidentDetail', { id: incident.incident_id })}
               />
@@ -234,11 +234,11 @@ const HomeScreen = () => {
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          
+
           {alerts && alerts.length > 0 ? (
             alerts.slice(0, 3).map((alert) => (
-              <AlertCard 
-                key={alert.alert_id} 
+              <AlertCard
+                key={alert.alert_id}
                 alert={alert}
                 onPress={() => navigation.navigate('AlertDetail', { id: alert.alert_id })}
               />
@@ -262,7 +262,7 @@ const HomeScreen = () => {
               <Text style={styles.contactLabel}>Security</Text>
               <Text style={styles.contactNumber}>+251-911-234-567</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.contactItem}>
               <View style={[styles.contactIconCircle, styles.medicalIcon]}>
                 <Icon name="local-hospital" size={24} color="#FFFFFF" />

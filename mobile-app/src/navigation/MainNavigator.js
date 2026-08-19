@@ -2,13 +2,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AlertsScreen from '../screens/AlertsScreen';
-import EmergencyContactsScreen from '../screens/EmergencyContactsScreen';
 import HomeScreen from '../screens/HomeScreen';
-import IncidentDetailScreen from '../screens/IncidentDetailScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReportIncidentScreen from '../screens/ReportIncidentScreen';
-import SOSScreen from '../screens/SOSScreen';
 import SafetyResourcesScreen from '../screens/SafetyResourcesScreen';
+import SOSScreen from '../screens/SOSScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -17,10 +15,8 @@ const HomeStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
-      <Stack.Screen name="IncidentDetail" component={IncidentDetailScreen} />
       <Stack.Screen name="SOS" component={SOSScreen} />
       <Stack.Screen name="SafetyResources" component={SafetyResourcesScreen} />
-      <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
     </Stack.Navigator>
   );
 };
@@ -29,7 +25,6 @@ const AlertStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Alerts" component={AlertsScreen} />
-      <Stack.Screen name="IncidentDetail" component={IncidentDetailScreen} />
     </Stack.Navigator>
   );
 };
@@ -38,7 +33,6 @@ const ReportStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Report" component={ReportIncidentScreen} />
-      <Stack.Screen name="IncidentDetail" component={IncidentDetailScreen} />
     </Stack.Navigator>
   );
 };
@@ -48,7 +42,6 @@ const ProfileStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="SafetyResources" component={SafetyResourcesScreen} />
-      <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
     </Stack.Navigator>
   );
 };

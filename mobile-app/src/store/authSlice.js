@@ -16,9 +16,8 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/login', credentials);
-      const { user, accessToken, refreshToken } = response.data.data;
+      const { user, accessToken } = response.data.data;
       await AsyncStorage.setItem('auth_token', accessToken);
-      await AsyncStorage.setItem('refresh_token', refreshToken);
       await AsyncStorage.setItem('user', JSON.stringify(user));
       await socketService.connect();
       return { user, token: accessToken };

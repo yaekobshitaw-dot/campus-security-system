@@ -1,5 +1,7 @@
 ﻿const { Incident } = require('../models');
 
+const SUPPORTED_STATUSES = ['reported', 'investigating', 'resolved'];
+
 exports.create = async (req, res) => {
   try {
     const { type, description, severity, location_name, building, room, is_anonymous } = req.body;
@@ -29,20 +31,56 @@ exports.create = async (req, res) => {
 
 exports.getAll = async (req, res) => {
   try {
-    const incidents = await Incident.findAll({ order: [['created_at', 'DESC']] });
-    res.status(200).json({ success: true, data: incidents });
+    const isPrivileged = ['security', 'admin'].includes(req.user.role);
+    const where = isPrivileged ? {} : { user_id: req.user.user_id };
+
+    const incidents = await Incident.findAll({
+      where,
+      order: [['created_at', 'DESC']]
+    });
+
+    return res.status(200).json({ success: true, data: incidents });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to fetch incidents' });
+    return res.status(500).json({ success: false, message: 'Failed to fetch incidents' });
   }
 };
 
 exports.getStats = async (req, res) => {
   try {
     const total = await Incident.count();
-    const active = await Incident.count({ where: { status: ['reported', 'acknowledged', 'dispatched', 'on_scene'] } });
-    const resolved = await Incident.count({ where: { status: ['resolved', 'closed'] } });
+    const active = await Incident.count({ where: { status: ['reported', 'investigating'] } });
+    const resolved = await Incident.count({ where: { status: 'resolved' } });
     res.status(200).json({ success: true, data: { total, active, resolved } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to get stats' });
+  }
+};
+
+exports.updateStatus = async (req, res) => {
+  try {
+    const { incident_id } = req.params;
+    const { status } = req.body;
+
+    if (!SUPPORTED_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Status must be one of: ${SUPPORTED_STATUSES.join(', ')}`
+      });
+    }
+
+    const incident = await Incident.findByPk(incident_id);
+    if (!incident) {
+      return res.status(404).json({ success: false, message: 'Incident not found' });
+    }
+
+    await incident.update({ status });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Incident status updated successfully',
+      data: incident
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to update incident status' });
   }
 };

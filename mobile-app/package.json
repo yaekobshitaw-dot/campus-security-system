@@ -28,7 +28,8 @@
     "react-native-toast-message": "^2.4.0",
     "react-native-vector-icons": "^10.0.0",
     "react-native-web": "~0.19.0",
-    "react-redux": "^8.0.5"
+    "react-redux": "^8.0.5",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

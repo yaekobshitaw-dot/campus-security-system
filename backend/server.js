@@ -1,24 +1,11 @@
-﻿const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
+﻿const dotenv = require('dotenv');
 
 dotenv.config();
 
+const app = require('./src/app');
 const { sequelize } = require('./src/models');
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-app.use(cors());
-app.use(express.json());
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
-
-app.use('/api/auth', require('./src/routes/authRoutes'));
-app.use('/api/incidents', require('./src/routes/incidentRoutes'));
-app.use('/api/users', require('./src/routes/userRoutes'));
+const PORT = Number(process.env.PORT) || 5002;
 
 async function startServer() {
   try {
@@ -26,11 +13,23 @@ async function startServer() {
     console.log('✅ MySQL connected');
     await sequelize.sync();
     console.log('✅ Database synced');
-    app.listen(PORT, () => {
-      console.log('🚀 Server running on http://localhost:' + PORT);
+
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use.`);
+        process.exit(1);
+      }
+
+      console.error('❌ Failed to start:', error.message);
+      process.exit(1);
     });
   } catch (error) {
     console.error('❌ Failed to start:', error.message);
+    process.exit(1);
   }
 }
 

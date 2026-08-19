@@ -26,7 +26,7 @@ const Incident = sequelize.define('Incident', {
     defaultValue: 'medium'
   },
   status: {
-    type: DataTypes.ENUM('reported', 'acknowledged', 'dispatched', 'on_scene', 'resolved', 'closed', 'cancelled'),
+    type: DataTypes.ENUM('reported', 'investigating', 'resolved', 'acknowledged', 'dispatched', 'on_scene', 'closed', 'cancelled'),
     defaultValue: 'reported'
   },
   location_name: {

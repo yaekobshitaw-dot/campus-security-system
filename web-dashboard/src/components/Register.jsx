@@ -1,5 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import { useState } from 'react';
 import api from '../services/api';
+
+const PUBLIC_REGISTRATION_ROLES = ['student', 'faculty', 'staff'];
 
 function Register({ onSwitchToLogin }) {
   const [formData, setFormData] = useState({
@@ -26,6 +28,8 @@ function Register({ onSwitchToLogin }) {
     setError('');
     setSuccess('');
 
+    const requestedRole = String(formData.role || '').toLowerCase();
+
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -40,10 +44,16 @@ function Register({ onSwitchToLogin }) {
       return;
     }
 
+    if (!PUBLIC_REGISTRATION_ROLES.includes(requestedRole)) {
+      setError('Public registration is only available for student, faculty, or staff roles.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { confirmPassword, ...registerData } = formData;
-      const response = await api.post('/auth/register', registerData);
-      
+      const response = await api.post('/auth/register', { ...registerData, role: requestedRole });
+
       setSuccess('✅ Registration successful! Please login.');
       setFormData({
         name: '',
@@ -52,12 +62,12 @@ function Register({ onSwitchToLogin }) {
         confirmPassword: '',
         role: 'student'
       });
-      
+
       // Switch to login after 2 seconds
       setTimeout(() => {
         onSwitchToLogin();
       }, 2000);
-      
+
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
@@ -70,10 +80,10 @@ function Register({ onSwitchToLogin }) {
       <div style={styles.card}>
         <h1 style={styles.title}>🏫 Campus Security</h1>
         <h2 style={styles.subtitle}>Create Account</h2>
-        
+
         {error && <div style={styles.error}>{error}</div>}
         {success && <div style={styles.success}>{success}</div>}
-        
+
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Full Name *</label>
@@ -87,7 +97,7 @@ function Register({ onSwitchToLogin }) {
               required
             />
           </div>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Email *</label>
             <input
@@ -100,7 +110,7 @@ function Register({ onSwitchToLogin }) {
               required
             />
           </div>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Password * (min 8 characters)</label>
             <input
@@ -113,7 +123,7 @@ function Register({ onSwitchToLogin }) {
               required
             />
           </div>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Confirm Password *</label>
             <input
@@ -126,7 +136,7 @@ function Register({ onSwitchToLogin }) {
               required
             />
           </div>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Role</label>
             <select
@@ -140,7 +150,7 @@ function Register({ onSwitchToLogin }) {
               <option value="staff">Staff</option>
             </select>
           </div>
-          
+
           <button
             type="submit"
             style={styles.button}
@@ -149,7 +159,7 @@ function Register({ onSwitchToLogin }) {
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
-        
+
         <div style={styles.switchContainer}>
           <p style={styles.switchText}>Already have an account?</p>
           <button onClick={onSwitchToLogin} style={styles.switchButton}>

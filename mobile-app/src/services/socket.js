@@ -6,9 +6,9 @@ import io from 'socket.io-client';
 const getWSURL = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
-      return 'ws://10.0.2.2:5000';
+      return 'ws://10.0.2.2:5002';
     }
-    return 'ws://localhost:5000';
+    return 'ws://localhost:5002';
   }
   return 'wss://api.yourdomain.com';
 };
@@ -21,7 +21,7 @@ class SocketService extends EventEmitter {
     this.socket = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 10;
+    this.maxReconnectAttempts = 5;
   }
 
   async connect() {
@@ -61,7 +61,7 @@ class SocketService extends EventEmitter {
       });
 
       this.socket.on('connect_error', (error) => {
-        console.log('Socket connection error:', error);
+        console.log('Socket connection error:', error.message || error);
         this.reconnectAttempts++;
         this.emit('error', error);
       });
@@ -69,11 +69,14 @@ class SocketService extends EventEmitter {
       this.setupEventListeners();
     } catch (error) {
       console.error('Failed to connect socket:', error);
-      throw error;
     }
   }
 
   setupEventListeners() {
+    if (!this.socket) {
+      return;
+    }
+
     this.socket.on('new-incident', (data) => {
       this.emit('new-incident', data);
     });

@@ -25,4 +25,4 @@ RUN mkdir -p /app/models /app/data
 EXPOSE 5001
 
 # Start the service
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "5001", "--reload"]
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "5001"]

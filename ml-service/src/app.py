@@ -1,10 +1,6 @@
-from flask import Flask
+import uvicorn
 
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "ML Service Running"
+from src.api.app import app
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    uvicorn.run("src.api.app:app", host="0.0.0.0", port=5001)

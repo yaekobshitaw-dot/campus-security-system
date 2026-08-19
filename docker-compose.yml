@@ -4,10 +4,10 @@
     container_name: campus-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: campus_security
-      MYSQL_USER: campus_user
-      MYSQL_PASSWORD: campus_pass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-campus_security}
+      MYSQL_USER: ${MYSQL_USER:-campus_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-campus_pass}
     ports:
       - "3307:3306"
     volumes:
@@ -16,7 +16,7 @@
     networks:
       - campus-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,16 +26,16 @@
     container_name: campus-backend
     restart: unless-stopped
     environment:
-      NODE_ENV: production
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: campus_security
-      DB_USER: root
-      DB_PASSWORD: root123
-      DB_DIALECT: mysql
-      JWT_SECRET: your_jwt_secret_123456789
-      REFRESH_TOKEN_SECRET: your_refresh_token_key_987654321
-      ML_SERVICE_URL: http://ml-service:5001
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-campus_security}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_db_password}
+      DB_DIALECT: ${DB_DIALECT:-mysql}
+      JWT_SECRET: ${JWT_SECRET:-change_me_jwt_secret}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-change_me_refresh_token_secret}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:5001}
     ports:
       - "5000:5000"
     depends_on:
@@ -54,7 +54,7 @@
     ports:
       - "5001:5001"
     environment:
-      MODEL_PATH: /app/models
+      MODEL_PATH: ${MODEL_PATH:-/app/models}
     volumes:
       - ./ml-service/models:/app/models
       - ./ml-service/data:/app/data
@@ -66,8 +66,8 @@
     container_name: campus-dashboard
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://backend:5000/api
-      REACT_APP_API_URL: http://backend:5000/api
+      VITE_API_URL: ${VITE_API_URL:-http://backend:5002/api}
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://backend:5002/api}
     ports:
       - "5173:5173"
     depends_on:
@@ -97,7 +97,7 @@
     container_name: campus-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
