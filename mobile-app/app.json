@@ -1,4 +1,22 @@
 {
   "name": "CampusSecurity",
-  "displayName": "Campus Security"
+  "displayName": "Campus Security",
+  "plugins": [
+    "expo-notifications"
+  ],
+  "android": {
+    "permissions": [
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION",
+      "CAMERA",
+      "READ_MEDIA_IMAGES"
+    ]
+  },
+  "ios": {
+    "infoPlist": {
+      "NSLocationWhenInUseUsageDescription": "Campus Security uses your location to attach useful context to incident and SOS reports.",
+      "NSCameraUsageDescription": "Campus Security uses your camera to attach incident photos.",
+      "NSPhotoLibraryUsageDescription": "Campus Security uses your photo library to attach incident photos."
+    }
+  }
 }

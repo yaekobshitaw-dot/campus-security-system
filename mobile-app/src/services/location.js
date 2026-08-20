@@ -1,31 +1,21 @@
+import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
 export const getLocation = async () => {
-  return new Promise((resolve, reject) => {
-    if (!navigator && typeof navigator === 'undefined') {
-      reject(new Error('Geolocation unavailable'));
-      return;
-    }
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Location permission was denied. Enable it in Settings to attach your location.');
+  }
 
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation API is not supported by this platform'));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        });
-      },
-      (error) => {
-        reject(error);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    );
+  const location = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.High,
   });
+
+  return {
+    latitude: location.coords.latitude,
+    longitude: location.coords.longitude,
+    accuracy: location.coords.accuracy,
+  };
 };
 
 export const startLocationTracking = async () => {
@@ -33,7 +23,7 @@ export const startLocationTracking = async () => {
     const location = await getLocation();
     return location;
   } catch (error) {
-    Alert.alert('Location services', 'Unable to access device location at this time.');
+    Alert.alert('Location services', error.message || 'Unable to access device location at this time.');
     return null;
   }
 };

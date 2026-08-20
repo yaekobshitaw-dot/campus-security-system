@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../services/api';
+import { registerForPushNotifications } from '../services/notification';
 import { socketService } from '../services/socket';
 
 const initialState = {
@@ -20,6 +21,7 @@ export const login = createAsyncThunk(
       await AsyncStorage.setItem('auth_token', accessToken);
       await AsyncStorage.setItem('user', JSON.stringify(user));
       await socketService.connect();
+      await registerForPushNotifications();
       return { user, token: accessToken };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Login failed');

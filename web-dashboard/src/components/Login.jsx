@@ -1,5 +1,5 @@
 ﻿// src/components/Login.jsx - Clean version with NO inline CSS
-import React, { useState } from 'react';
+import { useState } from 'react';
 import api from '../services/api';
 
 function Login({ onLogin, onSwitchToRegister }) {
@@ -16,7 +16,7 @@ function Login({ onLogin, onSwitchToRegister }) {
     try {
       const response = await api.post('/auth/login', { email, password });
       const { user, accessToken } = response.data.data;
-      
+
       localStorage.setItem('token', accessToken);
       localStorage.setItem('user', JSON.stringify(user));
       onLogin(user);
@@ -33,11 +33,11 @@ function Login({ onLogin, onSwitchToRegister }) {
       <div style={styles.backgroundImage}>
         <div style={styles.overlay}></div>
         <div style={styles.overlayGradient}></div>
-        
+
         <div style={styles.floatingShape1}></div>
         <div style={styles.floatingShape2}></div>
         <div style={styles.floatingShape3}></div>
-        
+
         <div style={styles.heroContent}>
           <div style={styles.heroIcon}>🏛️</div>
           <h2 style={styles.heroTitle}>Safe Campus</h2>
@@ -65,14 +65,14 @@ function Login({ onLogin, onSwitchToRegister }) {
             <div style={styles.logoIcon}>🛡️</div>
             <h1 style={styles.title}>Campus Security</h1>
           </div>
-          
+
           <div style={styles.subtitleContainer}>
             <span style={styles.subtitle}>Emergency Response System</span>
             <span style={styles.badge}>🔴 LIVE</span>
           </div>
-          
+
           {error && <div style={styles.error}>{error}</div>}
-          
+
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.inputGroup}>
               <label style={styles.label}>📧 Email Address</label>
@@ -85,7 +85,7 @@ function Login({ onLogin, onSwitchToRegister }) {
                 required
               />
             </div>
-            
+
             <div style={styles.inputGroup}>
               <label style={styles.label}>🔑 Password</label>
               <input
@@ -97,7 +97,7 @@ function Login({ onLogin, onSwitchToRegister }) {
                 required
               />
             </div>
-            
+
             <button
               type="submit"
               style={styles.button}
@@ -106,19 +106,11 @@ function Login({ onLogin, onSwitchToRegister }) {
               {loading ? '⏳ Logging in...' : '🔐 Login to Dashboard'}
             </button>
           </form>
-          
+
           <div style={styles.demoInfo}>
-            <p style={styles.demoTitle}>🎯 Demo Credentials</p>
-            <div style={styles.demoRow}>
-              <span style={styles.demoLabel}>📧 Email:</span>
-              <span style={styles.demoValue}>test@test.com</span>
-            </div>
-            <div style={styles.demoRow}>
-              <span style={styles.demoLabel}>🔑 Password:</span>
-              <span style={styles.demoValue}>Password123</span>
-            </div>
+            <p style={styles.demoTitle}>🔐 Use your configured campus credentials</p>
           </div>
-          
+
           <div style={styles.registerContainer}>
             <p style={styles.registerText}>Don't have an account?</p>
             <button onClick={onSwitchToRegister} style={styles.registerButton}>

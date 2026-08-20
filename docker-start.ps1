@@ -7,5 +7,4 @@ Write-Host "
 Write-Host "  Web Dashboard: http://localhost:5173" -ForegroundColor Green
 Write-Host "  Backend API: http://localhost:5000" -ForegroundColor Green
 Write-Host "
-👤 Login: test@test.com" -ForegroundColor Cyan
-Write-Host "🔑 Password: Password123" -ForegroundColor Cyan
+🔐 Configure login credentials through the environment before starting." -ForegroundColor Cyan

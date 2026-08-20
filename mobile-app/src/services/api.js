@@ -26,6 +26,9 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem('auth_token');
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

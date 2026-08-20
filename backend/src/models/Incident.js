@@ -11,7 +11,7 @@ const Incident = sequelize.define('Incident', {
   },
   user_id: {
     type: DataTypes.UUID,
-    allowNull: false
+    allowNull: true
   },
   type: {
     type: DataTypes.ENUM('fire', 'medical', 'security_threat', 'suspicious_package', 'flood', 'power_outage', 'missing_person', 'natural_disaster', 'assault', 'theft', 'vandalism', 'other'),
@@ -40,6 +40,24 @@ const Incident = sequelize.define('Incident', {
   room: {
     type: DataTypes.STRING(50),
     allowNull: true
+  },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true
+  },
+  is_sos: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false
+  },
+  photos: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: []
   },
   is_anonymous: {
     type: DataTypes.BOOLEAN,

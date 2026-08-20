@@ -10,5 +10,4 @@ Start-Process "http://localhost:5173"
 Write-Host "
 ✅ System started!" -ForegroundColor Green
 Write-Host "🌐 Dashboard: http://localhost:5173" -ForegroundColor Cyan
-Write-Host "👤 Login: test@test.com" -ForegroundColor Cyan
-Write-Host "🔑 Password: Password123" -ForegroundColor Cyan
+Write-Host "🔐 Use credentials configured for your environment." -ForegroundColor Cyan

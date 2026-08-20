@@ -19,8 +19,8 @@ import { IncidentCard } from '../components/IncidentCard';
 import { SOSButton } from '../components/SOSButton';
 import { getLocation, startLocationTracking } from '../services/location';
 import { socketService } from '../services/socket';
-import { fetchAlerts } from '../store/alertSlice';
-import { fetchRecentIncidents } from '../store/incidentSlice';
+import { addAlert, fetchAlerts } from '../store/alertSlice';
+import { fetchRecentIncidents, updateIncident } from '../store/incidentSlice';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +44,8 @@ const HomeScreen = () => {
 
     return () => {
       socketService.off('new-incident');
+      socketService.off('incident-updated');
+      socketService.off('alert-received');
     };
   }, []);
 
@@ -76,6 +78,15 @@ const HomeScreen = () => {
           ]
         );
       }
+    });
+
+    socketService.on('incident-updated', (incident) => {
+      dispatch(updateIncident(incident));
+      dispatch(fetchRecentIncidents());
+    });
+
+    socketService.on('alert-received', (alert) => {
+      dispatch(addAlert(alert));
     });
   };
 
@@ -240,7 +251,7 @@ const HomeScreen = () => {
               <AlertCard
                 key={alert.alert_id}
                 alert={alert}
-                onPress={() => navigation.navigate('AlertDetail', { id: alert.alert_id })}
+                onPress={() => navigation.navigate('AlertDetail', { alert })}
               />
             ))
           ) : (

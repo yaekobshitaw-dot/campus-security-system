@@ -1,7 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { EventEmitter } from 'events';
 import { Platform } from 'react-native';
 import io from 'socket.io-client';
+
+class LocalEventEmitter {
+  constructor() {
+    this.listeners = {};
+  }
+
+  on(event, listener) {
+    this.listeners[event] = this.listeners[event] || [];
+    this.listeners[event].push(listener);
+  }
+
+  off(event, listener) {
+    if (!this.listeners[event]) return;
+    this.listeners[event] = listener
+      ? this.listeners[event].filter((item) => item !== listener)
+      : [];
+  }
+
+  emit(event, data) {
+    (this.listeners[event] || []).forEach((listener) => listener(data));
+  }
+}
 
 const getWSURL = () => {
   if (__DEV__) {
@@ -15,7 +36,7 @@ const getWSURL = () => {
 
 const WS_URL = process.env.WS_URL || getWSURL();
 
-class SocketService extends EventEmitter {
+class SocketService extends LocalEventEmitter {
   constructor() {
     super();
     this.socket = null;

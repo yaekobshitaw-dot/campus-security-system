@@ -16,7 +16,7 @@ import LocationPicker from '../components/LocationPicker';
 import PhotoUploader from '../components/PhotoUploader';
 import api from '../services/api';
 import { socketService } from '../services/socket';
-import { reportIncident } from '../store/incidentSlice';
+import { addIncident } from '../store/incidentSlice';
 
 const ReportIncidentScreen = () => {
   const [formData, setFormData] = useState({
@@ -71,11 +71,25 @@ const ReportIncidentScreen = () => {
     try {
       setSubmitting(true);
 
-      const response = await api.post('/incidents', formData);
+      const payload = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key !== 'photos') payload.append(key, value == null ? '' : String(value));
+      });
+      formData.photos.forEach((photo, index) => {
+        payload.append('photos', {
+          uri: photo.uri,
+          name: photo.fileName || `incident-photo-${index}.jpg`,
+          type: photo.mimeType || 'image/jpeg',
+        });
+      });
+
+      const response = await api.post('/incidents', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       const incident = response.data.data;
 
       socketService.emitEvent('new-incident', incident);
-      dispatch(reportIncident(incident));
+      dispatch(addIncident(incident));
 
       Alert.alert(
         '✅ Success',

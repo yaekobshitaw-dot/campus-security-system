@@ -9,6 +9,16 @@ router.get('/profile', (req, res) => {
   res.json({ success: true, data: req.user });
 });
 
+router.put('/push-token', async (req, res) => {
+  const { push_token: pushToken } = req.body;
+  if (!pushToken || typeof pushToken !== 'string' || pushToken.length > 255) {
+    return res.status(400).json({ success: false, message: 'A valid push token is required' });
+  }
+
+  await req.user.update({ push_token: pushToken });
+  return res.status(204).send();
+});
+
 router.get('/all', authorize('admin'), async (req, res) => {
   try {
     const users = await User.findAll({

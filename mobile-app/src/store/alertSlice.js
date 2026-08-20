@@ -13,7 +13,7 @@ export const fetchAlerts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/alerts');
-      return response.data.data;
+      return Array.isArray(response.data.data) ? response.data.data : [];
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch alerts');
     }
@@ -44,6 +44,10 @@ const alertSlice = createSlice({
       state.alerts = [];
       state.unreadCount = 0;
     },
+    markAllAlertsAsRead: (state) => {
+      state.alerts.forEach((alert) => { alert.is_read = true; });
+      state.unreadCount = 0;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -70,5 +74,5 @@ const alertSlice = createSlice({
   },
 });
 
-export const { addAlert, clearAlerts } = alertSlice.actions;
+export const { addAlert, clearAlerts, markAllAlertsAsRead } = alertSlice.actions;
 export default alertSlice.reducer;

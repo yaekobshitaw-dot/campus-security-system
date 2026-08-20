@@ -48,19 +48,19 @@ Before resetting the admin password, ensure:
 ### Option 1: Command-line Argument (Recommended for scripts)
 ```powershell
 cd "C:\Users\User\Documents\campus-security-system\backend"
-node src/scripts/resetAdminPassword.js --password "YourNewSecurePassword123"
+node src/scripts/resetAdminPassword.js --password "<SET_SECURE_PASSWORD>"
 ```
 
 ### Option 2: Environment Variable (Recommended for security)
 ```powershell
-$env:ADMIN_PASSWORD = "YourNewSecurePassword123"
+$env:ADMIN_PASSWORD = "<SET_SECURE_PASSWORD>"
 cd "C:\Users\User\Documents\campus-security-system\backend"
 node src/scripts/resetAdminPassword.js
 ```
 
 ### Option 3: Inline Environment Variable (One-liner)
 ```powershell
-cd "C:\Users\User\Documents\campus-security-system\backend" ; $env:ADMIN_PASSWORD = "YourNewSecurePassword123" ; node src/scripts/resetAdminPassword.js
+cd "C:\Users\User\Documents\campus-security-system\backend" ; $env:ADMIN_PASSWORD = "<SET_SECURE_PASSWORD>" ; node src/scripts/resetAdminPassword.js
 ```
 
 ---
@@ -69,7 +69,7 @@ cd "C:\Users\User\Documents\campus-security-system\backend" ; $env:ADMIN_PASSWOR
 
 - **Minimum 8 characters** (enforced by script)
 - Should contain uppercase, lowercase, numbers, and special characters
-- Example: `SecureAdmin2024!@#`
+- Example: `<SET_SECURE_PASSWORD>`
 
 ---
 
@@ -110,7 +110,7 @@ Then test login via API:
 ```powershell
 $body = @{
     email = "admin@campus.edu"
-    password = "YourNewSecurePassword123"
+   password = "<SET_SECURE_PASSWORD>"
 } | ConvertTo-Json
 
 Invoke-WebRequest -Uri "http://localhost:5002/api/auth/login" `
@@ -119,7 +119,7 @@ Invoke-WebRequest -Uri "http://localhost:5002/api/auth/login" `
   -Body $body
 ```
 
-Should return: `{ "success": true, "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", ... }`
+Should return a successful response containing an access token; do not paste the token into documentation.
 
 ### 2. Verify in Database
 
@@ -137,7 +137,7 @@ Should show the admin user with current `updated_at` timestamp.
 Before reset, the password_hash was different. After reset, verify by:
 ```powershell
 # Run the script again with same password - should update timestamp
-node src/scripts/resetAdminPassword.js --password "YourNewSecurePassword123"
+node src/scripts/resetAdminPassword.js --password "<SET_SECURE_PASSWORD>"
 ```
 
 ---

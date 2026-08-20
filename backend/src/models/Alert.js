@@ -1,7 +1,7 @@
 ﻿const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../config/database');
 
-class Alert extends Model {}
+class Alert extends Model { }
 
 Alert.init({
   alert_id: {
@@ -17,6 +17,10 @@ Alert.init({
     type: DataTypes.STRING,
     allowNull: false
   },
+  title: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
   message: {
     type: DataTypes.TEXT,
     allowNull: true
@@ -24,6 +28,19 @@ Alert.init({
   is_resolved: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+  is_read: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false
+  },
+  channel: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'dashboard'
+  },
+  sent_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   sequelize,

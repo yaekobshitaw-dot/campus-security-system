@@ -1,6 +1,13 @@
-import moment from 'moment';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const relativeTime = (value) => {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (elapsedSeconds < 60) return 'Just now';
+  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}m ago`;
+  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}h ago`;
+  return `${Math.floor(elapsedSeconds / 86400)}d ago`;
+};
 
 export const AlertCard = ({ alert, onPress }) => {
   const getChannelIcon = (channel) => {
@@ -35,7 +42,7 @@ export const AlertCard = ({ alert, onPress }) => {
 
       <View style={styles.footer}>
         <Text style={styles.time}>
-          {moment(alert.sent_at || alert.created_at).fromNow()}
+          {relativeTime(alert.sent_at || alert.created_at)}
         </Text>
         {alert.channel && (
           <View style={styles.channelBadge}>

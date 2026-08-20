@@ -27,6 +27,7 @@ config/*.local.*
 dist/
 build/
 coverage/
+.expo/
 
 # Logs
 *.log

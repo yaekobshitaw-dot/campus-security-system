@@ -1,0 +1,23 @@
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const labels = { reported: 'Reported', investigating: 'Investigating', resolved: 'Resolved', acknowledged: 'Acknowledged', dispatched: 'Officer assigned', on_scene: 'On scene', closed: 'Closed', cancelled: 'Cancelled' };
+
+const IncidentDetailScreen = ({ route, navigation }) => {
+  const incident = route.params?.incident || { incident_id: route.params?.id };
+  return <View style={styles.container}><View style={styles.header}><TouchableOpacity onPress={() => navigation.goBack()}><Icon name="arrow-back" size={24} color="#24343A" /></TouchableOpacity><Text style={styles.title}>Incident details</Text></View><View style={styles.card}><Text style={styles.type}>{(incident.type || 'incident').replace('_', ' ')}</Text><View style={styles.status}><View style={[styles.dot, { backgroundColor: incident.status === 'resolved' ? '#2D8A61' : '#C17A24' }]} /><Text>{labels[incident.status] || 'Reported'}</Text></View><Text style={styles.label}>Incident ID</Text><Text style={styles.value}>{incident.incident_id || 'Unavailable'}</Text><Text style={styles.label}>Description</Text><Text style={styles.value}>{incident.description || 'No description provided'}</Text><Text style={styles.label}>Severity</Text><Text style={styles.value}>{incident.severity || 'medium'}</Text><Text style={styles.label}>Location</Text><Text style={styles.value}>{incident.location_name || incident.building || 'Location unavailable'}</Text><Text style={styles.label}>Reported</Text><Text style={styles.value}>{incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unavailable'}</Text></View></View>;
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F5F8F7' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 20, paddingTop: 24, backgroundColor: '#FFF' },
+  title: { color: '#24343A', fontSize: 23, fontWeight: '700' },
+  card: { margin: 16, padding: 20, borderRadius: 11, backgroundColor: '#FFF' },
+  type: { color: '#24343A', fontSize: 24, fontWeight: '700', textTransform: 'capitalize' },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+  label: { marginTop: 22, color: '#8A9698', fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
+  value: { marginTop: 5, color: '#304147', fontSize: 14, lineHeight: 20 },
+});
+
+export default IncidentDetailScreen;

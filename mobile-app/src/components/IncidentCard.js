@@ -1,6 +1,13 @@
-import moment from 'moment';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const relativeTime = (value) => {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (elapsedSeconds < 60) return 'Just now';
+  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}m ago`;
+  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}h ago`;
+  return `${Math.floor(elapsedSeconds / 86400)}d ago`;
+};
 
 export const IncidentCard = ({ incident, onPress }) => {
   const getTypeIcon = (type) => {
@@ -86,7 +93,7 @@ export const IncidentCard = ({ incident, onPress }) => {
         <View style={styles.timeContainer}>
           <Icon name="access-time" size={16} color="#666" />
           <Text style={styles.timeText}>
-            {moment(incident.created_at).fromNow()}
+            {relativeTime(incident.created_at)}
           </Text>
         </View>
       </View>

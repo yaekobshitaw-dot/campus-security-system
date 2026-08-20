@@ -12,7 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
-import { fetchAlerts, markAlertAsRead } from '../store/alertSlice';
+import { fetchAlerts, markAlertAsRead, markAllAlertsAsRead } from '../store/alertSlice';
 
 const AlertsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -38,13 +38,10 @@ const AlertsScreen = () => {
     if (!alert.is_read) {
       dispatch(markAlertAsRead(alert.alert_id));
     }
-    if (alert.incident_id) {
-      navigation.navigate('IncidentDetail', { id: alert.incident_id });
-    }
   };
 
   const renderAlert = ({ item }) => (
-    <AlertCard alert={item} onPress={() => handleAlertPress(item)} />
+    <AlertCard alert={item} onPress={() => { handleAlertPress(item); navigation.navigate('AlertDetail', { alert: item }); }} />
   );
 
   if (loading && !refreshing) {
