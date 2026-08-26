@@ -110,6 +110,42 @@
   color: #fff !important;
 }
 
+.password-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.password-input-wrap input {
+  width: 100%;
+  padding-right: 44px;
+  box-sizing: border-box;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: #52605b;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: var(--coral);
+}
+
+.auth-help-link {
+  align-self: flex-end;
+  color: var(--coral);
+  font-size: 13px;
+  text-decoration: none;
+}
+
 .mobile-menu {
   display: none;
   background: none;

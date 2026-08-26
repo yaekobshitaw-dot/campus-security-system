@@ -1,3 +1,5 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -7,14 +9,18 @@ async function createTestUser() {
     host: process.env.DB_HOST || '127.0.0.1',
     port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'Campus@2026#Root',
+    password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'campus_security'
   });
 
   try {
-    const email = 'test@test.com';
-    const password = 'Password123';
+    const email = process.env.TEST_USER_EMAIL;
+    const password = process.env.TEST_USER_PASSWORD;
     const role = 'student';
+
+    if (!email || !password || password.length < 8) {
+      throw new Error('TEST_USER_EMAIL and TEST_USER_PASSWORD (minimum 8 characters) must be configured at runtime.');
+    }
 
     // Check if user exists
     const [rows] = await connection.execute(

@@ -4,10 +4,10 @@
     container_name: campus-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the environment}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-campus_security}
       MYSQL_USER: ${MYSQL_USER:-campus_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-campus_pass}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the environment}
     ports:
       - "3307:3306"
     volumes:
@@ -16,7 +16,7 @@
     networks:
       - campus-network
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the environment}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,10 +31,10 @@
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-campus_security}
       DB_USER: ${DB_USER:-root}
-      DB_PASSWORD: ${DB_PASSWORD:-change_me_db_password}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the environment}
       DB_DIALECT: ${DB_DIALECT:-mysql}
-      JWT_SECRET: ${JWT_SECRET:-change_me_jwt_secret}
-      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-change_me_refresh_token_secret}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the environment}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?Set REFRESH_TOKEN_SECRET in the environment}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:5001}
     ports:
       - "5000:5000"

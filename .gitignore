@@ -28,6 +28,7 @@ dist/
 build/
 coverage/
 .expo/
+mobile-app/.expo/
 
 # Logs
 *.log

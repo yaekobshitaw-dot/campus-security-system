@@ -29,7 +29,7 @@ const getWSURL = () => {
     if (Platform.OS === 'android') {
       return 'ws://10.0.2.2:5002';
     }
-    return 'ws://localhost:5002';
+    return 'ws://172.16.76.145:5002';
   }
   return 'wss://api.yourdomain.com';
 };
@@ -108,6 +108,18 @@ class SocketService extends LocalEventEmitter {
 
     this.socket.on('alert-received', (data) => {
       this.emit('alert-received', data);
+    });
+
+    this.socket.on('sos_alert', (data) => {
+      this.emit('sos_alert', data);
+    });
+
+    this.socket.on('incident_assigned', (data) => {
+      this.emit('incident_assigned', data);
+    });
+
+    this.socket.on('officer_assignment', (data) => {
+      this.emit('officer_assignment', data);
     });
   }
 

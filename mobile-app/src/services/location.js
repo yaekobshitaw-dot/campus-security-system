@@ -1,21 +1,60 @@
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
+const LOCATION_TIMEOUT_MS = 10000;
+
+const withTimeout = (promise, timeoutMs) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Location request timed out.')), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+};
+
+const toLocation = (location) => {
+  const latitude = Number(location?.coords?.latitude);
+  const longitude = Number(location?.coords?.longitude);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new Error('The device returned an invalid location.');
+  }
+
+  return {
+    latitude,
+    longitude,
+    accuracy: Number.isFinite(Number(location.coords.accuracy)) ? Number(location.coords.accuracy) : null,
+  };
+};
+
 export const getLocation = async () => {
-  const { status } = await Location.requestForegroundPermissionsAsync();
+  let { status } = await Location.getForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    ({ status } = await Location.requestForegroundPermissionsAsync());
+  }
+
   if (status !== 'granted') {
     throw new Error('Location permission was denied. Enable it in Settings to attach your location.');
   }
 
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.High,
-  });
+  const servicesEnabled = await Location.hasServicesEnabledAsync();
+  if (!servicesEnabled) {
+    throw new Error('Location services are turned off.');
+  }
 
-  return {
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-    accuracy: location.coords.accuracy,
-  };
+  try {
+    const location = await withTimeout(Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      maximumAge: 10000,
+    }), LOCATION_TIMEOUT_MS);
+    return toLocation(location);
+  } catch (currentLocationError) {
+    const lastKnown = await Location.getLastKnownPositionAsync({
+      maxAge: 120000,
+      requiredAccuracy: 1000,
+    });
+    if (lastKnown) return toLocation(lastKnown);
+    throw new Error('Unable to determine the current device location.');
+  }
 };
 
 export const startLocationTracking = async () => {

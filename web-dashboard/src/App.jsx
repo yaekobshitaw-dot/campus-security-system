@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { ForgotPasswordScreen, LoginScreen, ResetPasswordScreen } from './components/AuthScreens';
 import Dashboard from './components/Dashboard';
 import PublicSite, { AuthPage } from './components/PublicSite';
 
@@ -34,8 +35,10 @@ function App() {
       <Route path="/about" element={<PublicSite user={user} onLogout={handleLogout} page="about" />} />
       <Route path="/features" element={<PublicSite user={user} onLogout={handleLogout} page="features" />} />
       <Route path="/contact" element={<PublicSite user={user} onLogout={handleLogout} page="contact" />} />
-      <Route path="/login" element={<AuthPage mode="login" onLogin={setUser} />} />
+      <Route path="/login" element={<LoginScreen onLogin={setUser} />} />
       <Route path="/register" element={<AuthPage mode="register" onLogin={setUser} />} />
+      <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
+      <Route path="/reset-password" element={<ResetPasswordScreen />} />
       <Route
         path="/dashboard"
         element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />}

@@ -16,16 +16,7 @@ const SOSScreen = () => {
     if (sending) return;
     try {
       setSending(true);
-      let location = null;
-      try {
-        location = await getLocation();
-      } catch (locationError) {
-        Alert.alert('Location unavailable', `${locationError.message} You can still send the SOS.`, [
-          { text: 'Cancel', style: 'cancel', onPress: () => setSending(false) },
-          { text: 'Send without location', style: 'destructive', onPress: () => submitSOS(null).catch((error) => { setSending(false); Alert.alert('SOS failed', error.response?.data?.message || 'The SOS could not be sent.'); }) },
-        ]);
-        return;
-      }
+      const location = await getLocation().catch(() => null);
       await submitSOS(location);
     } catch (error) {
       setSending(false);
@@ -34,18 +25,13 @@ const SOSScreen = () => {
   };
 
   const submitSOS = async (location) => {
-    const response = await api.post('/incidents', {
-      type: 'security_threat',
-      severity: 'critical',
-      description: 'SOS emergency alert sent from the Campus Security mobile app.',
-      is_sos: true,
-      location_name: location ? 'Current device location' : '',
+    const response = await api.post('/incidents/sos', {
       latitude: location?.latitude ?? null,
       longitude: location?.longitude ?? null,
     });
     dispatch(addIncident(response.data.data));
     setSending(false);
-    Alert.alert('SOS sent', 'Campus security has been notified.', [{ text: 'OK', onPress: () => navigation.navigate('Home') }]);
+    Alert.alert('SOS Alert Sent', 'Security has been notified.', [{ text: 'OK', onPress: () => navigation.navigate('Home') }]);
   };
 
   return (

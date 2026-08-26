@@ -15,6 +15,7 @@ import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import incidentService from '../services/incidentService';
+import { webSocket } from '../services/socket';
 import AnalyticsCharts from './Analytics/AnalyticsCharts';
 import ExportReports from './Analytics/ExportReports';
 import SafetyChatbot from './Chatbot/SafetyChatbot';
@@ -23,6 +24,7 @@ import Footer from './Footer';
 import PushNotifications from './Notifications/PushNotifications';
 import Register from './Register';
 import ReportIncident from './ReportIncident';
+import SecurityMap from './SecurityMap';
 
 const ALLOWED_STATUS_VALUES = ['reported', 'investigating', 'resolved'];
 const ADMIN_MANAGED_ROLE_OPTIONS = ['student', 'faculty', 'staff', 'security', 'admin'];
@@ -32,6 +34,9 @@ function Dashboard({ user, onLogout }) {
   const [stats, setStats] = useState({ total: 0, active: '—', resolved: '—' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sosAlert, setSosAlert] = useState(null);
+  const [officers, setOfficers] = useState([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState('');
   const [showRegister, setShowRegister] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
@@ -53,6 +58,28 @@ function Dashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData();
+    webSocket.connect();
+
+    const handleUnauthorized = () => onLogout();
+    const handleIncident = () => loadData();
+    const handleSOSAlert = (alert) => {
+      setSosAlert(alert);
+      loadData();
+    };
+    window.addEventListener('campus-security:unauthorized', handleUnauthorized);
+    webSocket.on('new-incident', handleIncident);
+    webSocket.on('incident-updated', handleIncident);
+    webSocket.on('incident_assigned', handleIncident);
+    webSocket.on('sos_alert', handleSOSAlert);
+
+    return () => {
+      window.removeEventListener('campus-security:unauthorized', handleUnauthorized);
+      webSocket.off('new-incident', handleIncident);
+      webSocket.off('incident-updated', handleIncident);
+      webSocket.off('incident_assigned', handleIncident);
+      webSocket.off('sos_alert', handleSOSAlert);
+      webSocket.disconnect();
+    };
   }, []);
 
   const buildLocalStats = (incidentList) => ({
@@ -93,11 +120,27 @@ function Dashboard({ user, onLogout }) {
       } else {
         setStats(buildLocalStats(incidentList));
       }
+
+      if (isPrivileged) {
+        const officersData = await api.get('/users/security-officers');
+        setOfficers(officersData?.data?.data || []);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load data. Please make sure backend is running.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssign = async (officerId) => {
+    if (!selectedIncidentId || !officerId) return;
+    try {
+      await api.post(`/incidents/${selectedIncidentId}/assign`, { officer_id: officerId });
+      setSelectedIncidentId('');
+      await loadData();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Failed to assign incident.');
     }
   };
 
@@ -208,12 +251,43 @@ function Dashboard({ user, onLogout }) {
             </div>
           )}
 
+          {sosAlert && (
+            <div className="dashboard-error sos-live-alert" role="alert">
+              <WarningAmberOutlined />
+              <div>
+                <strong>SOS Alert Sent</strong>
+                <p>{sosAlert.type} · {sosAlert.reporter?.name || 'Campus member'} · {sosAlert.location_name || 'Location unavailable'}</p>
+                <small>{sosAlert.created_at ? new Date(sosAlert.created_at).toLocaleString() : 'Just now'}</small>
+              </div>
+              <button onClick={() => document.getElementById('incidents')?.scrollIntoView({ behavior: 'smooth' })}>Open incident</button>
+              <button onClick={() => setSosAlert(null)} aria-label="Dismiss SOS alert">Dismiss</button>
+            </div>
+          )}
+
           <div className="dashboard-stats">
             <div className="dashboard-stat-card total"><span className="stat-icon"><DescriptionOutlined /></span><div><span className="stat-label">Total incidents</span><strong>{typeof stats.total === 'number' ? stats.total : incidents.length}</strong><small>All reported incidents</small></div></div>
             <div className="dashboard-stat-card active"><span className="stat-icon"><WarningAmberOutlined /></span><div><span className="stat-label">Active incidents</span><strong>{typeof stats.active === 'number' ? stats.active : incidents.filter((incident) => incident.status !== 'resolved').length}</strong><small>Requiring attention</small></div></div>
             <div className="dashboard-stat-card resolved"><span className="stat-icon"><TaskAltOutlined /></span><div><span className="stat-label">Resolved incidents</span><strong>{typeof stats.resolved === 'number' ? stats.resolved : incidents.filter((incident) => incident.status === 'resolved').length}</strong><small>Successfully closed</small></div></div>
             <div className="dashboard-stat-card pending"><span className="stat-icon"><SpeedOutlined /></span><div><span className="stat-label">Investigating</span><strong>{pendingCount}</strong><small>Currently in progress</small></div></div>
           </div>
+
+          {isPrivileged && (
+            <section className="dashboard-panel security-map-panel" id="security-map">
+              <div className="panel-heading">
+                <div><p className="dashboard-eyebrow">Live response map</p><h2>Officers and SOS locations</h2><span>Only active security officers with valid locations are shown.</span></div>
+              </div>
+              <div className="map-assignment-controls">
+                <label htmlFor="assignment-incident">Incident to assign</label>
+                <select id="assignment-incident" value={selectedIncidentId} onChange={(event) => setSelectedIncidentId(event.target.value)}>
+                  <option value="">Select an unassigned incident</option>
+                  {incidents.filter((incident) => !incident.responses?.length && incident.status !== 'resolved').map((incident) => (
+                    <option key={incident.incident_id} value={incident.incident_id}>{incident.is_sos ? 'SOS' : incident.type} · {incident.location_name || 'Location unavailable'}</option>
+                  ))}
+                </select>
+              </div>
+              <SecurityMap incidents={incidents} officers={officers} onAssign={selectedIncidentId ? handleAssign : undefined} />
+            </section>
+          )}
 
           {isAdmin && (
             <div className="dashboard-panel admin-panel" id="users">
@@ -316,6 +390,7 @@ function Dashboard({ user, onLogout }) {
                   <span className="incident-meta"><span>Date / time</span>{new Date(incident.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   <div className="incident-action">
                     {isPrivileged ? <select id={`status-${incident.incident_id}`} value={incident.status} onChange={(event) => handleStatusChange(incident.incident_id, event.target.value)} disabled={updatingStatusId === incident.incident_id} aria-label={`Update status for ${incident.type}`}><option value="reported">Reported</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option></select> : <ChevronRight />}
+                    {isPrivileged ? <select id={`status-${incident.incident_id}`} value={incident.status} onChange={(event) => handleStatusChange(incident.incident_id, event.target.value)} disabled={updatingStatusId === incident.incident_id} aria-label={`Update status for ${incident.type}`}><option value="reported">Reported</option><option value="investigating">Investigating</option><option value="dispatched">Assigned</option><option value="on_scene">Responding</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select> : <ChevronRight />}
                   </div>
                 </div>
               ))}</div>

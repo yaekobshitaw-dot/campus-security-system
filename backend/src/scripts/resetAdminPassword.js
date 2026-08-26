@@ -3,8 +3,8 @@
  * Secure admin password reset utility
  * 
  * Usage:
- *   node resetAdminPassword.js --password "NewSecurePassword123"
- *   ADMIN_PASSWORD="NewSecurePassword123" node resetAdminPassword.js
+ *   node resetAdminPassword.js --password "<SET_SECURE_PASSWORD>"
+ *   ADMIN_PASSWORD="<SET_SECURE_PASSWORD>" node resetAdminPassword.js
  * 
  * IMPORTANT:
  *   - Do NOT pass passwords in npm scripts or .env files
@@ -44,7 +44,7 @@ async function resetAdminPassword() {
     if (!newPassword) {
       console.error('❌ Error: No password provided');
       console.error('Usage:');
-      console.error('  node resetAdminPassword.js --password "NewPassword123"');
+      console.error('  node resetAdminPassword.js --password "<SET_SECURE_PASSWORD>"');
       console.error('  or set ADMIN_PASSWORD environment variable');
       process.exit(1);
     }

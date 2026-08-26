@@ -1,6 +1,5 @@
 {
   "name": "CampusSecurity",
-  "displayName": "Campus Security",
   "plugins": [
     "expo-notifications"
   ],
@@ -10,7 +9,8 @@
       "ACCESS_COARSE_LOCATION",
       "CAMERA",
       "READ_MEDIA_IMAGES"
-    ]
+    ],
+    "package": "com.anonymous.campussecurity"
   },
   "ios": {
     "infoPlist": {

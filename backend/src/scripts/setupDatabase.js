@@ -1,6 +1,9 @@
 // backend/src/scripts/setupDatabase.js
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+
 const { sequelize } = require('../models');
 const { logger } = require('../utils/logger');
+const ensureIncidentSchema = require('./ensureIncidentSchema');
 
 async function setupDatabase() {
   try {
@@ -11,6 +14,7 @@ async function setupDatabase() {
 
     // Sync all models
     await sequelize.sync({ alter: true });
+    await ensureIncidentSchema();
     logger.info('✅ All tables synced successfully');
 
     // Create indexes for better performance

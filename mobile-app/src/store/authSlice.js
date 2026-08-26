@@ -12,6 +12,23 @@ const initialState = {
   error: null,
 };
 
+const getLoginErrorMessage = (error) => {
+  const backendMessage = error.response?.data?.message;
+  if (backendMessage) {
+    return backendMessage;
+  }
+
+  if (!error.response) {
+    return 'Network error. Check the connection to the campus security server.';
+  }
+
+  if (error.response.status >= 500) {
+    return 'Server error. Please try again later.';
+  }
+
+  return 'Login failed. Please check your email and password.';
+};
+
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials, { rejectWithValue }) => {
@@ -24,7 +41,7 @@ export const login = createAsyncThunk(
       await registerForPushNotifications();
       return { user, token: accessToken };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(getLoginErrorMessage(error));
     }
   }
 );

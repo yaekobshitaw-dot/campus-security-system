@@ -17,7 +17,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
 import { IncidentCard } from '../components/IncidentCard';
 import { SOSButton } from '../components/SOSButton';
-import { getLocation, startLocationTracking } from '../services/location';
 import { socketService } from '../services/socket';
 import { addAlert, fetchAlerts } from '../store/alertSlice';
 import { fetchRecentIncidents, updateIncident } from '../store/incidentSlice';
@@ -28,8 +27,6 @@ const HomeScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const [refreshing, setRefreshing] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
-
   const { user } = useSelector(state => state.auth);
   const { recentIncidents, loading: incidentsLoading } = useSelector(
     state => state.incidents
@@ -38,13 +35,12 @@ const HomeScreen = () => {
 
   useEffect(() => {
     loadInitialData();
-    startLocationTracking();
-    getCurrentLocation();
     setupSocketListeners();
 
     return () => {
       socketService.off('new-incident');
       socketService.off('incident-updated');
+      socketService.off('incident_assigned');
       socketService.off('alert-received');
     };
   }, []);
@@ -52,15 +48,6 @@ const HomeScreen = () => {
   const loadInitialData = async () => {
     await dispatch(fetchRecentIncidents());
     await dispatch(fetchAlerts());
-  };
-
-  const getCurrentLocation = async () => {
-    try {
-      const location = await getLocation();
-      setUserLocation(location);
-    } catch (error) {
-      console.log('Location permission denied');
-    }
   };
 
   const setupSocketListeners = () => {
@@ -85,6 +72,10 @@ const HomeScreen = () => {
       dispatch(fetchRecentIncidents());
     });
 
+    socketService.on('incident_assigned', () => {
+      dispatch(fetchRecentIncidents());
+    });
+
     socketService.on('alert-received', (alert) => {
       dispatch(addAlert(alert));
     });
@@ -93,7 +84,6 @@ const HomeScreen = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadInitialData();
-    await getCurrentLocation();
     setRefreshing(false);
   };
 
@@ -146,10 +136,8 @@ const HomeScreen = () => {
         {/* Campus Status */}
         <View style={styles.statusCard}>
           <View style={styles.statusBadge}>
-            <View style={[styles.statusDot, userLocation ? styles.activeDot : styles.inactiveDot]} />
-            <Text style={styles.statusText}>
-              {userLocation ? 'Campus Safe' : 'Location Unavailable'}
-            </Text>
+            <View style={[styles.statusDot, styles.activeDot]} />
+            <Text style={styles.statusText}>Campus Safety Connected</Text>
           </View>
           <TouchableOpacity onPress={navigateToAlerts} style={styles.alertBadge}>
             {unreadCount > 0 && (

@@ -11,6 +11,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { User, sequelize } = require('../models');
 
@@ -82,7 +83,7 @@ async function runDiagnostics() {
 
     // 5. Test bcrypt hashing mechanism
     console.log('\n5️⃣  Testing password hashing mechanism...');
-    const testPassword = 'TestPassword123!@#';
+    const testPassword = crypto.randomBytes(24).toString('base64url');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(testPassword, salt);
     console.log('   ✅ Password hashing works');
@@ -100,7 +101,7 @@ async function runDiagnostics() {
     const hookTestUser = {
       email: `test-${Date.now()}@example.com`,
       name: 'Hook Test User',
-      password_hash: 'TempPassword123!'
+      password_hash: crypto.randomBytes(24).toString('base64url')
     };
 
     // Simulate the beforeCreate hook
@@ -183,9 +184,9 @@ async function runDiagnostics() {
 
     console.log('\n📚 Reset Command Examples:');
     console.log('   Using --password flag:');
-    console.log('   node src/scripts/resetAdminPassword.js --password "NewPassword123"');
+    console.log('   node src/scripts/resetAdminPassword.js --password "<SET_SECURE_PASSWORD>"');
     console.log('\n   Using environment variable:');
-    console.log('   set ADMIN_PASSWORD="NewPassword123"');
+    console.log('   set ADMIN_PASSWORD="<SET_SECURE_PASSWORD>"');
     console.log('   node src/scripts/resetAdminPassword.js');
 
     process.exit(0);

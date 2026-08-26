@@ -1,4 +1,9 @@
-const developmentOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+const developmentOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5175',
+  'http://localhost:5175'
+];
 
 const configuredOrigins = String(process.env.CORS_ORIGINS || '')
   .split(',')

@@ -32,7 +32,8 @@ const LoginScreen = ({ navigation }) => {
       setLoading(true);
       await dispatch(login({ email, password })).unwrap();
     } catch (error) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      const message = typeof error === 'string' ? error : error.message;
+      Alert.alert('Login Failed', message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }

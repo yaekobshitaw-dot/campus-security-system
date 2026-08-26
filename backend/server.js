@@ -9,6 +9,7 @@ const { sequelize } = require('./src/models');
 const ensureIncidentSchema = require('./src/scripts/ensureIncidentSchema');
 const { initSocket } = require('./src/config/socket');
 const { corsOrigin } = require('./src/config/cors');
+const { verifyEmailTransporter } = require('./src/services/emailService');
 
 const PORT = Number(process.env.PORT) || 5002;
 
@@ -20,6 +21,11 @@ async function startServer() {
     await ensureIncidentSchema();
     console.log('✅ Incident schema verified');
     console.log('✅ Database synced');
+    const emailReady = await verifyEmailTransporter().catch((error) => {
+      console.warn('Password reset email transporter verification failed:', error.message);
+      return false;
+    });
+    if (emailReady) console.log('✅ Password reset email transporter verified');
 
     const server = http.createServer(app);
     const io = new Server(server, {
@@ -28,8 +34,8 @@ async function startServer() {
     app.set('io', io);
     initSocket(io);
 
-    server.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
     });
 
     server.on('error', (error) => {

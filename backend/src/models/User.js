@@ -35,6 +35,27 @@ const User = sequelize.define('User', {
   push_token: {
     type: DataTypes.STRING(255),
     allowNull: true
+  },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true
+  },
+  availability_status: {
+    type: DataTypes.ENUM('available', 'responding', 'busy', 'offline'),
+    allowNull: false,
+    defaultValue: 'offline'
+  },
+  reset_token_hash: {
+    type: DataTypes.STRING(64),
+    allowNull: true
+  },
+  reset_token_expires_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'users',
@@ -59,6 +80,8 @@ User.prototype.toJSON = function () {
   const values = { ...this.get() };
   delete values.password_hash;
   delete values.push_token;
+  delete values.reset_token_hash;
+  delete values.reset_token_expires_at;
   return values;
 };
 
