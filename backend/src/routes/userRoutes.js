@@ -13,7 +13,7 @@ router.get('/security-officers', authorize('security', 'admin'), async (req, res
   try {
     const officers = await User.findAll({
       where: { role: 'security', is_active: true },
-      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
+      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status', 'location_updated_at']
     });
     return res.status(200).json({ success: true, data: officers });
   } catch (error) {
@@ -29,14 +29,33 @@ router.patch('/me/location', async (req, res) => {
   const validCoordinate = (value, minimum, maximum) => value !== null && value !== undefined
     && Number.isFinite(Number(value)) && Number(value) >= minimum && Number(value) <= maximum;
   const validStatuses = ['available', 'responding', 'busy', 'offline'];
-  if (!validCoordinate(latitude, -90, 90) || !validCoordinate(longitude, -180, 180)) {
+  const isOffline = availabilityStatus === 'offline' && latitude == null && longitude == null;
+  const hasCoordinates = latitude !== undefined || longitude !== undefined;
+  if (hasCoordinates && !isOffline && (!validCoordinate(latitude, -90, 90) || !validCoordinate(longitude, -180, 180))) {
     return res.status(400).json({ success: false, message: 'Valid latitude and longitude are required' });
   }
   if (availabilityStatus !== undefined && !validStatuses.includes(availabilityStatus)) {
     return res.status(400).json({ success: false, message: 'Invalid availability status' });
   }
-  await req.user.update({ latitude, longitude, ...(availabilityStatus ? { availability_status: availabilityStatus } : {}) });
-  return res.status(200).json({ success: true, data: req.user.toJSON() });
+  const nextStatus = availabilityStatus || (req.user.availability_status === 'responding' ? 'responding' : 'available');
+  await req.user.update({
+    latitude: isOffline ? null : hasCoordinates ? latitude : req.user.latitude,
+    longitude: isOffline ? null : hasCoordinates ? longitude : req.user.longitude,
+    availability_status: nextStatus,
+    location_updated_at: isOffline ? null : hasCoordinates ? new Date() : req.user.location_updated_at
+  });
+  const payload = {
+    user_id: req.user.user_id,
+    name: req.user.name,
+    role: req.user.role,
+    latitude: req.user.latitude,
+    longitude: req.user.longitude,
+    availability_status: req.user.availability_status,
+    location_updated_at: req.user.location_updated_at
+  };
+  const io = req.app.get('io');
+  if (io) io.to('role:security').to('role:admin').emit('officer-location-updated', payload);
+  return res.status(200).json({ success: true, data: payload });
 });
 
 router.put('/push-token', async (req, res) => {

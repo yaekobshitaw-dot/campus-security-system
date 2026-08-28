@@ -37,7 +37,7 @@ class WebSocketService {
       this.emit('disconnected', reason);
     });
     this.socket.on('connect_error', (error) => this.emit('error', error));
-    ['new-incident', 'incident-updated', 'alert-received', 'sos_alert', 'incident_assigned', 'officer_assignment'].forEach((event) => {
+    ['new-incident', 'incident-updated', 'alert-received', 'sos_alert', 'incident_assigned', 'officer_assignment', 'officer-location-updated'].forEach((event) => {
       this.socket.on(event, (payload) => this.emit(event, payload));
     });
   }

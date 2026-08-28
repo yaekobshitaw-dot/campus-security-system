@@ -44,6 +44,10 @@ const User = sequelize.define('User', {
     type: DataTypes.DECIMAL(10, 7),
     allowNull: true
   },
+  location_updated_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   availability_status: {
     type: DataTypes.ENUM('available', 'responding', 'busy', 'offline'),
     allowNull: false,

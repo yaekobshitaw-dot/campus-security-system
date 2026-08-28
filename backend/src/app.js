@@ -1,4 +1,5 @@
 ﻿const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -26,7 +27,7 @@ app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 app.use('/api', rateLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

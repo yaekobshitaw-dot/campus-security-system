@@ -19,7 +19,7 @@ const sendSMS = async (to, message) => {
     console.log('⚠️ SMS service disabled');
     return { success: false, message: 'SMS service disabled' };
   }
-  
+
   try {
     const response = await client.messages.create({
       body: message,
@@ -36,7 +36,7 @@ const sendSMS = async (to, message) => {
 
 // Send incident alert SMS
 const sendIncidentSMS = async (incident, phoneNumber) => {
-  const message = 🚨 ALERT:  incident reported. Severity: . Location: . Time: ;
+  const message = `🚨 ALERT: ${incident.type} incident reported. Severity: ${incident.severity}. Location: ${incident.location_name}. Time: ${incident.created_at}`;
   return await sendSMS(phoneNumber, message);
 };
 

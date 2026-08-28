@@ -25,6 +25,9 @@ async function ensureIncidentSchema() {
   if (!userColumns.some((column) => column.Field === 'longitude')) {
     await sequelize.query('ALTER TABLE users ADD COLUMN longitude DECIMAL(10,7) NULL');
   }
+  if (!userColumns.some((column) => column.Field === 'location_updated_at')) {
+    await sequelize.query('ALTER TABLE users ADD COLUMN location_updated_at DATETIME NULL');
+  }
   if (!userColumns.some((column) => column.Field === 'availability_status')) {
     await sequelize.query("ALTER TABLE users ADD COLUMN availability_status ENUM('available','responding','busy','offline') NOT NULL DEFAULT 'offline'");
   }
@@ -51,6 +54,20 @@ async function ensureIncidentSchema() {
   }
   if (!responseColumns.some((column) => column.Field === 'status')) {
     await sequelize.query("ALTER TABLE responses ADD COLUMN status ENUM('assigned','responding','resolved','closed') NOT NULL DEFAULT 'assigned'");
+  }
+
+  const alertColumns = await sequelize.query('SHOW COLUMNS FROM alerts', { type: QueryTypes.SELECT });
+  if (!alertColumns.some((column) => column.Field === 'title')) {
+    await sequelize.query('ALTER TABLE alerts ADD COLUMN title VARCHAR(255) NULL AFTER type');
+  }
+  if (!alertColumns.some((column) => column.Field === 'is_read')) {
+    await sequelize.query('ALTER TABLE alerts ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT FALSE AFTER is_resolved');
+  }
+  if (!alertColumns.some((column) => column.Field === 'channel')) {
+    await sequelize.query("ALTER TABLE alerts ADD COLUMN channel VARCHAR(50) DEFAULT 'dashboard' AFTER is_read");
+  }
+  if (!alertColumns.some((column) => column.Field === 'sent_at')) {
+    await sequelize.query('ALTER TABLE alerts ADD COLUMN sent_at DATETIME NULL AFTER channel');
   }
 }
 

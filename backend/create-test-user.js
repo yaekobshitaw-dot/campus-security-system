@@ -4,6 +4,19 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
+const ALLOWED_ROLES = ['student', 'faculty', 'staff', 'security', 'admin'];
+const DEVELOPMENT_EMAIL_PATTERN = /^campussecure\.dev\.[a-z0-9-]+@example\.com$/i;
+
+const getArgument = (name) => {
+  const argumentIndex = process.argv.indexOf(name);
+  return argumentIndex >= 0 ? process.argv[argumentIndex + 1] : undefined;
+};
+
+const cleanup = process.argv.includes('--cleanup');
+const email = getArgument('--email') || process.env.TEST_USER_EMAIL;
+const password = getArgument('--password') || process.env.TEST_USER_PASSWORD;
+const role = (getArgument('--role') || process.env.TEST_USER_ROLE || 'student').trim().toLowerCase();
+
 async function createTestUser() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || '127.0.0.1',
@@ -14,45 +27,38 @@ async function createTestUser() {
   });
 
   try {
-    const email = process.env.TEST_USER_EMAIL;
-    const password = process.env.TEST_USER_PASSWORD;
-    const role = 'student';
+    if (cleanup) {
+      if (!email || !DEVELOPMENT_EMAIL_PATTERN.test(email)) {
+        throw new Error('Cleanup requires an explicitly specified campussecure.dev.*@example.com email.');
+      }
 
-    if (!email || !password || password.length < 8) {
-      throw new Error('TEST_USER_EMAIL and TEST_USER_PASSWORD (minimum 8 characters) must be configured at runtime.');
+      const [result] = await connection.execute('DELETE FROM users WHERE email = ?', [email]);
+      console.log(result.affectedRows ? `✓ Removed development test user ${email}` : `✓ No development test user found for ${email}`);
+      return;
     }
 
-    // Check if user exists
+    if (!email || !password || password.length < 8) {
+      throw new Error('A runtime email and password (minimum 8 characters) are required.');
+    }
+    if (!ALLOWED_ROLES.includes(role)) {
+      throw new Error(`Role must be one of: ${ALLOWED_ROLES.join(', ')}.`);
+    }
+
     const [rows] = await connection.execute(
-      'SELECT user_id, email, is_active FROM users WHERE email = ?',
+      'SELECT user_id, email, role, is_active FROM users WHERE email = ?',
       [email]
     );
 
     if (rows.length > 0) {
-      console.log(`✓ User ${email} already exists`);
-      console.log(`  user_id: ${rows[0].user_id}`);
-      console.log(`  is_active: ${rows[0].is_active}`);
-
-      // Update if not active
-      if (!rows[0].is_active) {
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
-
-        await connection.execute(
-          'UPDATE users SET password_hash = ?, is_active = true, updated_at = NOW() WHERE user_id = ?',
-          [passwordHash, rows[0].user_id]
-        );
-        console.log(`✓ Updated password_hash and activated user`);
-      }
+      throw new Error(`A user already exists for ${email}; no existing user was modified.`);
     } else {
-      // Create new user
       const userId = uuidv4();
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
       await connection.execute(
         'INSERT INTO users (user_id, email, name, role, password_hash, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
-        [userId, email, 'Test User', role, passwordHash, true]
+        [userId, email, `CampusSecure Development ${role} Test`, role, passwordHash, true]
       );
 
       console.log(`✓ Created new user`);

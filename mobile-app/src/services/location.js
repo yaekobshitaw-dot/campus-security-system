@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
-const LOCATION_TIMEOUT_MS = 10000;
+const LOCATION_TIMEOUT_MS = 20000;
 
 const withTimeout = (promise, timeoutMs) => {
   let timeoutId;
@@ -43,16 +43,18 @@ export const getLocation = async () => {
 
   try {
     const location = await withTimeout(Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-      maximumAge: 10000,
+      accuracy: Location.Accuracy.High,
     }), LOCATION_TIMEOUT_MS);
     return toLocation(location);
   } catch (currentLocationError) {
-    const lastKnown = await Location.getLastKnownPositionAsync({
-      maxAge: 120000,
-      requiredAccuracy: 1000,
-    });
-    if (lastKnown) return toLocation(lastKnown);
+    try {
+      const lastKnown = await Location.getLastKnownPositionAsync({
+        maxAge: 300000,
+        requiredAccuracy: 1000,
+      });
+      if (lastKnown) return toLocation(lastKnown);
+    } catch {
+    }
     throw new Error('Unable to determine the current device location.');
   }
 };

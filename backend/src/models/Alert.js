@@ -45,7 +45,10 @@ Alert.init({
 }, {
   sequelize,
   modelName: 'Alert',
-  tableName: 'alerts'
+  tableName: 'alerts',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at'
 });
 
 module.exports = Alert;

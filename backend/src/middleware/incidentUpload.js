@@ -15,7 +15,15 @@ const storage = multer.diskStorage({
 });
 
 const imageOnly = (_req, file, callback) => {
-  if (file.mimetype && file.mimetype.startsWith('image/')) {
+  const allowedTypes = new Map([
+    ['image/jpeg', ['.jpg', '.jpeg']],
+    ['image/png', ['.png']],
+    ['image/webp', ['.webp']],
+    ['image/gif', ['.gif']]
+  ]);
+  const extensions = allowedTypes.get(file.mimetype);
+  const extension = path.extname(file.originalname).toLowerCase();
+  if (extensions?.includes(extension)) {
     return callback(null, true);
   }
 

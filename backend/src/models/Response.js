@@ -33,7 +33,10 @@ Response.init({
 }, {
   sequelize,
   modelName: 'Response',
-  tableName: 'responses'
+  tableName: 'responses',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at'
 });
 
 module.exports = Response;

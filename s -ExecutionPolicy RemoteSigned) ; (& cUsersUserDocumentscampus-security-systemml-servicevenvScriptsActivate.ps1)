@@ -1,0 +1,103 @@
+warning: in the working copy of 'web-dashboard/src/components/SecurityMap.jsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/web-dashboard/src/components/SecurityMap.jsx b/web-dashboard/src/components/SecurityMap.jsx[m
+[1mindex bdd1043..62e2d7c 100644[m
+[1m--- a/web-dashboard/src/components/SecurityMap.jsx[m
+[1m+++ b/web-dashboard/src/components/SecurityMap.jsx[m
+[36m@@ -1,5 +1,6 @@[m
+ import 'leaflet/dist/leaflet.css';[m
+[31m-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';[m
+[32m+[m[32mimport { useEffect } from 'react';[m
+[32m+[m[32mimport { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';[m
+ [m
+ const CAMPUS_CENTER = [9.0227, 38.7468];[m
+ const statusColor = {[m
+[36m@@ -17,9 +18,39 @@[m [mconst coordinatesFor = (latitude, longitude) => {[m
+     : null;[m
+ };[m
+ [m
+[31m-export default function SecurityMap({ incidents = [], officers = [], onAssign }) {[m
+[32m+[m[32mconst distanceMeters = (from, to) => {[m
+[32m+[m[32m  const earthRadius = 6371000;[m
+[32m+[m[32m  const radians = (degrees) => degrees * Math.PI / 180;[m
+[32m+[m[32m  const deltaLatitude = radians(to[0] - from[0]);[m
+[32m+[m[32m  const deltaLongitude = radians(to[1] - from[1]);[m
+[32m+[m[32m  const a = Math.sin(deltaLatitude / 2) ** 2[m
+[32m+[m[32m    + Math.cos(radians(from[0])) * Math.cos(radians(to[0])) * Math.sin(deltaLongitude / 2) ** 2;[m
+[32m+[m[32m  return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32mconst formatDistance = (meters) => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;[m
+[32m+[m
+[32m+[m[32mfunction RecenterOnLatestSOS({ incidents, focusIncidentId }) {[m
+[32m+[m[32m  const map = useMap();[m
+[32m+[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    const focusedIncident = incidents.find((incident) => String(incident.incident_id) === String(focusIncidentId));[m
+[32m+[m[32m    const latestSOS = incidents.find((incident) => incident.is_sos && coordinatesFor(incident.latitude, incident.longitude));[m
+[32m+[m[32m    const target = focusedIncident || latestSOS;[m
+[32m+[m[32m    const position = target && coordinatesFor(target.latitude, target.longitude);[m
+[32m+[m[32m    if (position) map.setView(position, 17, { animate: true });[m
+[32m+[m[32m  }, [incidents, focusIncidentId, map]);[m
+[32m+[m
+[32m+[m[32m  return null;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mexport default function SecurityMap({ incidents = [], officers = [], onAssign, focusIncidentId }) {[m
+[32m+[m[32m  const invalidSOSCount = incidents.filter((incident) => incident.is_sos && !coordinatesFor(incident.latitude, incident.longitude)).length;[m
+[32m+[m[32m  const unavailableOfficerCount = officers.filter((officer) => !coordinatesFor(officer.latitude, officer.longitude)).length;[m
+[32m+[m
+   return ([m
+     <MapContainer center={CAMPUS_CENTER} zoom={15} style={{ height: 360, width: '100%' }} scrollWheelZoom>[m
+[32m+[m[32m      <RecenterOnLatestSOS incidents={incidents} focusIncidentId={focusIncidentId} />[m
+       <TileLayer[m
+         attribution="&copy; OpenStreetMap contributors"[m
+         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"[m
+[36m@@ -31,9 +62,12 @@[m [mexport default function SecurityMap({ incidents = [], officers = [], onAssign })[m
+         return ([m
+           <CircleMarker key={`incident-${incident.incident_id}`} center={position} radius={10} pathOptions={{ color: '#a71919', fillColor: '#d9533f', fillOpacity: 0.9 }}>[m
+             <Popup>[m
+[31m-              <strong>{incident.is_sos ? 'SOS Emergency' : 'Incident'}</strong>[m
+[31m-              <br />{incident.type} · {incident.status}[m
+[31m-              <br />{assigned ? `Assigned: ${assigned.name}` : 'Unassigned'}[m
+[32m+[m[32m              <strong>{incident.is_sos ? 'SOS' : 'Incident'}</strong>[m
+[32m+[m[32m              <br />Type: {incident.type}[m
+[32m+[m[32m              {incident.is_sos && <><br />Reporter: {incident.reporter?.name || 'Campus member'}</>}[m
+[32m+[m[32m              <br />Time: {incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unknown'}[m
+[32m+[m[32m              <br />Coordinates: {position[0].toFixed(7)}, {position[1].toFixed(7)}[m
+[32m+[m[32m              {!incident.is_sos && <><br />{assigned ? `Assigned: ${assigned.name}` : 'Unassigned'}</>}[m
+             </Popup>[m
+           </CircleMarker>[m
+         );[m
+[36m@@ -41,16 +75,31 @@[m [mexport default function SecurityMap({ incidents = [], officers = [], onAssign })[m
+       {officers.map((officer) => {[m
+         const position = coordinatesFor(officer.latitude, officer.longitude);[m
+         if (!position) return null;[m
+[32m+[m[32m        const assignment = incidents.find((incident) => incident.responses?.some((response) => response.responder_id === officer.user_id || response.responder?.user_id === officer.user_id));[m
+[32m+[m[32m        const incidentPosition = assignment && coordinatesFor(assignment.latitude, assignment.longitude);[m
+         return ([m
+           <CircleMarker key={`officer-${officer.user_id}`} center={position} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: statusColor[officer.availability_status] || statusColor.offline, fillOpacity: 1 }}>[m
+             <Popup>[m
+               <strong>{officer.name}</strong>[m
+[31m-              <br />{officer.availability_status}[m
+[32m+[m[32m              <br />Status: {officer.availability_status || 'unavailable'}[m
+[32m+[m[32m              <br />Assignment: {assignment?.type || 'None'}[m
+[32m+[m[32m              {incidentPosition && <><br />Distance: {formatDistance(distanceMeters(position, incidentPosition))}</>}[m
+[32m+[m[32m              <br />Last update: {officer.location_updated_at ? new Date(officer.location_updated_at).toLocaleString() : 'Unavailable'}[m
+               {onAssign && <><br /><button type="button" onClick={() => onAssign(officer.user_id)}>Assign selected incident</button></>}[m
+             </Popup>[m
+           </CircleMarker>[m
+         );[m
+       })}[m
+[32m+[m[32m      {invalidSOSCount > 0 && ([m
+[32m+[m[32m        <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#8a1c1c', border: '1px solid #e4b4b4', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>[m
+[32m+[m[32m          SOS: Location unavailable[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      )}[m
+[32m+[m[32m      {unavailableOfficerCount > 0 && ([m
+[32m+[m[32m        <div style={{ position: 'absolute', top: invalidSOSCount ? 52 : 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#68757a', border: '1px solid #cbd5d6', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>[m
+[32m+[m[32m          {unavailableOfficerCount} officer location{unavailableOfficerCount === 1 ? '' : 's'} unavailable[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      )}[m
+     </MapContainer>[m
+   );[m
+ }[m

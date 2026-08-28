@@ -1,495 +1,263 @@
-﻿// src/components/Dashboard.jsx - Complete with Register and Report
-import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
-import ChevronRight from '@mui/icons-material/ChevronRight';
-import Close from '@mui/icons-material/Close';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
+import EventNoteOutlined from '@mui/icons-material/EventNoteOutlined';
 import Logout from '@mui/icons-material/Logout';
-import Menu from '@mui/icons-material/Menu';
+import MapOutlined from '@mui/icons-material/MapOutlined';
 import PeopleAltOutlined from '@mui/icons-material/PeopleAltOutlined';
 import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined';
 import ShieldOutlined from '@mui/icons-material/ShieldOutlined';
-import SpeedOutlined from '@mui/icons-material/SpeedOutlined';
 import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined';
 import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import incidentService from '../services/incidentService';
 import { webSocket } from '../services/socket';
 import AnalyticsCharts from './Analytics/AnalyticsCharts';
-import ExportReports from './Analytics/ExportReports';
 import SafetyChatbot from './Chatbot/SafetyChatbot';
 import './Dashboard.css';
+import EvidencePreview from './EvidencePreview';
 import Footer from './Footer';
-import PushNotifications from './Notifications/PushNotifications';
-import Register from './Register';
 import ReportIncident from './ReportIncident';
 import SecurityMap from './SecurityMap';
 
-const ALLOWED_STATUS_VALUES = ['reported', 'investigating', 'resolved'];
-const ADMIN_MANAGED_ROLE_OPTIONS = ['student', 'faculty', 'staff', 'security', 'admin'];
+const STATUSES = ['reported', 'investigating', 'dispatched', 'on_scene', 'resolved', 'closed'];
+const ROLES = ['student', 'faculty', 'staff', 'security', 'admin'];
+const text = (value) => (value || 'incident').replaceAll('_', ' ');
+const when = (value) => value ? new Date(value).toLocaleString() : 'Unknown';
+const isActive = (incident) => ['reported', 'investigating', 'dispatched', 'on_scene'].includes(incident.status);
+const hasValidCoordinates = (entity) => Number.isFinite(Number(entity?.latitude)) && Number.isFinite(Number(entity?.longitude));
+const responder = (incident) => incident.responses?.[0]?.responder;
 
-function Dashboard({ user, onLogout }) {
+function makeStats(list) {
+  return { total: list.length, active: list.filter(isActive).length, resolved: list.filter((item) => item.status === 'resolved').length };
+}
+
+export default function Dashboard({ user, onLogout }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const section = getSection(location.pathname);
+  const role = (user?.role || '').toLowerCase();
+  const privileged = ['admin', 'security'].includes(role);
+  const admin = role === 'admin';
   const [incidents, setIncidents] = useState([]);
-  const [stats, setStats] = useState({ total: 0, active: '—', resolved: '—' });
+  const [officers, setOfficers] = useState([]);
+  const [stats, setStats] = useState({ total: 0, active: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sosAlert, setSosAlert] = useState(null);
-  const [officers, setOfficers] = useState([]);
-  const [selectedIncidentId, setSelectedIncidentId] = useState('');
-  const [showRegister, setShowRegister] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [updatingStatusId, setUpdatingStatusId] = useState(null);
-  const [adminUsers, setAdminUsers] = useState([]);
-  const [userManagementLoading, setUserManagementLoading] = useState(false);
-  const [userForm, setUserForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'student'
-  });
+  const [reportOpen, setReportOpen] = useState(false);
+  const [assignmentIncident, setAssignmentIncident] = useState('');
+  const [updating, setUpdating] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [userLoading, setUserLoading] = useState(false);
+  const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'student' });
 
-  const role = (user?.role || '').toLowerCase();
-  const isPrivileged = ['security', 'admin'].includes(role);
-  const isAdmin = role === 'admin';
-  const pendingCount = incidents.filter((incident) => incident.status === 'investigating').length;
-  const displayName = user?.name || 'Campus member';
-  const initials = displayName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+  async function loadData() {
+    try {
+      setLoading(true);
+      const result = await incidentService.getAll();
+      const list = result?.data || [];
+      setIncidents(list);
+      if (privileged) {
+        const [statsResult, officersResult] = await Promise.allSettled([incidentService.getStats(), api.get('/users/security-officers')]);
+        setStats(statsResult.status === 'fulfilled' ? statsResult.value?.data || makeStats(list) : makeStats(list));
+        setOfficers(officersResult.status === 'fulfilled' ? officersResult.value?.data?.data || [] : []);
+      } else setStats(makeStats(list));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Failed to load dashboard data.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     loadData();
     webSocket.connect();
-
-    const handleUnauthorized = () => onLogout();
-    const handleIncident = () => loadData();
-    const handleSOSAlert = (alert) => {
-      setSosAlert(alert);
-      loadData();
-    };
-    window.addEventListener('campus-security:unauthorized', handleUnauthorized);
-    webSocket.on('new-incident', handleIncident);
-    webSocket.on('incident-updated', handleIncident);
-    webSocket.on('incident_assigned', handleIncident);
-    webSocket.on('sos_alert', handleSOSAlert);
-
+    const refresh = () => loadData();
+    const onSOS = (alert) => { setSosAlert(alert); refresh(); };
+    const onOfficer = (next) => setOfficers((current) => current.some((item) => item.user_id === next.user_id) ? current.map((item) => item.user_id === next.user_id ? { ...item, ...next } : item) : [...current, next]);
+    const onUnauthorized = () => onLogout();
+    window.addEventListener('campus-security:unauthorized', onUnauthorized);
+    ['new-incident', 'incident-updated', 'incident_assigned'].forEach((event) => webSocket.on(event, refresh));
+    webSocket.on('sos_alert', onSOS);
+    webSocket.on('officer-location-updated', onOfficer);
     return () => {
-      window.removeEventListener('campus-security:unauthorized', handleUnauthorized);
-      webSocket.off('new-incident', handleIncident);
-      webSocket.off('incident-updated', handleIncident);
-      webSocket.off('incident_assigned', handleIncident);
-      webSocket.off('sos_alert', handleSOSAlert);
+      window.removeEventListener('campus-security:unauthorized', onUnauthorized);
+      ['new-incident', 'incident-updated', 'incident_assigned'].forEach((event) => webSocket.off(event, refresh));
+      webSocket.off('sos_alert', onSOS);
+      webSocket.off('officer-location-updated', onOfficer);
       webSocket.disconnect();
     };
-  }, []);
+  }, [privileged, onLogout]);
 
-  const buildLocalStats = (incidentList) => ({
-    total: incidentList.length,
-    active: incidentList.filter((incident) => incident.status !== 'resolved').length,
-    resolved: incidentList.filter((incident) => incident.status === 'resolved').length,
-  });
+  useEffect(() => { if (admin) loadUsers(); }, [admin]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Please login to view incidents');
-        setLoading(false);
-        return;
-      }
-
-      const currentUser = user || JSON.parse(localStorage.getItem('user') || 'null');
-      const isPrivileged = ['security', 'admin'].includes((currentUser?.role || '').toLowerCase());
-
-      const incidentsData = await incidentService.getAll();
-      const incidentList = incidentsData?.data || [];
-      setIncidents(incidentList);
-
-      if (isPrivileged) {
-        try {
-          const statsData = await incidentService.getStats();
-          setStats(statsData?.data || buildLocalStats(incidentList));
-        } catch (err) {
-          if (err?.response?.status === 403) {
-            setStats(buildLocalStats(incidentList));
-          } else {
-            throw err;
-          }
-        }
-      } else {
-        setStats(buildLocalStats(incidentList));
-      }
-
-      if (isPrivileged) {
-        const officersData = await api.get('/users/security-officers');
-        setOfficers(officersData?.data?.data || []);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setError('Failed to load data. Please make sure backend is running.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAssign = async (officerId) => {
-    if (!selectedIncidentId || !officerId) return;
-    try {
-      await api.post(`/incidents/${selectedIncidentId}/assign`, { officer_id: officerId });
-      setSelectedIncidentId('');
-      await loadData();
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Failed to assign incident.');
-    }
-  };
-
-  const handleStatusChange = async (incidentId, nextStatus) => {
-    if (!nextStatus || !incidentId) return;
-
-    try {
-      setUpdatingStatusId(incidentId);
-      await api.patch(`/incidents/${incidentId}/status`, { status: nextStatus });
-      await loadData();
-    } catch (error) {
-      console.error('Error updating incident status:', error);
-      setError('Failed to update incident status.');
-    } finally {
-      setUpdatingStatusId(null);
-    }
-  };
-
-  const loadAdminUsers = async () => {
-    try {
-      setUserManagementLoading(true);
-      const response = await api.get('/users/all');
-      setAdminUsers(response?.data?.data || []);
-    } catch (error) {
-      console.error('Failed to load users:', error);
-      setError('Failed to load users.');
-    } finally {
-      setUserManagementLoading(false);
-    }
-  };
-
-  const handleCreateAdminUser = async (event) => {
-    event.preventDefault();
-
-    if (!userForm.name || !userForm.email || !userForm.password) {
-      setError('Name, email, and password are required.');
-      return;
-    }
-
-    try {
-      await api.post('/auth/admin/create-user', userForm);
-      setUserForm({ name: '', email: '', password: '', role: 'student' });
-      await loadAdminUsers();
-    } catch (error) {
-      console.error('Failed to create user:', error);
-      setError(error.response?.data?.message || 'Failed to create user.');
-    }
-  };
-
-  const handleUserStatusToggle = async (targetUserId, nextIsActive) => {
-    try {
-      await api.patch(`/users/${targetUserId}/status`, { is_active: nextIsActive });
-      await loadAdminUsers();
-    } catch (error) {
-      console.error('Failed to update user status:', error);
-      setError(error.response?.data?.message || 'Failed to update user status.');
-    }
-  };
-
-  useEffect(() => {
-    if ((user?.role || '').toLowerCase() === 'admin') {
-      loadAdminUsers();
-    }
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <div className="dashboard-loading-mark"><ShieldOutlined /></div>
-        <div><strong>Preparing your safety view</strong><span>Connecting to campus incident services...</span></div>
-        <div className="dashboard-loading-bar" />
-      </div>
-    );
+  async function loadUsers() {
+    try { setUserLoading(true); const result = await api.get('/users/all'); setUsers(result?.data?.data || []); }
+    catch { setError('Failed to load users.'); } finally { setUserLoading(false); }
   }
 
-  return (
-    <div className="dashboard-shell">
-      <aside className="dashboard-sidebar">
-        <div className="dashboard-brand"><span className="dashboard-brand-mark"><ShieldOutlined /></span><span>Campus<span>Secure</span><small>Operations center</small></span></div>
-        <div className="sidebar-section-label">Workspace</div>
-        <nav className="dashboard-nav" aria-label="Dashboard navigation">
-          <a className="dashboard-nav-link active" href="#overview"><DashboardOutlined /> Overview</a>
-          <a className="dashboard-nav-link" href="#incidents"><ReportProblemOutlined /> Incidents <span>{incidents.length}</span></a>
-          <a className="dashboard-nav-link" href="#analytics"><AssessmentOutlined /> Analytics</a>
-          {isAdmin && <a className="dashboard-nav-link" href="#users"><PeopleAltOutlined /> User management</a>}
-        </nav>
-        <div className="sidebar-spacer" />
-        <div className="sidebar-safety-card"><span><SpeedOutlined /></span><strong>Response readiness</strong><p>Keep your campus response team informed and connected.</p></div>
-        <div className="sidebar-user"><div className="dashboard-avatar">{initials}</div><div><strong>{displayName}</strong><span>{role || 'member'}</span></div><button onClick={onLogout} aria-label="Log out" title="Log out"><Logout /></button></div>
-      </aside>
+  async function changeStatus(incidentId, status) {
+    try { setUpdating(incidentId); await api.patch(`/incidents/${incidentId}/status`, { status }); await loadData(); }
+    catch { setError('Failed to update incident status.'); } finally { setUpdating(null); }
+  }
 
-      <main className="dashboard-main">
-        <header className="dashboard-topbar">
-          <div className="dashboard-mobile-brand"><span className="dashboard-brand-mark"><ShieldOutlined /></span><strong>CampusSecure</strong></div>
-          <div className="dashboard-breadcrumb"><span>Workspace</span><ChevronRight /><strong>Overview</strong></div>
-          <div className="dashboard-top-actions"><span className="live-indicator"><i /> Services operational</span><button className="dashboard-mobile-menu" aria-label="Open navigation"><Menu /></button></div>
-        </header>
+  async function assign(officerId) {
+    if (!assignmentIncident) return;
+    try { await api.post(`/incidents/${assignmentIncident}/assign`, { officer_id: officerId }); setAssignmentIncident(''); await loadData(); }
+    catch (requestError) { setError(requestError.response?.data?.message || 'Failed to assign incident.'); }
+  }
 
-        <div className="dashboard-content" id="overview">
-          <section className="dashboard-welcome">
-            <div><p className="dashboard-eyebrow">Campus security overview</p><h1>Good to see you, {displayName.split(' ')[0]}.</h1><p>Here&apos;s what&apos;s happening across your incident response workspace.</p></div>
-            <div className="dashboard-actions"><button className="dashboard-button secondary" onClick={() => setShowRegister(true)}><PeopleAltOutlined /> Register user</button><button className="dashboard-button primary" onClick={() => setShowReport(true)}><ReportProblemOutlined /> Report incident</button></div>
-          </section>
+  async function assignIncident(incidentId, officerId) {
+    try { await api.post(`/incidents/${incidentId}/assign`, { officer_id: officerId }); await loadData(); }
+    catch (requestError) { setError(requestError.response?.data?.message || 'Failed to assign incident.'); }
+  }
 
-          {error && (
-            <div className="dashboard-error" role="alert">
-              <WarningAmberOutlined /><div><strong>We couldn&apos;t refresh the workspace</strong><p>{error}</p></div><button onClick={loadData}>Retry</button>
-            </div>
-          )}
+  async function updateResponseStatus(incidentId, status) {
+    try { await api.patch(`/incidents/${incidentId}/response`, { status }); await loadData(); }
+    catch (requestError) { setError(requestError.response?.data?.message || 'Failed to update response status.'); }
+  }
 
-          {sosAlert && (
-            <div className="dashboard-error sos-live-alert" role="alert">
-              <WarningAmberOutlined />
-              <div>
-                <strong>SOS Alert Sent</strong>
-                <p>{sosAlert.type} · {sosAlert.reporter?.name || 'Campus member'} · {sosAlert.location_name || 'Location unavailable'}</p>
-                <small>{sosAlert.created_at ? new Date(sosAlert.created_at).toLocaleString() : 'Just now'}</small>
-              </div>
-              <button onClick={() => document.getElementById('incidents')?.scrollIntoView({ behavior: 'smooth' })}>Open incident</button>
-              <button onClick={() => setSosAlert(null)} aria-label="Dismiss SOS alert">Dismiss</button>
-            </div>
-          )}
+  async function createUser(event) {
+    event.preventDefault();
+    try { await api.post('/auth/admin/create-user', userForm); setUserForm({ name: '', email: '', password: '', role: 'student' }); loadUsers(); }
+    catch (requestError) { setError(requestError.response?.data?.message || 'Failed to create user.'); }
+  }
 
-          <div className="dashboard-stats">
-            <div className="dashboard-stat-card total"><span className="stat-icon"><DescriptionOutlined /></span><div><span className="stat-label">Total incidents</span><strong>{typeof stats.total === 'number' ? stats.total : incidents.length}</strong><small>All reported incidents</small></div></div>
-            <div className="dashboard-stat-card active"><span className="stat-icon"><WarningAmberOutlined /></span><div><span className="stat-label">Active incidents</span><strong>{typeof stats.active === 'number' ? stats.active : incidents.filter((incident) => incident.status !== 'resolved').length}</strong><small>Requiring attention</small></div></div>
-            <div className="dashboard-stat-card resolved"><span className="stat-icon"><TaskAltOutlined /></span><div><span className="stat-label">Resolved incidents</span><strong>{typeof stats.resolved === 'number' ? stats.resolved : incidents.filter((incident) => incident.status === 'resolved').length}</strong><small>Successfully closed</small></div></div>
-            <div className="dashboard-stat-card pending"><span className="stat-icon"><SpeedOutlined /></span><div><span className="stat-label">Investigating</span><strong>{pendingCount}</strong><small>Currently in progress</small></div></div>
-          </div>
+  async function changeUserStatus(userId, isActiveUser) {
+    try { await api.patch(`/users/${userId}/status`, { is_active: isActiveUser }); loadUsers(); }
+    catch { setError('Failed to update user status.'); }
+  }
 
-          {isPrivileged && (
-            <section className="dashboard-panel security-map-panel" id="security-map">
-              <div className="panel-heading">
-                <div><p className="dashboard-eyebrow">Live response map</p><h2>Officers and SOS locations</h2><span>Only active security officers with valid locations are shown.</span></div>
-              </div>
-              <div className="map-assignment-controls">
-                <label htmlFor="assignment-incident">Incident to assign</label>
-                <select id="assignment-incident" value={selectedIncidentId} onChange={(event) => setSelectedIncidentId(event.target.value)}>
-                  <option value="">Select an unassigned incident</option>
-                  {incidents.filter((incident) => !incident.responses?.length && incident.status !== 'resolved').map((incident) => (
-                    <option key={incident.incident_id} value={incident.incident_id}>{incident.is_sos ? 'SOS' : incident.type} · {incident.location_name || 'Location unavailable'}</option>
-                  ))}
-                </select>
-              </div>
-              <SecurityMap incidents={incidents} officers={officers} onAssign={selectedIncidentId ? handleAssign : undefined} />
-            </section>
-          )}
-
-          {isAdmin && (
-            <div className="dashboard-panel admin-panel" id="users">
-              <div className="panel-heading"><div><p className="dashboard-eyebrow">Administration</p><h2>User management</h2><span>Manage campus access without leaving the security workspace.</span></div><PeopleAltOutlined /></div>
-
-              <form onSubmit={handleCreateAdminUser} className="admin-form">
-                <div className="admin-form-grid">
-                  <div>
-                    <label>Name</label>
-                    <input
-                      type="text"
-                      value={userForm.name}
-                      onChange={(event) => setUserForm({ ...userForm, name: event.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label>Email</label>
-                    <input
-                      type="email"
-                      value={userForm.email}
-                      onChange={(event) => setUserForm({ ...userForm, email: event.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label>Password</label>
-                    <input
-                      type="password"
-                      value={userForm.password}
-                      onChange={(event) => setUserForm({ ...userForm, password: event.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label>Role</label>
-                    <select
-                      value={userForm.role}
-                      onChange={(event) => setUserForm({ ...userForm, role: event.target.value })}
-                    >
-                      {ADMIN_MANAGED_ROLE_OPTIONS.map((roleOption) => (
-                        <option key={roleOption} value={roleOption}>{roleOption}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <button type="submit" className="dashboard-button primary">Create user <ChevronRight /></button>
-              </form>
-
-              <div className="user-table-wrap">
-                <div className="table-heading"><h3>Existing users</h3><span>{adminUsers.length} accounts</span></div>
-                {userManagementLoading ? (
-                  <div className="inline-loading"><span /> Loading users...</div>
-                ) : (
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminUsers.map((adminUser) => (
-                        <tr key={adminUser.user_id}>
-                          <td data-label="Name"><strong>{adminUser.name}</strong></td>
-                          <td data-label="Email">{adminUser.email}</td>
-                          <td data-label="Role"><span className={`role-badge ${adminUser.role}`}>{adminUser.role}</span></td>
-                          <td data-label="Status"><span className={`account-status ${adminUser.is_active ? 'active' : 'inactive'}`}><i />{adminUser.is_active ? 'Active' : 'Inactive'}</span></td>
-                          <td data-label="Action">
-                            <button
-                              onClick={() => handleUserStatusToggle(adminUser.user_id, !adminUser.is_active)}
-                              className={`table-action ${adminUser.is_active ? 'deactivate' : 'activate'}`}
-                            >
-                              {adminUser.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          )}
-
-          <section className="dashboard-tools" id="analytics"><div className="dashboard-panel analytics-panel"><AnalyticsCharts incidents={incidents} /></div><div className="dashboard-side-tools"><ExportReports incidents={incidents} /><PushNotifications /></div></section>
-
-          <div className="dashboard-panel incident-list-panel" id="incidents">
-            <div className="panel-heading incident-heading"><div><p className="dashboard-eyebrow">Response queue</p><h2>Incident activity</h2><span>Review reports and keep status information current.</span></div><span className="incident-count">{incidents.length} total</span></div>
-            {incidents.length === 0 ? (
-              <div className="dashboard-empty">
-                <div className="empty-icon"><ShieldOutlined /></div><strong>No incidents found</strong><p>Your response queue is clear. New reports will appear here.</p><button className="dashboard-button primary" onClick={() => setShowReport(true)}><ReportProblemOutlined /> Report an incident</button>
-              </div>
-            ) : (
-              <div className="incident-table-wrap"><div className="incident-table-head"><span>Incident</span><span>Severity</span><span>Status</span><span>Location</span><span>Reported</span><span>Action</span></div>{incidents.map((incident) => (
-                <div key={incident.incident_id} className="incident-row">
-                  <div className="incident-main"><span className="incident-type-icon"><ReportProblemOutlined /></span><div><strong>{(incident.type || 'incident').replace('_', ' ')}</strong><p>{incident.description || 'No description provided'}</p></div></div>
-                  <span className={`severity-badge ${incident.severity || 'medium'}`}>{incident.severity || 'medium'}</span>
-                  <span className={`status-badge ${incident.status || 'reported'}`}>{incident.status || 'reported'}</span>
-                  <span className="incident-meta"><span>Location</span>{incident.location_name || incident.building || 'Unknown'}</span>
-                  <span className="incident-meta"><span>Date / time</span>{new Date(incident.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                  <div className="incident-action">
-                    {isPrivileged ? <select id={`status-${incident.incident_id}`} value={incident.status} onChange={(event) => handleStatusChange(incident.incident_id, event.target.value)} disabled={updatingStatusId === incident.incident_id} aria-label={`Update status for ${incident.type}`}><option value="reported">Reported</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option></select> : <ChevronRight />}
-                    {isPrivileged ? <select id={`status-${incident.incident_id}`} value={incident.status} onChange={(event) => handleStatusChange(incident.incident_id, event.target.value)} disabled={updatingStatusId === incident.incident_id} aria-label={`Update status for ${incident.type}`}><option value="reported">Reported</option><option value="investigating">Investigating</option><option value="dispatched">Assigned</option><option value="on_scene">Responding</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select> : <ChevronRight />}
-                  </div>
-                </div>
-              ))}</div>
-            )}
-          </div>
-        </div>
-
-        {showRegister && (
-          <div className="dashboard-modal-overlay" onClick={() => setShowRegister(false)}>
-            <div className="dashboard-modal-content" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close" onClick={() => setShowRegister(false)} aria-label="Close registration"><Close /></button>
-              <Register onSwitchToLogin={() => setShowRegister(false)} />
-            </div>
-          </div>
-        )}
-
-        {showReport && (
-          <div className="dashboard-modal-overlay" onClick={() => setShowReport(false)}>
-            <div className="dashboard-modal-content" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close" onClick={() => setShowReport(false)} aria-label="Close report form"><Close /></button>
-              <ReportIncident
-                onClose={() => setShowReport(false)}
-                onSuccess={loadData}
-              />
-            </div>
-          </div>
-        )}
-
-        <Footer />
-        <SafetyChatbot />
-      </main>
-    </div>
-  );
+  if (loading) return <Loading />;
+  const page = <Page section={section} incidents={incidents} stats={stats} officers={officers} privileged={privileged} admin={admin} location={location} navigate={navigate} changeStatus={changeStatus} updateResponseStatus={updateResponseStatus} assignIncident={assignIncident} updating={updating} assignmentIncident={assignmentIncident} setAssignmentIncident={setAssignmentIncident} assign={assign} users={users} userLoading={userLoading} userForm={userForm} setUserForm={setUserForm} createUser={createUser} changeUserStatus={changeUserStatus} setReportOpen={setReportOpen} />;
+  const initials = (user?.name || 'Campus member').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+  return <div className="dashboard-shell"><aside className="dashboard-sidebar"><Link to="/dashboard" className="dashboard-brand"><span className="dashboard-brand-mark"><ShieldOutlined /></span><span>Campus<span>Secure</span><small>Operations center</small></span></Link><div className="sidebar-section-label">Workspace</div><nav className="dashboard-nav"><Nav to="/dashboard" icon={<DashboardOutlined />} text="Overview" active={section === 'overview'} /><Nav to="/incidents/active" icon={<ReportProblemOutlined />} text="Active incidents" count={incidents.filter(isActive).length} active={section === 'active'} /><Nav to="/incidents/history" icon={<EventNoteOutlined />} text="Incident history" active={section === 'history'} />{privileged && <Nav to="/emergency" icon={<WarningAmberOutlined />} text="Emergency center" count={incidents.filter((item) => (item.is_sos || item.severity === 'critical') && isActive(item)).length} active={section === 'emergency'} />}{privileged && <Nav to="/map" icon={<MapOutlined />} text="Live map" active={section === 'map'} />}<Nav to="/sos" icon={<WarningAmberOutlined />} text="SOS / Emergency" count={incidents.filter((item) => item.is_sos).length} active={section === 'sos'} /><Nav to="/evidence" icon={<DescriptionOutlined />} text="Evidence" active={section === 'evidence'} />{privileged && <Nav to="/officers" icon={<PeopleAltOutlined />} text="Security officers" active={section === 'officers'} />}{admin && <Nav to="/users" icon={<PeopleAltOutlined />} text="User management" active={section === 'users'} />}</nav><div className="sidebar-spacer" /><div className="sidebar-safety-card"><span><TaskAltOutlined /></span><strong>Response readiness</strong><p>Keep your campus response team informed and connected.</p></div><div className="sidebar-user"><div className="dashboard-avatar">{initials}</div><div><strong>{user?.name || 'Campus member'}</strong><span>{role || 'member'}</span></div><button onClick={onLogout} aria-label="Log out"><Logout /></button></div></aside><main className="dashboard-main"><header className="dashboard-topbar"><div className="dashboard-mobile-brand"><span className="dashboard-brand-mark"><ShieldOutlined /></span><strong>CampusSecure</strong></div><div className="dashboard-breadcrumb">Workspace <strong>/ {sectionTitle(section)}</strong></div><span className="live-indicator"><i /> Services operational</span></header><div className="dashboard-content">{error && <div className="dashboard-error" role="alert"><WarningAmberOutlined /><div><strong>Could not refresh workspace</strong><p>{error}</p></div><button onClick={loadData}>Retry</button></div>}{sosAlert && <div className="dashboard-error sos-live-alert"><WarningAmberOutlined /><div><strong>SOS Alert Sent</strong><p>{sosAlert.location_name || 'Location unavailable'}</p></div><button onClick={() => navigate(`/incidents/${sosAlert.incident_id}`)}>Open details</button><button onClick={() => setSosAlert(null)}>Dismiss</button></div>}{page}</div><Footer /><SafetyChatbot /></main>{reportOpen && <Modal onClose={() => setReportOpen(false)}><ReportIncident onClose={() => setReportOpen(false)} onSuccess={loadData} /></Modal>}</div>;
 }
 
-const styles = {
-  container: { minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Arial, sans-serif' },
-  header: { background: '#2196F3', color: 'white', padding: '15px 30px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
-  headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: '15px' },
-  title: { margin: 0, fontSize: '24px' },
-  emergencyBadge: { backgroundColor: '#FF1744', color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' },
-  userInfo: { display: 'flex', alignItems: 'center', gap: '15px' },
-  userAvatar: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#4CAF50', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: 'white', fontSize: '18px', fontWeight: 'bold' },
-  userDetails: { display: 'flex', flexDirection: 'column' },
-  userName: { color: 'white', fontSize: '14px', fontWeight: 'bold' },
-  userRole: { color: 'rgba(255,255,255,0.7)', fontSize: '12px', textTransform: 'capitalize' },
-  registerBtn: { backgroundColor: '#4CAF50', color: 'white', border: 'none', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer' },
-  reportBtn: { backgroundColor: '#FF9800', color: 'white', border: 'none', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer' },
-  logoutBtn: { background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer' },
-  content: { padding: '30px', maxWidth: '1200px', margin: '0 auto' },
-  stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '20px' },
-  statCard: { backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center' },
-  incidentList: { backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
-  incidentCard: { border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '10px' },
-  incidentHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
-  statusBadge: { backgroundColor: '#FF9800', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '12px' },
-  severityBadge: { backgroundColor: '#F44336', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', marginRight: '10px' },
-  incidentFooter: { display: 'flex', gap: '15px', alignItems: 'center', fontSize: '13px', color: '#666', marginTop: '8px', flexWrap: 'wrap' },
-  emptyState: { textAlign: 'center', padding: '40px', color: '#999' },
-  emptyIcon: { fontSize: '48px', display: 'block', marginBottom: '10px' },
-  emptySubText: { fontSize: '14px', marginTop: '5px' },
-  error: { background: '#ffebee', color: '#c62828', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' },
-  retryBtn: { background: '#c62828', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '4px', cursor: 'pointer' },
-  statusControl: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' },
-  statusLabel: { fontSize: '13px', fontWeight: 'bold', color: '#333' },
-  statusSelect: { padding: '6px 10px', borderRadius: '6px', border: '1px solid #ccc', minWidth: '150px' },
-  adminPanel: { backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: '24px', marginBottom: '24px' },
-  adminTitle: { marginTop: 0, marginBottom: '16px', fontSize: '24px' },
-  adminForm: { display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' },
-  adminFormGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' },
-  adminLabel: { display: 'block', marginBottom: '6px', fontWeight: '600', color: '#333' },
-  adminInput: { width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '6px', boxSizing: 'border-box' },
-  adminButton: { alignSelf: 'flex-start', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 16px', cursor: 'pointer' },
-  userTableWrap: { overflowX: 'auto' },
-  userTableTitle: { margin: '0 0 12px' },
-  userTable: { width: '100%', borderCollapse: 'collapse' },
-  userTableCell: { border: '1px solid #eee', padding: '10px', textAlign: 'left' },
-  toggleUserButton: { border: 'none', color: '#fff', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' },
-  loading: { textAlign: 'center', padding: '50px', fontSize: '18px', color: '#666' },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000
-  },
-  modalContent: {
-    maxWidth: '500px',
-    width: '90%',
-    maxHeight: '90vh',
-    overflow: 'auto'
-  }
-};
+function Page({ section, incidents, stats, officers, privileged, admin, location, navigate, changeStatus, updateResponseStatus, assignIncident, updating, assignmentIncident, setAssignmentIncident, assign, users, userLoading, userForm, setUserForm, createUser, changeUserStatus, setReportOpen }) {
+  if (section === 'emergency') return privileged ? <EmergencyCenter incidents={incidents} officers={officers} navigate={navigate} assignIncident={assignIncident} updateResponseStatus={updateResponseStatus} /> : <Restricted />;
+  if (section === 'active' || section === 'history' || section === 'sos') return <IncidentView incidents={incidents} mode={section} privileged={privileged} changeStatus={changeStatus} updating={updating} navigate={navigate} />;
+  if (section === 'details') return <Details incidents={incidents} privileged={privileged} changeStatus={changeStatus} updating={updating} navigate={navigate} />;
+  if (section === 'map') return privileged ? <MapPage incidents={incidents} officers={officers} location={location} assignmentIncident={assignmentIncident} setAssignmentIncident={setAssignmentIncident} assign={assign} /> : <Restricted />;
+  if (section === 'evidence') return <EvidencePage incidents={incidents} />;
+  if (section === 'officers') return privileged ? <OfficersPage officers={officers} incidents={incidents} /> : <Restricted />;
+  if (section === 'users') return admin ? <UsersPage users={users} loading={userLoading} form={userForm} setForm={setUserForm} createUser={createUser} changeUserStatus={changeUserStatus} /> : <Restricted />;
+  return <Overview incidents={incidents} stats={stats} officers={officers} navigate={navigate} setReportOpen={setReportOpen} />;
+}
 
-export default Dashboard;
+function EmergencyCenter({ incidents, officers, navigate, assignIncident, updateResponseStatus }) {
+  const emergencies = incidents.filter((incident) => isActive(incident) && (incident.is_sos || incident.severity === 'critical'));
+  const [selectedId, setSelectedId] = useState(emergencies[0]?.incident_id || '');
+  const [selectedOfficerId, setSelectedOfficerId] = useState('');
+  const incident = emergencies.find((item) => item.incident_id === selectedId) || emergencies[0];
+  const assigned = incident && responder(incident);
+  const available = officers.filter((officer) => officer.role === 'security' && officer.availability_status === 'available');
+
+  useEffect(() => {
+    if (!selectedId && emergencies[0]) setSelectedId(emergencies[0].incident_id);
+    if (incident?.responses?.length) setSelectedOfficerId('');
+  }, [emergencies, incident, selectedId]);
+
+  if (!incident) return <><Header eyebrow="Emergency response" title="Emergency Response Center" description="No active SOS or critical incidents require response right now." action={<button className="dashboard-button secondary" onClick={() => navigate('/sos')}>View SOS history</button>} /><Restricted message="The emergency queue is clear." /></>;
+
+  const positionAvailable = incident.latitude != null && incident.longitude != null;
+  const responseStatus = incident.responses?.[0]?.status || 'assigned';
+  const timeline = [
+    { name: 'Reported', complete: true, detail: when(incident.created_at) },
+    { name: 'Dispatched', complete: Boolean(assigned) || incident.status === 'dispatched' || incident.status === 'on_scene', detail: assigned ? 'Officer assigned' : 'Awaiting assignment' },
+    { name: 'En route', complete: responseStatus === 'responding' || incident.status === 'on_scene', detail: responseStatus === 'responding' ? 'Response in progress' : 'Awaiting response' },
+    { name: 'On scene', complete: incident.status === 'on_scene', detail: incident.status === 'on_scene' ? 'Officer arrived' : 'Pending arrival' },
+    { name: 'Resolved', complete: ['resolved', 'closed'].includes(incident.status), detail: ['resolved', 'closed'].includes(incident.status) ? 'Incident closed' : 'Pending resolution' }
+  ];
+
+  const assignSelected = async () => {
+    if (!selectedOfficerId) return;
+    await assignIncident(incident.incident_id, selectedOfficerId);
+  };
+
+  return <>
+    <Header eyebrow="Emergency response" title="Emergency Response Center" description="Prioritize SOS and critical incidents, coordinate officers, and monitor response progress." />
+    <div className="emergency-layout">
+      <aside className="dashboard-panel emergency-queue"><div className="emergency-queue-heading"><div><p className="dashboard-eyebrow">Priority queue</p><h2>Active emergencies</h2></div><span>{emergencies.length}</span></div>{emergencies.map((item) => <button className={`emergency-queue-item ${item.incident_id === incident.incident_id ? 'selected' : ''}`} key={item.incident_id} onClick={() => setSelectedId(item.incident_id)}><span className="emergency-queue-icon"><WarningAmberOutlined /></span><span><strong>{item.is_sos ? 'SOS alert' : text(item.type)}</strong><small>{item.location_name || 'Location unavailable'}</small></span><em>{text(item.status)}</em></button>)}</aside>
+      <div className="emergency-main">
+        <section className="dashboard-panel emergency-incident-card"><div className="emergency-card-top"><div><p className="dashboard-eyebrow">Active emergency</p><h2>{incident.is_sos ? 'SOS emergency alert' : text(incident.type)}</h2><span>{when(incident.created_at)}</span></div><div className="emergency-badges"><span className="emergency-tag">{incident.is_sos ? 'SOS' : 'CRITICAL'}</span><span className={`status-badge ${incident.status}`}>{text(incident.status)}</span></div></div><div className="emergency-facts"><Field name="Incident type">{text(incident.type)}</Field><Field name="Severity"><span className="severity-badge critical">{incident.severity}</span></Field><Field name="Reporter">{incident.reporter?.name || 'Campus member'}</Field><Field name="Location">{incident.location_name || 'Location unavailable'}</Field><Field name="Coordinates">{positionAvailable ? `${incident.latitude}, ${incident.longitude}` : 'Unavailable'}</Field><Field name="Evidence"><EvidencePreview photos={incident.photos} /></Field></div></section>
+        <section className="dashboard-panel emergency-assignment"><div className="panel-heading"><div><p className="dashboard-eyebrow">Assignment</p><h2>{assigned ? 'Assigned officer' : 'Find available officer'}</h2><span>{assigned ? 'Monitor the assigned response below.' : 'Available officers are restricted to authorized responders.'}</span></div></div>{assigned ? <div className="assigned-officer"><div className="officer-status responding"><i /> Responding</div><strong>{assigned.name}</strong><span>Assignment active · {responseStatus}</span></div> : available.length ? <div className="available-officers">{available.map((officer) => <button className={`available-officer ${selectedOfficerId === officer.user_id ? 'selected' : ''}`} key={officer.user_id} onClick={() => setSelectedOfficerId(officer.user_id)}><span className="officer-avatar">{officer.name?.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span><span><strong>{officer.name}</strong><small>Available · {hasValidCoordinates(officer) ? `Location available · ${distanceLabel(officer, incident)}` : 'Location unavailable · —'}</small></span></button>)}<button className="dashboard-button primary emergency-assign-button" disabled={!selectedOfficerId} onClick={assignSelected}>Assign officer</button></div> : <div className="emergency-empty">No available officers to assign.</div>}</section>
+        <section className="dashboard-panel emergency-timeline"><div className="panel-heading"><div><p className="dashboard-eyebrow">Response timeline</p><h2>Response progress</h2></div>{assigned && <select value={responseStatus === 'assigned' ? 'assigned' : responseStatus} onChange={(event) => updateResponseStatus(incident.incident_id, event.target.value)} aria-label="Update response status"><option value="assigned" disabled>Assigned</option><option value="responding">En route</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>}</div><div className="timeline-track">{timeline.map((item, index) => <div className={`timeline-step ${item.complete ? 'complete' : ''} ${index === timeline.findIndex((step) => !step.complete) ? 'current' : ''}`} key={item.name}><span className="timeline-node">{item.complete ? '✓' : index + 1}</span><div><strong>{item.name}</strong><small>{item.detail}</small></div></div>)}</div></section>
+        <section className="dashboard-panel emergency-map"><div className="panel-heading"><div><p className="dashboard-eyebrow">Live location</p><h2>Incident and officer map</h2><span>{positionAvailable ? 'Live incident location and authorized officer markers.' : 'Incident coordinates are unavailable.'}</span></div><button className="dashboard-button secondary" onClick={() => navigate(`/map?incident=${incident.incident_id}`)}>Open full map</button></div><SecurityMap incidents={[incident]} officers={officers} focusIncidentId={incident.incident_id} /></section>
+      </div>
+    </div>
+  </>;
+}
+
+function distanceLabel(officer, incident) {
+  const from = [Number(officer.latitude), Number(officer.longitude)];
+  const to = [Number(incident.latitude), Number(incident.longitude)];
+  if (from.some((value) => !Number.isFinite(value)) || to.some((value) => !Number.isFinite(value))) return '—';
+  const radians = (value) => value * Math.PI / 180;
+  const deltaLatitude = radians(to[0] - from[0]);
+  const deltaLongitude = radians(to[1] - from[1]);
+  const a = Math.sin(deltaLatitude / 2) ** 2 + Math.cos(radians(from[0])) * Math.cos(radians(to[0])) * Math.sin(deltaLongitude / 2) ** 2;
+  const meters = 2 * 6371000 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km away` : `${Math.round(meters)} m away`;
+}
+
+function Overview({ incidents, stats, officers, navigate, setReportOpen }) {
+  const critical = incidents.filter((item) => item.severity === 'critical' && isActive(item)).length;
+  return <>
+    <Header eyebrow="Campus security overview" title="Operations at a glance" description="Monitor response health without digging through the full incident history." action={<button className="dashboard-button primary" onClick={() => setReportOpen(true)}><ReportProblemOutlined /> Report incident</button>} />
+    <div className="dashboard-stats overview-stats"><Stat icon={<DescriptionOutlined />} name="Total incidents" value={stats.total ?? incidents.length} tone="total" /><Stat icon={<WarningAmberOutlined />} name="Active incidents" value={stats.active ?? incidents.filter(isActive).length} tone="active" /><Stat icon={<WarningAmberOutlined />} name="Critical active" value={critical} tone="critical" /><Stat icon={<TaskAltOutlined />} name="Resolved incidents" value={stats.resolved ?? incidents.filter((item) => item.status === 'resolved').length} tone="resolved" /><Stat icon={<PeopleAltOutlined />} name="Active officers" value={officers.filter((item) => item.availability_status !== 'offline').length} tone="officers" /><Stat icon={<WarningAmberOutlined />} name="Recent SOS" value={incidents.filter((item) => item.is_sos).length} tone="sos" /></div>
+    <section className="dashboard-tools"><div className="dashboard-panel analytics-panel"><AnalyticsCharts incidents={incidents} /></div><div className="dashboard-panel overview-brief"><div className="panel-heading"><div><p className="dashboard-eyebrow">Attention queue</p><h2>Response snapshot</h2><span>{incidents.filter(isActive).length} incident(s) still require attention.</span></div></div><div className="overview-links"><button onClick={() => navigate('/incidents/active')}>Open active incidents <span>→</span></button><button onClick={() => navigate('/sos')}>Review SOS alerts <span>→</span></button><button onClick={() => navigate('/map')}>Open live map <span>→</span></button></div></div></section>
+  </>;
+}
+
+function IncidentView({ incidents, mode, privileged, changeStatus, updating, navigate }) {
+  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState({ type: 'all', severity: 'all', status: 'all' });
+  const source = incidents.filter((item) => mode === 'sos' ? item.is_sos : mode === 'history' ? !isActive(item) : isActive(item));
+  const types = [...new Set(source.map((item) => item.type).filter(Boolean))];
+  const filtered = source.filter((item) => (!query || `${item.type} ${item.description} ${item.location_name}`.toLowerCase().includes(query.toLowerCase())) && (filters.type === 'all' || item.type === filters.type) && (filters.severity === 'all' || item.severity === filters.severity) && (filters.status === 'all' || item.status === filters.status));
+  return <section className="dashboard-panel incident-list-panel"><Header eyebrow={mode === 'sos' ? 'Emergency response' : mode === 'history' ? 'Archived response records' : 'Response queue'} title={mode === 'sos' ? 'SOS / Emergency' : mode === 'history' ? 'Incident history' : 'Active incidents'} description={mode === 'sos' ? 'Only emergency alerts are shown here.' : mode === 'history' ? 'Search and filter previous or resolved incidents.' : 'Only incidents that still require attention are shown.'} /><div className="incident-filters"><input aria-label="Search incidents" placeholder="Search incidents" value={query} onChange={(event) => setQuery(event.target.value)} />{[['type', types], ['severity', ['low', 'medium', 'high', 'critical']], ['status', STATUSES]].map(([key, options]) => <label key={key}>{text(key)}<select value={filters[key]} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}><option value="all">All</option>{options.map((option) => <option key={option}>{text(option)}</option>)}</select></label>)}</div><IncidentTable incidents={filtered} privileged={privileged} updating={updating} changeStatus={changeStatus} navigate={navigate} /></section>;
+}
+
+function IncidentTable({ incidents, privileged, updating, changeStatus, navigate }) {
+  if (!incidents.length) return <div className="dashboard-empty"><div className="empty-icon"><ShieldOutlined /></div><strong>No incidents found</strong><p>There are no records matching this view.</p></div>;
+  return <div className="incident-table-wrap"><div className="incident-table-head"><span>Incident</span><span>Severity</span><span>Status</span><span>Location / time</span><span>Reporter</span><span>Assigned officer</span><span>Evidence</span><span>Action</span></div>{incidents.map((incident) => { const officer = responder(incident); return <div className="incident-row" key={incident.incident_id}><div className="incident-main"><span className="incident-type-icon"><ReportProblemOutlined /></span><div><strong>{text(incident.type)}</strong><p>{incident.description || 'No description provided'}</p></div></div><span className={`severity-badge ${incident.severity}`}>{incident.severity}</span><span className={`status-badge ${incident.status}`}>{text(incident.status)}</span><span className="incident-meta">{incident.location_name || incident.building || 'Unknown'}<small>{when(incident.created_at)}</small></span><span className="incident-meta">{incident.reporter?.name || (incident.is_anonymous ? 'Anonymous' : 'Campus member')}</span><span className="incident-meta">{officer?.name || 'Unassigned'}</span><span className="incident-meta"><EvidencePreview photos={incident.photos} /></span><div className="incident-action"><button className="text-action" onClick={() => navigate(`/incidents/${incident.incident_id}`)}>View details</button>{privileged && <select value={incident.status} onChange={(event) => changeStatus(incident.incident_id, event.target.value)} disabled={updating === incident.incident_id} aria-label={`Update status for ${text(incident.type)}`}>{STATUSES.map((status) => <option key={status}>{text(status)}</option>)}</select>}</div></div>; })}</div>;
+}
+
+function Details({ incidents, privileged, changeStatus, updating, navigate }) {
+  const id = useLocation().pathname.split('/').pop();
+  const incident = incidents.find((item) => String(item.incident_id) === String(id));
+  if (!incident) return <Restricted message="Incident not found or no longer available." />;
+  const officer = responder(incident);
+  return <><Header eyebrow="Incident details" title={text(incident.type)} description={`${when(incident.created_at)} · ${incident.location_name || 'Location unavailable'}`} action={<button className="dashboard-button secondary" onClick={() => navigate('/incidents/active')}>Back to incidents</button>} /><div className="detail-grid"><section className="dashboard-panel detail-panel"><div className="panel-heading"><div><p className="dashboard-eyebrow">Report information</p><h2>Incident information</h2></div><span className={`severity-badge ${incident.severity}`}>{incident.severity}</span></div><dl className="detail-fields"><Field name="Status"><span className={`status-badge ${incident.status}`}>{text(incident.status)}</span></Field><Field name="Reporter">{incident.reporter?.name || (incident.is_anonymous ? 'Anonymous' : 'Campus member')}</Field><Field name="Date / time">{when(incident.created_at)}</Field><Field name="Building / room">{[incident.building, incident.room].filter(Boolean).join(' / ') || 'Not provided'}</Field><Field name="Description">{incident.description || 'No description provided'}</Field><Field name="Assigned officer">{officer?.name || 'Unassigned'}</Field><Field name="Assignment status">{incident.responses?.[0]?.status || 'Not assigned'}</Field><Field name="GPS coordinates">{incident.latitude != null && incident.longitude != null ? `${incident.latitude}, ${incident.longitude}` : 'Location unavailable'}</Field></dl>{privileged && <select className="detail-status-select" value={incident.status} onChange={(event) => changeStatus(incident.incident_id, event.target.value)} disabled={updating === incident.incident_id}>{STATUSES.map((status) => <option key={status}>{text(status)}</option>)}</select>}</section><section className="dashboard-panel detail-panel"><div className="panel-heading"><div><p className="dashboard-eyebrow">Attached media</p><h2>Evidence</h2></div></div><div className="detail-evidence"><EvidencePreview photos={incident.photos} /></div><div className="detail-timeline"><h3>Timeline</h3><p><strong>Reported</strong><span>{when(incident.created_at)}</span></p>{incident.responses?.map((response) => <p key={response.response_id}><strong>{text(response.status || 'assigned')}</strong><span>{response.responder?.name || 'Security officer'}</span></p>)}</div></section></div><section className="dashboard-panel detail-map-panel"><div className="panel-heading"><div><p className="dashboard-eyebrow">Location</p><h2>Incident map</h2></div>{incident.latitude != null && incident.longitude != null && <button className="dashboard-button secondary" onClick={() => navigate(`/map?incident=${incident.incident_id}`)}>View on Map</button>}</div><SecurityMap incidents={[incident]} officers={[]} focusIncidentId={incident.incident_id} /></section></>;
+}
+
+function MapPage({ incidents, officers, location, assignmentIncident, setAssignmentIncident, assign }) {
+  const list = incidents.filter(isActive);
+  const focus = new URLSearchParams(location.search).get('incident');
+  return <><Header eyebrow="Live operations" title="Live map" description="Active incidents, SOS alerts, and authorized officer locations." /><section className="dashboard-panel security-map-panel"><div className="map-assignment-controls"><label htmlFor="assignment-incident">Incident to assign</label><select id="assignment-incident" value={assignmentIncident} onChange={(event) => setAssignmentIncident(event.target.value)}><option value="">Select an unassigned incident</option>{list.filter((item) => !item.responses?.length).map((item) => <option key={item.incident_id} value={item.incident_id}>{text(item.type)} · {item.location_name || 'Location unavailable'}</option>)}</select></div><SecurityMap incidents={list} officers={officers} focusIncidentId={focus} onAssign={assignmentIncident ? assign : undefined} /></section></>;
+}
+
+function EvidencePage({ incidents }) {
+  return <><Header eyebrow="Incident records" title="Evidence" description="Photos attached to incident reports, resolved or active." /><section className="evidence-grid">{incidents.map((incident) => <article className="dashboard-panel evidence-card" key={incident.incident_id}><div><p className="dashboard-eyebrow">Incident #{incident.incident_id}</p><h2>{text(incident.type)}</h2><span>{when(incident.created_at)}</span></div><EvidencePreview photos={incident.photos} /></article>)}</section></>;
+}
+
+function OfficersPage({ officers, incidents }) {
+  return <><Header eyebrow="Authorized response team" title="Security officers" description="Availability, assignments, and last known location status." /><section className="dashboard-panel"><div className="officer-grid">{officers.map((officer) => { const assignment = incidents.find((incident) => incident.responses?.some((response) => response.responder_id === officer.user_id)); return <article className="officer-card" key={officer.user_id}><div className="officer-card-heading"><strong>{officer.name}</strong><span className={`officer-status ${officer.availability_status || 'offline'}`}><i />{text(officer.availability_status || 'offline')}</span></div><Field name="Current assignment">{assignment ? text(assignment.type) : 'None'}</Field><Field name="Last location update">{when(officer.location_updated_at)}</Field><Field name="Current location">{officer.latitude != null && officer.longitude != null ? 'Available on live map' : 'Unavailable'}</Field></article>; })}</div></section></>;
+}
+
+function UsersPage({ users, loading, form, setForm, createUser, changeUserStatus }) {
+  return <><Header eyebrow="Administration" title="User management" description="Manage campus access without leaving the security workspace." /><section className="dashboard-panel"><form onSubmit={createUser} className="admin-form"><div className="admin-form-grid">{[['name', 'Name', 'text'], ['email', 'Email', 'email'], ['password', 'Password', 'password']].map(([key, name, type]) => <label key={key}>{name}<input type={type} value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} required /></label>)}<label>Role<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label></div><button className="dashboard-button primary" type="submit">Create user</button></form>{loading ? <div className="inline-loading">Loading users...</div> : <div className="user-table-wrap"><table className="dashboard-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>{users.map((item) => <tr key={item.user_id}><td>{item.name}</td><td>{item.email}</td><td>{item.role}</td><td>{item.is_active ? 'Active' : 'Inactive'}</td><td><button className="table-action" onClick={() => changeUserStatus(item.user_id, !item.is_active)}>{item.is_active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody></table></div>}</section></>;
+}
+
+function Header({ eyebrow, title: heading, description, action }) { return <section className="dashboard-welcome"><div><p className="dashboard-eyebrow">{eyebrow}</p><h1>{heading}</h1><p>{description}</p></div>{action}</section>; }
+function Stat({ icon, name, value, tone }) { return <div className={`dashboard-stat-card ${tone}`}><span className="stat-icon">{icon}</span><div><span className="stat-label">{name}</span><strong>{value}</strong></div></div>; }
+function Field({ name, children }) { return <div className="detail-field"><dt>{name}</dt><dd>{children}</dd></div>; }
+function Nav({ to, icon, text: navText, count, active: selected }) { return <Link className={`dashboard-nav-link ${selected ? 'active' : ''}`} to={to}>{icon}<span className="nav-label">{navText}</span>{count !== undefined && <span>{count}</span>}</Link>; }
+function Modal({ onClose, children }) { return <div className="dashboard-modal-overlay" onClick={onClose}><div className="dashboard-modal-content" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={onClose} aria-label="Close">×</button>{children}</div></div>; }
+function Loading() { return <div className="dashboard-loading"><div className="dashboard-loading-mark"><ShieldOutlined /></div><strong>Preparing your safety view</strong><span>Connecting to campus incident services...</span><div className="dashboard-loading-bar" /></div>; }
+function Restricted({ message = 'This view is restricted to authorized security and admin users.' }) { return <div className="dashboard-empty"><div className="empty-icon"><ShieldOutlined /></div><strong>Access restricted</strong><p>{message}</p></div>; }
+function sectionTitle(section) { return ({ overview: 'Overview', active: 'Active incidents', history: 'Incident history', details: 'Incident details', emergency: 'Emergency Response Center', map: 'Live map', sos: 'SOS / Emergency', evidence: 'Evidence', officers: 'Security officers', users: 'User management' })[section] || 'Overview'; }
+function getSection(path) { if (path.startsWith('/incidents/active')) return 'active'; if (path.startsWith('/incidents/history')) return 'history'; if (path.startsWith('/incidents/')) return 'details'; return path.split('/')[1] || 'overview'; }

@@ -32,9 +32,7 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
     where: {
       role: 'security',
       is_active: true,
-      availability_status: 'available',
-      latitude: { [Op.ne]: null },
-      longitude: { [Op.ne]: null }
+      availability_status: 'available'
     },
     attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
   });
@@ -42,15 +40,20 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
   return officers
     .map((officer) => ({
       officer,
-      distanceMeters: haversineDistanceMeters(
-        incidentLatitude,
-        incidentLongitude,
-        Number(officer.latitude),
-        Number(officer.longitude)
-      )
+      distanceMeters: officer.latitude !== null && officer.longitude !== null
+        ? haversineDistanceMeters(
+          incidentLatitude,
+          incidentLongitude,
+          Number(officer.latitude),
+          Number(officer.longitude)
+        )
+        : null
     }))
-    .filter(({ distanceMeters }) => Number.isFinite(distanceMeters))
-    .sort((left, right) => left.distanceMeters - right.distanceMeters)[0] || null;
+    .sort((left, right) => {
+      if (left.distanceMeters === null) return 1;
+      if (right.distanceMeters === null) return -1;
+      return left.distanceMeters - right.distanceMeters;
+    })[0] || null;
 };
 
 const emitProtected = (io, event, payload) => {
@@ -73,7 +76,7 @@ const assignmentPayload = (incident, officer, distanceMeters, assignedBy) => ({
   incident_id: incident.incident_id,
   responder: { user_id: officer.user_id, name: officer.name, role: officer.role },
   assigned_by: assignedBy || null,
-  distance_meters: Math.round(distanceMeters),
+  distance_meters: Number.isFinite(distanceMeters) ? Math.round(distanceMeters) : null,
   status: incident.status,
   location_name: incident.location_name,
   latitude: incident.latitude,
@@ -185,7 +188,6 @@ exports.assignIncident = async (req, res) => {
     if (officer.availability_status !== 'available') {
       return res.status(409).json({ success: false, message: 'Security officer is not available' });
     }
-
     const distanceMeters = isValidCoordinate(incident.latitude, -90, 90)
       && isValidCoordinate(incident.longitude, -180, 180)
       && isValidCoordinate(officer.latitude, -90, 90)
@@ -329,6 +331,10 @@ exports.getAll = async (req, res) => {
           as: 'responder',
           attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
         }]
+      }, {
+        model: User,
+        as: 'reporter',
+        attributes: ['user_id', 'name', 'role']
       }],
       order: [['created_at', 'DESC']]
     });
