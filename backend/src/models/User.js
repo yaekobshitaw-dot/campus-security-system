@@ -28,6 +28,10 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
+  phone: {
+    type: DataTypes.STRING(32),
+    allowNull: true
+  },
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
@@ -77,7 +81,29 @@ const User = sequelize.define('User', {
 });
 
 User.prototype.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password_hash);
+  if (!candidatePassword || !this.password_hash) {
+    return false;
+  }
+
+  const storedPassword = String(this.password_hash);
+
+  if (storedPassword.startsWith('$2') || storedPassword.startsWith('$2a') || storedPassword.startsWith('$2b')) {
+    const isMatch = await bcrypt.compare(candidatePassword, storedPassword);
+    if (isMatch) {
+      return true;
+    }
+
+    return false;
+  }
+
+  const isLegacyMatch = storedPassword === String(candidatePassword);
+  if (isLegacyMatch) {
+    const newHash = await bcrypt.hash(String(candidatePassword), await bcrypt.genSalt(10));
+    await this.update({ password_hash: newHash }).catch(() => undefined);
+    return true;
+  }
+
+  return false;
 };
 
 User.prototype.toJSON = function () {

@@ -2,6 +2,7 @@
 const { Op } = require('sequelize');
 const { processIncidentPhotos } = require('../services/uploadService');
 const { sendPushNotification } = require('../services/notificationService');
+const { sendSmsMessage } = require('../services/smsService');
 
 const SUPPORTED_STATUSES = ['reported', 'investigating', 'resolved', 'dispatched', 'on_scene', 'closed'];
 const RESPONSE_STATUSES = ['responding', 'resolved', 'closed'];
@@ -13,6 +14,16 @@ const isValidCoordinate = (value, minimum, maximum) => {
   return Number.isFinite(coordinate) && coordinate >= minimum && coordinate <= maximum;
 };
 const toCoordinate = (value) => value === null || value === undefined || value === '' ? null : Number(value);
+const normalizePhotos = (photos) => {
+  if (Array.isArray(photos)) return photos.filter((photo) => typeof photo === 'string');
+  if (typeof photos !== 'string' || !photos.trim()) return [];
+  try {
+    const parsed = JSON.parse(photos);
+    return Array.isArray(parsed) ? parsed.filter((photo) => typeof photo === 'string') : [];
+  } catch (error) {
+    return [];
+  }
+};
 const haversineDistanceMeters = (latitude1, longitude1, latitude2, longitude2) => {
   const earthRadiusMeters = 6371000;
   const radians = (degrees) => degrees * Math.PI / 180;
@@ -58,6 +69,33 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
 
 const emitProtected = (io, event, payload) => {
   if (io) io.to('role:security').to('role:admin').emit(event, payload);
+};
+
+const notifySecurityBySms = async (senderUserId, recipients, message) => {
+  if (!senderUserId || !Array.isArray(recipients) || !recipients.length) {
+    return [];
+  }
+
+  const results = [];
+  for (const recipient of recipients) {
+    if (!recipient || !recipient.is_active || !recipient.phone) {
+      continue;
+    }
+
+    try {
+      const result = await sendSmsMessage({
+        senderUserId,
+        recipientUserId: recipient.user_id,
+        recipientPhone: recipient.phone,
+        message,
+      });
+      results.push({ user_id: recipient.user_id, status: result.status, sms_id: result.sms_id });
+    } catch (error) {
+      results.push({ user_id: recipient.user_id, status: 'failed', error: error.message || 'SMS delivery failed.' });
+    }
+  }
+
+  return results;
 };
 
 const assignIncidentToOfficer = async (incident, officer, assignedBy) => {
@@ -156,6 +194,7 @@ exports.createSOS = async (req, res) => {
       body: 'A critical SOS emergency alert was reported.',
       data: { incident_id: incident.incident_id, is_sos: true }
     });
+    await notifySecurityBySms(req.user.user_id, recipients, `SOS ALERT: A critical security emergency was reported at ${incident.location_name || 'campus'} for incident #${incident.incident_id}.`);
 
     return res.status(201).json({
       success: true,
@@ -305,11 +344,12 @@ exports.create = async (req, res) => {
       body: `${incident.type} incident reported${incident.location_name ? ` at ${incident.location_name}` : ''}`,
       data: { incident_id: incident.incident_id, is_sos: incident.is_sos }
     });
+    await notifySecurityBySms(req.user.user_id, recipients, `${incident.is_sos ? 'SOS ALERT' : 'INCIDENT ALERT'}: ${incident.type} reported${incident.location_name ? ` at ${incident.location_name}` : ''}.`);
 
     res.status(201).json({
       success: true,
       message: 'Incident reported successfully',
-      data: incident
+      data: { ...incident.toJSON(), photos: normalizePhotos(incident.photos) }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to report incident' });
@@ -339,7 +379,10 @@ exports.getAll = async (req, res) => {
       order: [['created_at', 'DESC']]
     });
 
-    return res.status(200).json({ success: true, data: incidents });
+    return res.status(200).json({
+      success: true,
+      data: incidents.map((incident) => ({ ...incident.toJSON(), photos: normalizePhotos(incident.photos) }))
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to fetch incidents' });
   }
@@ -408,6 +451,7 @@ exports.updateStatus = async (req, res) => {
       body: `${incident.type} incident is now ${status}`,
       data: { incident_id: incident.incident_id, status }
     });
+    await notifySecurityBySms(req.user.user_id, recipients, `INCIDENT UPDATE: ${incident.type} is now ${status}.`);
 
     return res.status(200).json({
       success: true,

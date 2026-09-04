@@ -41,3 +41,6 @@ mobile-app/.expo/
 .DS_Store
 Thumbs.db   # Vite cache
 .vite/
+# Local secrets and database backups
+backend/tmp-token.txt
+campus_security_backup.sql

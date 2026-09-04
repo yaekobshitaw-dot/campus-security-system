@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getLocation } from '../services/location';
+import { colors } from './ui';
 
 const LocationPicker = ({ onLocationSelect }) => {
   const [location, setLocation] = useState(null);
@@ -24,7 +25,7 @@ const LocationPicker = ({ onLocationSelect }) => {
     <View>
       <Text style={styles.label}>Location</Text>
       <TouchableOpacity style={styles.button} onPress={handleUseCurrentLocation} disabled={loading}>
-        {loading ? <ActivityIndicator color="#156B5D" /> : <Icon name="my-location" size={20} color="#156B5D" />}
+        {loading ? <ActivityIndicator color={colors.teal} /> : <Icon name="my-location" size={21} color={colors.teal} />}
         <Text style={styles.buttonText}>{loading ? 'Finding your location...' : location ? 'Location attached' : 'Use current location'}</Text>
       </TouchableOpacity>
       {location && <Text style={styles.coordinates}>GPS: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</Text>}
@@ -34,10 +35,10 @@ const LocationPicker = ({ onLocationSelect }) => {
 };
 
 const styles = StyleSheet.create({
-  label: { marginBottom: 8, color: '#333', fontSize: 16, fontWeight: '600' },
-  button: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderColor: '#BBDDD3', borderRadius: 8, backgroundColor: '#F2FAF7' },
-  buttonText: { color: '#156B5D', fontSize: 14, fontWeight: '600' },
-  coordinates: { marginTop: 8, color: '#156B5D', fontSize: 12 },
+  label: { marginBottom: 8, color: colors.ink, fontSize: 16, fontWeight: '700' },
+  button: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, paddingHorizontal: 15, borderWidth: 1, borderColor: '#A9D3C6', borderRadius: 12, backgroundColor: colors.tealSoft },
+  buttonText: { color: colors.teal, fontSize: 14, fontWeight: '700' },
+  coordinates: { marginTop: 8, color: colors.teal, fontSize: 12 },
   hint: { marginTop: 8, color: '#777', fontSize: 12 },
 });
 

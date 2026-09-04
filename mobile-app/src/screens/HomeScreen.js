@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
 import { IncidentCard } from '../components/IncidentCard';
 import { SOSButton } from '../components/SOSButton';
+import { colors } from '../components/ui';
 import { socketService } from '../services/socket';
 import { addAlert, fetchAlerts } from '../store/alertSlice';
 import { fetchRecentIncidents, updateIncident } from '../store/incidentSlice';
@@ -129,7 +130,7 @@ const HomeScreen = () => {
             onPress={() => navigation.navigate('Profile')}
             style={styles.profileButton}
           >
-            <Icon name="account-circle" size={44} color="#2196F3" />
+            <Icon name="account-circle" size={42} color={colors.teal} />
           </TouchableOpacity>
         </View>
 
@@ -159,7 +160,7 @@ const HomeScreen = () => {
             onPress={navigateToReport}
           >
             <View style={[styles.actionIcon, styles.reportIcon]}>
-              <Icon name="report" size={28} color="#2196F3" />
+              <Icon name="add-alert" size={27} color={colors.blue} />
             </View>
             <Text style={styles.actionText}>Report</Text>
           </TouchableOpacity>
@@ -169,7 +170,7 @@ const HomeScreen = () => {
             onPress={navigateToAlerts}
           >
             <View style={[styles.actionIcon, styles.alertIcon]}>
-              <Icon name="notifications-active" size={28} color="#FF5722" />
+              <Icon name="notifications-active" size={27} color={colors.teal} />
             </View>
             <Text style={styles.actionText}>Alerts</Text>
           </TouchableOpacity>
@@ -179,7 +180,7 @@ const HomeScreen = () => {
             onPress={() => navigation.navigate('SafetyResources')}
           >
             <View style={[styles.actionIcon, styles.resourceIcon]}>
-              <Icon name="info" size={28} color="#4CAF50" />
+              <Icon name="health-and-safety" size={27} color={colors.teal} />
             </View>
             <Text style={styles.actionText}>Safety Info</Text>
           </TouchableOpacity>
@@ -189,7 +190,7 @@ const HomeScreen = () => {
             onPress={() => navigation.navigate('EmergencyContacts')}
           >
             <View style={[styles.actionIcon, styles.contactIcon]}>
-              <Icon name="contacts" size={28} color="#9C27B0" />
+              <Icon name="contacts" size={27} color={colors.teal} />
             </View>
             <Text style={styles.actionText}>Contacts</Text>
           </TouchableOpacity>
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE'
   },
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 16,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -351,7 +352,10 @@ const styles = StyleSheet.create({
   },
   alertBadge: {
     position: 'relative',
-    padding: 4
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 48,
+    minHeight: 48
   },
   unreadBadge: {
     position: 'absolute',
@@ -376,8 +380,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingVertical: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -387,7 +393,10 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     alignItems: 'center',
-    paddingHorizontal: 8
+    minWidth: 62,
+    minHeight: 76,
+    paddingHorizontal: 8,
+    justifyContent: 'center'
   },
   actionIcon: {
     width: 52,

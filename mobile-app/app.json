@@ -1,9 +1,15 @@
 {
   "name": "CampusSecurity",
+  "jsEngine": "hermes",
+  "icon": "./src/assets/images/campus-security-icon.png",
   "plugins": [
     "expo-notifications"
   ],
   "android": {
+    "adaptiveIcon": {
+      "foregroundImage": "./src/assets/images/campus-security-icon-foreground.png",
+      "backgroundColor": "#102B36"
+    },
     "permissions": [
       "ACCESS_FINE_LOCATION",
       "ACCESS_COARSE_LOCATION",

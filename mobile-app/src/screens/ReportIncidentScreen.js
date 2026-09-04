@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
 import LocationPicker from '../components/LocationPicker';
 import PhotoUploader from '../components/PhotoUploader';
+import { colors } from '../components/ui';
 import api from '../services/api';
 import { socketService } from '../services/socket';
 import { addIncident } from '../store/incidentSlice';
@@ -58,12 +59,16 @@ const ReportIncidentScreen = () => {
   ];
 
   const handleSubmit = async () => {
+    if (submitting) {
+      return;
+    }
+
     if (!formData.type) {
       Alert.alert('Error', 'Please select an incident type');
       return;
     }
 
-    if (!formData.description) {
+    if (!formData.description || !formData.description.trim()) {
       Alert.alert('Error', 'Please provide a description');
       return;
     }
@@ -72,22 +77,42 @@ const ReportIncidentScreen = () => {
       setSubmitting(true);
 
       const payload = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'photos') payload.append(key, value == null ? '' : String(value));
+      const safeEntries = {
+        ...formData,
+        description: formData.description.trim(),
+        location_name: formData.location_name || '',
+        building: formData.building || '',
+        room: formData.room || '',
+        floor: formData.floor || '',
+      };
+
+      Object.entries(safeEntries).forEach(([key, value]) => {
+        if (key === 'photos') return;
+        if (value == null || value === '') {
+          payload.append(key, '');
+          return;
+        }
+        payload.append(key, String(value));
       });
-      formData.photos.forEach((photo, index) => {
+
+      const validPhotos = (formData.photos || []).filter((photo) => photo?.uri);
+      validPhotos.forEach((photo, index) => {
         payload.append('photos', {
           uri: photo.uri,
-          name: photo.fileName || `incident-photo-${index}.jpg`,
-          type: photo.mimeType || 'image/jpeg',
+          name: photo.fileName || photo.name || `incident-photo-${index}.jpg`,
+          type: photo.mimeType || photo.type || 'image/jpeg',
         });
       });
 
       const response = await api.post('/incidents', payload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
       });
-      const incident = response.data.data;
 
+      if (!response?.data?.success) {
+        throw new Error(response?.data?.message || 'Failed to report incident. Please try again.');
+      }
+
+      const incident = response.data.data;
       socketService.emitEvent('new-incident', incident);
       dispatch(addIncident(incident));
 
@@ -97,11 +122,8 @@ const ReportIncidentScreen = () => {
         [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
       );
     } catch (error) {
-      console.error('Error reporting incident:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to report incident. Please try again.'
-      );
+      const message = error?.response?.data?.message || error?.message || 'Failed to report incident. Please try again.';
+      Alert.alert('Error', message);
     } finally {
       setSubmitting(false);
     }
@@ -270,7 +292,7 @@ const ReportIncidentScreen = () => {
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>Submit Report</Text>
+            <><Icon name="send" size={20} color="#FFFFFF" /><Text style={styles.submitButtonText}>Submit report</Text></>
           )}
         </TouchableOpacity>
       </View>
@@ -294,12 +316,15 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   backButton: {
-    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
+    minHeight: 44,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.ink,
     marginLeft: 12,
   },
   section: {
@@ -317,17 +342,17 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
   },
   optionButton: {
+    minHeight: 44,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: colors.line,
     margin: 4,
     backgroundColor: '#FFFFFF',
   },
   optionSelected: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
+    backgroundColor: colors.teal,
+    borderColor: colors.teal,
   },
   optionText: {
     fontSize: 14,
@@ -341,18 +366,18 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   severityButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    minHeight: 44,
+    paddingHorizontal: 15,
+    borderRadius: 12,
     marginRight: 8,
     marginBottom: 4,
     backgroundColor: '#E0E0E0',
   },
   severitySelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.teal,
   },
   severityCritical: {
-    backgroundColor: '#9C27B0',
+    backgroundColor: '#6B5CA5',
   },
   severityHigh: {
     backgroundColor: '#F44336',
@@ -372,7 +397,7 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#DDD',
     paddingHorizontal: 12,
@@ -382,7 +407,7 @@ const styles = StyleSheet.create({
   },
   descriptionInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#DDD',
     paddingHorizontal: 12,
@@ -407,7 +432,8 @@ const styles = StyleSheet.create({
   anonymousButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    minHeight: 44,
+    paddingHorizontal: 8,
   },
   anonymousText: {
     fontSize: 16,
@@ -415,9 +441,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   submitButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 14,
+    backgroundColor: colors.teal,
+    borderRadius: 13,
+    minHeight: 54,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     marginTop: 8,
   },

@@ -21,9 +21,9 @@ const ProfileScreen = () => {
       <View style={styles.header}><Text style={styles.title}>Profile</Text></View>
       <View style={styles.profileCard}><View style={styles.avatar}><Text style={styles.avatarText}>{(user?.name || 'U').charAt(0).toUpperCase()}</Text></View><Text style={styles.name}>{user?.name || 'Campus member'}</Text><Text style={styles.email}>{user?.email || ''}</Text><View style={styles.role}><Text style={styles.roleText}>{user?.role || 'student'}</Text></View></View>
       <View style={styles.menu}>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EmergencyContacts')}><Icon name="contacts" size={22} color="#156B5D" /><View><Text style={styles.menuTitle}>Emergency contacts</Text><Text style={styles.menuSub}>Manage people you can call quickly</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Incidents')}><Icon name="assignment" size={22} color="#156B5D" /><View><Text style={styles.menuTitle}>My incidents</Text><Text style={styles.menuSub}>Review submitted reports and statuses</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('SafetyResources')}><Icon name="info-outline" size={22} color="#156B5D" /><View><Text style={styles.menuTitle}>Safety resources</Text><Text style={styles.menuSub}>Guidance for common campus situations</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('EmergencyContacts')}><Icon name="contacts" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>Emergency contacts</Text><Text style={styles.menuSub}>Manage people you can call quickly</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('Incidents')}><Icon name="assignment" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>My incidents</Text><Text style={styles.menuSub}>Review submitted reports and statuses</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('SafetyResources')}><Icon name="health-and-safety" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>Safety resources</Text><Text style={styles.menuSub}>Guidance for common campus situations</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.logout} onPress={handleLogout}><Icon name="logout" size={20} color="#C44E3B" /><Text style={styles.logoutText}>Sign out</Text></TouchableOpacity>
     </View>
@@ -42,10 +42,11 @@ const styles = StyleSheet.create({
   role: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 15, backgroundColor: 'rgba(168,223,195,.18)' },
   roleText: { color: '#A8DFC3', fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   menu: { marginTop: 18, borderRadius: 12, backgroundColor: '#FFF' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 17, borderBottomWidth: 1, borderBottomColor: '#EDF1F0' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 70, padding: 14, borderBottomWidth: 1, borderBottomColor: '#EDF1F0' },
+  menuCopy: { flex: 1 },
   menuTitle: { color: '#24343A', fontSize: 14, fontWeight: '600' },
   menuSub: { marginTop: 3, color: '#7A8789', fontSize: 11 },
-  logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 22, padding: 14, borderWidth: 1, borderColor: '#F0C5BC', borderRadius: 8, backgroundColor: '#FFF5F2' },
+  logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, marginTop: 22, paddingHorizontal: 14, borderWidth: 1, borderColor: '#F0C5BC', borderRadius: 12, backgroundColor: '#FFF5F2' },
   logoutText: { color: '#C44E3B', fontSize: 14, fontWeight: '700' },
 });
 

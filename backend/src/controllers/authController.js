@@ -12,6 +12,7 @@ if (!jwtSecret) {
 }
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+const normalizePhone = (phone) => String(phone || '').trim();
 const normalizeRole = (role, allowedRoles, fallbackRole = 'student') => {
   const normalized = String(role || '').trim().toLowerCase();
   return allowedRoles.includes(normalized) ? normalized : fallbackRole;
@@ -34,12 +35,17 @@ const generateToken = (user) => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone } = req.body;
     const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phone);
     const requestedRole = String(role || '').trim().toLowerCase();
 
     if (!name || !normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+    }
+
+    if (normalizedPhone && !/^\+?[0-9\s()-]{7,20}$/.test(normalizedPhone)) {
+      return res.status(400).json({ success: false, message: 'Phone number is invalid.' });
     }
 
     if (!PUBLIC_REGISTRATION_ROLES.includes(requestedRole) && requestedRole !== '') {
@@ -63,6 +69,7 @@ exports.register = async (req, res) => {
       name: name.trim(),
       email: normalizedEmail,
       password_hash: password,
+      phone: normalizedPhone || null,
       role: allowedRole
     });
 
@@ -84,12 +91,17 @@ exports.register = async (req, res) => {
 
 exports.createUserByAdmin = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone } = req.body;
     const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phone);
     const requestedRole = String(role || '').trim().toLowerCase();
 
     if (!name || !normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+    }
+
+    if (normalizedPhone && !/^\+?[0-9\s()-]{7,20}$/.test(normalizedPhone)) {
+      return res.status(400).json({ success: false, message: 'Phone number is invalid.' });
     }
 
     if (password.length < 8) {
@@ -112,6 +124,7 @@ exports.createUserByAdmin = async (req, res) => {
       name: name.trim(),
       email: normalizedEmail,
       password_hash: password,
+      phone: normalizedPhone || null,
       role: requestedRole
     });
 
@@ -183,7 +196,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    const isValid = await bcrypt.compare(password, user.password_hash);
+    const isValid = await user.comparePassword(password);
     if (!isValid) {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }

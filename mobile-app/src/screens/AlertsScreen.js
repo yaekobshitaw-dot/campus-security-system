@@ -12,6 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
+import { colors } from '../components/ui';
 import { fetchAlerts, markAlertAsRead, markAllAlertsAsRead } from '../store/alertSlice';
 
 const AlertsScreen = () => {
@@ -57,7 +58,8 @@ const AlertsScreen = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Alerts</Text>
-        <TouchableOpacity onPress={() => dispatch(markAllAlertsAsRead())}>
+        <TouchableOpacity style={styles.markAllButton} onPress={() => dispatch(markAllAlertsAsRead())}>
+          <Icon name="done-all" size={18} color={colors.teal} />
           <Text style={styles.markAllRead}>Mark All Read</Text>
         </TouchableOpacity>
       </View>
@@ -86,7 +88,7 @@ const AlertsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -94,20 +96,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: colors.line,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.ink,
   },
   markAllRead: {
-    color: '#2196F3',
+    color: colors.teal,
     fontSize: 14,
     fontWeight: '500',
   },
+  markAllButton: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8 },
   listContainer: {
     padding: 16,
     paddingBottom: 30,

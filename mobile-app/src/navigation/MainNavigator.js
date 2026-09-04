@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { colors } from '../components/ui';
 import AlertDetailScreen from '../screens/AlertDetailScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import EmergencyContactsScreen from '../screens/EmergencyContactsScreen';
@@ -18,7 +19,7 @@ const Stack = createStackNavigator();
 const HomeStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="HomeRoot" component={HomeScreen} />
       <Stack.Screen name="SOS" component={SOSScreen} />
       <Stack.Screen name="SafetyResources" component={SafetyResourcesScreen} />
       <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
@@ -32,7 +33,7 @@ const HomeStack = () => {
 const AlertStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Alerts" component={AlertsScreen} />
+      <Stack.Screen name="AlertsRoot" component={AlertsScreen} />
       <Stack.Screen name="AlertDetail" component={AlertDetailScreen} />
     </Stack.Navigator>
   );
@@ -41,7 +42,7 @@ const AlertStack = () => {
 const ReportStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Report" component={ReportIncidentScreen} />
+      <Stack.Screen name="ReportRoot" component={ReportIncidentScreen} />
     </Stack.Navigator>
   );
 };
@@ -49,7 +50,7 @@ const ReportStack = () => {
 const ProfileStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="ProfileRoot" component={ProfileScreen} />
       <Stack.Screen name="SafetyResources" component={SafetyResourcesScreen} />
       <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
       <Stack.Screen name="Incidents" component={IncidentsScreen} />
@@ -69,30 +70,30 @@ const MainNavigator = () => {
           } else if (route.name === 'Alerts') {
             iconName = focused ? 'notifications' : 'notifications-none';
           } else if (route.name === 'Report') {
-            iconName = focused ? 'report' : 'report';
+            iconName = focused ? 'add-alert' : 'outlined-flag';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2196F3',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: colors.teal,
+        tabBarInactiveTintColor: '#829196',
         tabBarStyle: {
           paddingBottom: 5,
           paddingTop: 5,
           height: 60,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
-          borderTopColor: '#EEEEEE',
+          borderTopColor: colors.line,
           elevation: 8,
-          shadowColor: '#000',
+          shadowColor: colors.ink,
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.1,
           shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: '600',
         },
         headerShown: false,
       })}

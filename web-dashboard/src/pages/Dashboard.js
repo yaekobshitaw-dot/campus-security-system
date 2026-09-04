@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
 import { AnalyticsCharts } from '../components/dashboard/AnalyticsCharts';
 import { IncidentList } from '../components/dashboard/IncidentList';
-import { IncidentMap } from '../components/dashboard/IncidentMap';
+import { IncidentMap } from '../components/dashboard/IncidentMap.jsx';
 import { StatsCards } from '../components/dashboard/StatsCards';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { webSocket } from '../services/socket';
@@ -65,7 +65,7 @@ export const Dashboard = () => {
 
     webSocket.on('new-incident', (incident) => {
       dispatch(addIncident(incident));
-      
+
       // Show notification
       showNotification('New Incident Reported', {
         message: `${incident.type.toUpperCase()} - ${incident.location_name || 'Campus'}`,
@@ -87,8 +87,8 @@ export const Dashboard = () => {
     setNotification({
       title,
       message: data.message,
-      severity: data.severity === 'critical' ? 'error' : 
-                data.severity === 'high' ? 'warning' : 'info'
+      severity: data.severity === 'critical' ? 'error' :
+        data.severity === 'high' ? 'warning' : 'info'
     });
 
     // Browser notification
@@ -103,7 +103,7 @@ export const Dashboard = () => {
 
     // Toast notification
     const toastFn = data.severity === 'critical' ? toast.error :
-                    data.severity === 'high' ? toast.warning : toast.info;
+      data.severity === 'high' ? toast.warning : toast.info;
     toastFn(`${title}: ${data.message}`, {
       duration: 10000,
       icon: '🚨'
@@ -113,7 +113,7 @@ export const Dashboard = () => {
   const playAlertSound = () => {
     try {
       const audio = new Audio('/alert.mp3');
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     } catch (error) {
       console.log('Could not play alert sound');
     }
@@ -138,13 +138,13 @@ export const Dashboard = () => {
     <DashboardLayout>
       {/* Connection Status */}
       <Box sx={{ mb: 3 }}>
-        <Alert 
+        <Alert
           severity={socketConnected ? 'success' : 'warning'}
           variant="outlined"
           icon={socketConnected ? '✅' : '⚠️'}
         >
-          {socketConnected 
-            ? '🟢 Live connection active - receiving real-time updates' 
+          {socketConnected
+            ? '🟢 Live connection active - receiving real-time updates'
             : '🔴 Connection lost - showing cached data'}
         </Alert>
       </Box>
@@ -157,9 +157,9 @@ export const Dashboard = () => {
       {/* Map and Incidents */}
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper 
-            sx={{ 
-              p: 2, 
+          <Paper
+            sx={{
+              p: 2,
               height: 500,
               overflow: 'hidden',
               position: 'relative'
@@ -173,7 +173,7 @@ export const Dashboard = () => {
                 </Typography>
               )}
             </Typography>
-            <IncidentMap 
+            <IncidentMap
               incidents={incidents || []}
               height={400}
               showResponders={true}
@@ -190,7 +190,7 @@ export const Dashboard = () => {
                 ({incidents?.filter(i => i.status !== 'resolved').length || 0})
               </Typography>
             </Typography>
-            <IncidentList 
+            <IncidentList
               incidents={incidents?.filter(i => i.status !== 'resolved') || []}
               onIncidentClick={(incident) => {
                 // Navigate to incident detail
@@ -223,8 +223,8 @@ export const Dashboard = () => {
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseNotification} 
+        <Alert
+          onClose={handleCloseNotification}
           severity={notification?.severity || 'info'}
           variant="filled"
           sx={{ minWidth: 300 }}

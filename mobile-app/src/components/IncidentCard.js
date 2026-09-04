@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { colors } from './ui';
 
 const relativeTime = (value) => {
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
@@ -30,11 +31,11 @@ export const IncidentCard = ({ incident, onPress }) => {
 
   const getTypeColor = (type) => {
     const colors = {
-      fire: '#FF5722',
+      fire: '#D9573F',
       medical: '#F44336',
-      security_threat: '#9C27B0',
+      security_threat: '#6B5CA5',
       suspicious_package: '#FF9800',
-      flood: '#2196F3',
+      flood: '#2D6CDF',
       power_outage: '#607D8B',
       missing_person: '#FF5722',
       natural_disaster: '#FF5722',
@@ -115,7 +116,7 @@ export const IncidentCard = ({ incident, onPress }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 12,
     shadowColor: '#000',
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: colors.line,
   },
   header: {
     flexDirection: 'row',

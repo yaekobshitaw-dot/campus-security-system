@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { colors } from './ui';
 
 const relativeTime = (value) => {
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
@@ -28,7 +29,7 @@ export const AlertCard = ({ alert, onPress }) => {
     >
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Icon name={getChannelIcon(alert.channel)} size={20} color="#2196F3" />
+          <Icon name={getChannelIcon(alert.channel)} size={21} color={colors.teal} />
         </View>
         <Text style={styles.title} numberOfLines={1}>
           {alert.title}
@@ -57,7 +58,7 @@ export const AlertCard = ({ alert, onPress }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     shadowColor: '#000',
@@ -66,11 +67,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: colors.line,
   },
   unread: {
-    backgroundColor: '#F0F7FF',
-    borderColor: '#2196F3',
+    backgroundColor: colors.tealSoft,
+    borderColor: '#9BCFC0',
   },
   header: {
     flexDirection: 'row',
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.teal,
     marginLeft: 8,
   },
   message: {
@@ -109,14 +110,14 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   channelBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.tealSoft,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
   channelText: {
     fontSize: 10,
-    color: '#2196F3',
+    color: colors.teal,
     textTransform: 'uppercase',
     fontWeight: '500',
   },

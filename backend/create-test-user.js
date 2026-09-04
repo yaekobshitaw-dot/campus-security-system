@@ -12,10 +12,14 @@ const getArgument = (name) => {
   return argumentIndex >= 0 ? process.argv[argumentIndex + 1] : undefined;
 };
 
-const cleanup = process.argv.includes('--cleanup');
-const email = getArgument('--email') || process.env.TEST_USER_EMAIL;
-const password = getArgument('--password') || process.env.TEST_USER_PASSWORD;
-const role = (getArgument('--role') || process.env.TEST_USER_ROLE || 'student').trim().toLowerCase();
+const cleanup = process.argv.includes('--cleanup') || process.argv.includes('--reset');
+const requestedRole = (getArgument('--role') || process.env.TEST_USER_ROLE || '').trim().toLowerCase();
+const effectiveRole = requestedRole || (process.argv.includes('--admin') ? 'admin' : 'student');
+const defaultEmail = effectiveRole === 'admin' ? 'campussecure.dev.admin@example.com' : 'campussecure.dev.student@example.com';
+const defaultPassword = effectiveRole === 'admin' ? 'DevAdminPass123!' : 'DevTestPass123!';
+const email = getArgument('--email') || process.env.TEST_USER_EMAIL || defaultEmail;
+const password = getArgument('--password') || process.env.TEST_USER_PASSWORD || defaultPassword;
+const role = effectiveRole;
 
 async function createTestUser() {
   const connection = await mysql.createConnection({
@@ -34,7 +38,9 @@ async function createTestUser() {
 
       const [result] = await connection.execute('DELETE FROM users WHERE email = ?', [email]);
       console.log(result.affectedRows ? `✓ Removed development test user ${email}` : `✓ No development test user found for ${email}`);
-      return;
+      if (result.affectedRows === 0) {
+        console.log('ℹ Continuing with creation using the same development email.');
+      }
     }
 
     if (!email || !password || password.length < 8) {
@@ -49,8 +55,8 @@ async function createTestUser() {
       [email]
     );
 
-    if (rows.length > 0) {
-      throw new Error(`A user already exists for ${email}; no existing user was modified.`);
+    if (rows.length > 0 && !cleanup) {
+      throw new Error(`A user already exists for ${email}; no existing user was modified. Re-run with --reset to recreate it.`);
     } else {
       const userId = uuidv4();
       const salt = await bcrypt.genSalt(10);
@@ -61,7 +67,7 @@ async function createTestUser() {
         [userId, email, `CampusSecure Development ${role} Test`, role, passwordHash, true]
       );
 
-      console.log(`✓ Created new user`);
+      console.log(`✓ Created new ${role} user`);
       console.log(`  email: ${email}`);
       console.log(`  user_id: ${userId}`);
       console.log(`  role: ${role}`);

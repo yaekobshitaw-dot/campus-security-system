@@ -23,6 +23,6 @@ cd ..
 
 echo "✅ All services started!"
 
-echo "📱 Web Dashboard: http://localhost:3000"
-echo "🔌 Backend API: http://localhost:5000"
-echo "🤖 ML Service: http://localhost:5001"
+echo "📱 Web Dashboard: http://localhost:5173"
+echo "🔌 Backend API: http://localhost:5002"
+echo "🤖 ML Service: http://localhost:8001"

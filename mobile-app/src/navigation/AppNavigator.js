@@ -6,7 +6,11 @@ import MainNavigator from './MainNavigator';
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
-  const { isAuthenticated } = useSelector(state => state.auth);
+  const { isAuthenticated, isHydrated } = useSelector((state) => state.auth);
+
+  if (!isHydrated) {
+    return null;
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

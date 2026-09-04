@@ -49,17 +49,17 @@ const RegisterScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      await dispatch(register({ 
-        name, 
-        email, 
-        password, 
-        phone, 
-        student_id 
+      await dispatch(register({
+        name,
+        email,
+        password,
+        phone,
+        student_id
       })).unwrap();
-      
+
       Alert.alert(
         'Registration Successful',
-        'Please check your email to verify your account',
+        'Your account has been created. You can now sign in with your email and password.',
         [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
       );
     } catch (error) {
@@ -183,7 +183,7 @@ const RegisterScreen = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.registerButtonText}>Register</Text>
+              <><Icon name="person-add" size={20} color="#FFFFFF" /><Text style={styles.registerButtonText}>Create account</Text></>
             )}
           </TouchableOpacity>
 
@@ -248,12 +248,18 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   eyeIcon: {
-    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
+    minHeight: 44,
   },
   registerButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 14,
+    backgroundColor: '#116B5F',
+    borderRadius: 12,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 20,

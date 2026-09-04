@@ -40,20 +40,21 @@ const EmergencyContactsScreen = ({ navigation }) => {
     else Alert.alert('Calling unavailable', 'This device cannot place phone calls.');
   };
 
-  return <View style={styles.container}><View style={styles.header}><TouchableOpacity onPress={() => navigation.goBack()}><Icon name="arrow-back" size={24} color="#24343A" /></TouchableOpacity><Text style={styles.title}>Emergency contacts</Text></View><Text style={styles.intro}>Store trusted contacts locally on this device for quick calling. Do not add sensitive information.</Text><View style={styles.form}><TextInput style={styles.input} placeholder="Contact name" value={name} onChangeText={setName} /><TextInput style={styles.input} placeholder="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /><TouchableOpacity style={styles.addButton} onPress={addContact}><Icon name="add" size={20} color="#FFF" /><Text style={styles.addText}>Add contact</Text></TouchableOpacity></View><View style={styles.list}>{contacts.map((contact) => <View style={styles.contact} key={contact.id}><View style={styles.contactIcon}><Icon name="person" size={20} color="#156B5D" /></View><View style={styles.contactCopy}><Text style={styles.contactName}>{contact.name}</Text><Text style={styles.contactPhone}>{contact.phone}</Text></View><TouchableOpacity onPress={() => callContact(contact)} accessibilityLabel={`Call ${contact.name}`}><Icon name="call" size={21} color="#156B5D" /></TouchableOpacity><TouchableOpacity onPress={() => removeContact(contact)} accessibilityLabel={`Remove ${contact.name}`}><Icon name="delete-outline" size={21} color="#C44E3B" /></TouchableOpacity></View>)}</View></View>;
+  return <View style={styles.container}><View style={styles.header}><TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back"><Icon name="arrow-back" size={22} color="#24343A" /></TouchableOpacity><Text style={styles.title}>Emergency contacts</Text></View><Text style={styles.intro}>Store trusted contacts locally on this device for quick calling. Do not add sensitive information.</Text><View style={styles.form}><TextInput style={styles.input} placeholder="Contact name" value={name} onChangeText={setName} /><TextInput style={styles.input} placeholder="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /><TouchableOpacity style={styles.addButton} onPress={addContact}><Icon name="person-add" size={20} color="#FFF" /><Text style={styles.addText}>Add contact</Text></TouchableOpacity></View><View style={styles.list}>{contacts.map((contact) => <View style={styles.contact} key={contact.id}><View style={styles.contactIcon}><Icon name="person" size={20} color="#116B5F" /></View><View style={styles.contactCopy}><Text style={styles.contactName}>{contact.name}</Text><Text style={styles.contactPhone}>{contact.phone}</Text></View><TouchableOpacity style={styles.iconButton} onPress={() => callContact(contact)} accessibilityLabel={`Call ${contact.name}`}><Icon name="call" size={21} color="#116B5F" /></TouchableOpacity><TouchableOpacity style={styles.iconButton} onPress={() => removeContact(contact)} accessibilityLabel={`Remove ${contact.name}`}><Icon name="delete-outline" size={21} color="#C44E3B" /></TouchableOpacity></View>)}</View></View>;
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#F5F8F7' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: 8, paddingBottom: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 20 },
+  iconButton: { alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 },
   title: { color: '#24343A', fontSize: 22, fontWeight: '700' },
   intro: { marginBottom: 18, color: '#6E7C7F', fontSize: 13, lineHeight: 19 },
   form: { gap: 10, padding: 16, borderRadius: 10, backgroundColor: '#FFF' },
   input: { padding: 12, borderWidth: 1, borderColor: '#DCE8E4', borderRadius: 7, backgroundColor: '#FBFCFC' },
-  addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 13, borderRadius: 7, backgroundColor: '#156B5D' },
+  addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 50, paddingHorizontal: 13, borderRadius: 12, backgroundColor: '#116B5F', elevation: 2 },
   addText: { color: '#FFF', fontWeight: '700' },
   list: { marginTop: 18, gap: 9 },
-  contact: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14, borderRadius: 9, backgroundColor: '#FFF' },
+  contact: { flexDirection: 'row', alignItems: 'center', gap: 11, minHeight: 70, padding: 14, borderRadius: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DCE9E5', elevation: 1 },
   contactIcon: { alignItems: 'center', justifyContent: 'center', width: 35, height: 35, borderRadius: 18, backgroundColor: '#E2F3EA' },
   contactCopy: { flex: 1 },
   contactName: { color: '#24343A', fontWeight: '700' },

@@ -21,10 +21,7 @@ router.get('/security-officers', authorize('security', 'admin'), async (req, res
   }
 });
 
-router.patch('/me/location', async (req, res) => {
-  if (req.user.role !== 'security') {
-    return res.status(403).json({ success: false, message: 'Only security officers can update location' });
-  }
+router.patch('/me/location', authorize('security', 'admin'), async (req, res) => {
   const { latitude, longitude, availability_status: availabilityStatus } = req.body || {};
   const validCoordinate = (value, minimum, maximum) => value !== null && value !== undefined
     && Number.isFinite(Number(value)) && Number(value) >= minimum && Number(value) <= maximum;

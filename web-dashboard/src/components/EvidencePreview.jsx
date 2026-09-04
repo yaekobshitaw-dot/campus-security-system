@@ -12,6 +12,7 @@ const mediaUrl = (reference) => {
 
   try {
     const url = new URL(reference);
+    if (url.pathname.startsWith('/uploads/')) return `${backendOrigin()}${url.pathname}`;
     return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
   } catch {
     return null;
@@ -19,14 +20,22 @@ const mediaUrl = (reference) => {
 };
 
 export default function EvidencePreview({ photos }) {
-  const references = Array.isArray(photos) ? photos.map(mediaUrl).filter(Boolean) : [];
+  const photoReferences = Array.isArray(photos) ? photos : typeof photos === 'string' ? (() => {
+    try {
+      const parsed = JSON.parse(photos);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })() : [];
+  const references = photoReferences.map(mediaUrl).filter(Boolean);
   const [failedUrls, setFailedUrls] = useState([]);
   const availableReferences = references.filter((url) => !failedUrls.includes(url));
 
   if (!availableReferences.length) return <small>No evidence</small>;
 
   return (
-    <div className="evidence-preview" onClick={(event) => event.stopPropagation()}>
+    <div className="flex h-[72px] w-[110px] items-center gap-1 overflow-hidden rounded-lg border border-slate-200 bg-slate-50" onClick={(event) => event.stopPropagation()}>
       {availableReferences.map((url) => <EvidenceImage key={url} url={url} onError={() => setFailedUrls((current) => [...current, url])} />)}
     </div>
   );
@@ -38,7 +47,6 @@ function EvidenceImage({ url, onError }) {
 
   return (
     <div className="evidence-item">
-      {state === 'loading' && <span>Loading evidence...</span>}
       {state !== 'error' && <a href={url} target="_blank" rel="noreferrer" aria-label={`Open ${filename}`}><img src={url} alt={filename} loading="lazy" onLoad={() => setState('loaded')} onError={() => { setState('error'); onError(); }} /></a>}
       <small>{filename}</small>
     </div>

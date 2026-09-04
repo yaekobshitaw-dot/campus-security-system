@@ -13,9 +13,26 @@ Notifications.setNotificationHandler({
 });
 
 const getProjectId = () => Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+let pushRegistrationWarningShown = false;
+
+const shouldSkipPushRegistration = () => {
+  const projectId = getProjectId();
+  if (!projectId) {
+    if (!pushRegistrationWarningShown) {
+      console.info('Push notifications are unavailable because this Android build is not configured with an Expo project ID.');
+      pushRegistrationWarningShown = true;
+    }
+    return true;
+  }
+  return false;
+};
 
 export const registerForPushNotifications = async () => {
   try {
+    if (shouldSkipPushRegistration()) {
+      return null;
+    }
+
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Campus Security alerts',
@@ -40,8 +57,19 @@ export const registerForPushNotifications = async () => {
     await api.put('/users/push-token', { push_token: token });
     return token;
   } catch (error) {
-    // Push registration is optional; login and incident reporting must still work.
-    console.warn('Push notification registration unavailable:', error.message);
+    const message = error?.message || '';
+    if (message.includes('Default FirebaseApp is not initialized') || message.includes('FirebaseApp') || message.includes('google-services')) {
+      if (!pushRegistrationWarningShown) {
+        console.info('Push notifications are unavailable on this Android build because native Firebase is not configured.');
+        pushRegistrationWarningShown = true;
+      }
+      return null;
+    }
+
+    if (!pushRegistrationWarningShown) {
+      console.warn('Push notification registration unavailable:', message);
+      pushRegistrationWarningShown = true;
+    }
     return null;
   }
 };

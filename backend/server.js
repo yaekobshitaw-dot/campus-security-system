@@ -13,11 +13,29 @@ const { verifyEmailTransporter } = require('./src/services/emailService');
 
 const PORT = Number(process.env.PORT) || 5002;
 
+async function ensureTableColumn(tableName, columnName, definition) {
+  const [columns] = await sequelize.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND table_name = :tableName
+       AND column_name = :columnName`,
+    { replacements: { tableName, columnName } }
+  );
+
+  if (Number(columns[0].count) === 0) {
+    await sequelize.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+}
+
 async function startServer() {
   try {
     await sequelize.authenticate();
     console.log('✅ MySQL connected');
     await sequelize.sync();
+    await ensureTableColumn('users', 'phone', 'VARCHAR(32) NULL');
+    await ensureTableColumn('sms_messages', 'provider_message_id', 'VARCHAR(255) NULL');
+    await ensureTableColumn('sms_messages', 'provider_response', 'TEXT NULL');
     await ensureIncidentSchema();
     console.log('✅ Incident schema verified');
     console.log('✅ Database synced');

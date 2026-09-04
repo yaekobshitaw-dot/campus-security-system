@@ -1,11 +1,17 @@
 ﻿const rateLimit = require('express-rate-limit');
 
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
-  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000;
+const message = 'Too many requests from this IP, please try again later.';
+
+const createLimiter = (max) => rateLimit({
+  windowMs,
+  max,
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests from this IP, please try again later.'
+  message
 });
 
-module.exports = limiter;
+const apiLimiter = createLimiter(parseInt(process.env.API_RATE_LIMIT_MAX, 10) || 1000);
+const authLimiter = createLimiter(parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10) || parseInt(process.env.RATE_LIMIT_MAX, 10) || 100);
+
+module.exports = { apiLimiter, authLimiter };

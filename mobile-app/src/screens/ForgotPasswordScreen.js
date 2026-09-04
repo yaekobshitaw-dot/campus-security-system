@@ -26,7 +26,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
     try {
       setLoading(true);
       await api.post('/auth/forgot-password', { email });
-      
+
       Alert.alert(
         'Email Sent',
         'Password reset instructions have been sent to your email',
@@ -78,7 +78,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.resetButtonText}>Send Reset Instructions</Text>
+              <><Icon name="mark-email-read" size={20} color="#FFFFFF" /><Text style={styles.resetButtonText}>Send Reset Instructions</Text></>
             )}
           </TouchableOpacity>
 
@@ -105,6 +105,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
     marginBottom: 20,
   },
   header: {
@@ -144,9 +147,12 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   resetButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 14,
+    backgroundColor: '#116B5F',
+    borderRadius: 12,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     marginBottom: 16,
   },

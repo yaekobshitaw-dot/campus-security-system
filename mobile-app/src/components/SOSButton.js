@@ -83,7 +83,7 @@ export const SOSButton = ({ onPress, disabled = false }) => {
           activeOpacity={0.8}
         >
           <View style={styles.iconContainer}>
-            <Icon name="warning" size={40} color="#FFFFFF" />
+            <Icon name="emergency" size={40} color="#FFFFFF" />
           </View>
           <Text style={styles.sosText}>SOS</Text>
           <Text style={styles.subText}>Emergency</Text>
@@ -105,15 +105,15 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#FF1744',
+    backgroundColor: '#D64545',
     opacity: 0.3,
   },
   sosContainer: {
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: '#FF1744',
-    shadowColor: '#FF1744',
+    backgroundColor: '#D64545',
+    shadowColor: '#D64545',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,

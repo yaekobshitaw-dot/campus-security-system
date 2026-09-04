@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import api from '../services/api';
+import api, { clearAuthSession } from '../services/api';
 import { registerForPushNotifications } from '../services/notification';
 import { socketService } from '../services/socket';
 
@@ -8,6 +8,7 @@ const initialState = {
   user: null,
   token: null,
   isAuthenticated: false,
+  isHydrated: false,
   loading: false,
   error: null,
 };
@@ -29,6 +30,28 @@ const getLoginErrorMessage = (error) => {
   return 'Login failed. Please check your email and password.';
 };
 
+export const hydrateAuth = createAsyncThunk(
+  'auth/hydrateAuth',
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const storedUser = await AsyncStorage.getItem('user');
+
+      if (!token || !storedUser) {
+        await clearAuthSession();
+        return { user: null, token: null };
+      }
+
+      const user = JSON.parse(storedUser);
+      await socketService.connect();
+      return { user, token };
+    } catch (error) {
+      await clearAuthSession();
+      return rejectWithValue('Session could not be restored. Please sign in again.');
+    }
+  }
+);
+
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials, { rejectWithValue }) => {
@@ -41,6 +64,14 @@ export const login = createAsyncThunk(
       await registerForPushNotifications();
       return { user, token: accessToken };
     } catch (error) {
+      if (__DEV__) {
+        console.warn('Login request failed:', {
+          message: error?.message,
+          code: error?.code,
+          status: error?.response?.status,
+          url: error?.config?.url,
+        });
+      }
       return rejectWithValue(getLoginErrorMessage(error));
     }
   }
@@ -62,12 +93,18 @@ export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
-      await api.post('/auth/logout');
-      await AsyncStorage.clear();
-      socketService.disconnect();
+      const token = await AsyncStorage.getItem('auth_token');
+      if (token) {
+        try {
+          await api.post('/auth/logout');
+        } catch (error) {
+          console.warn('Server logout failed; clearing local session anyway.', error?.message || error);
+        }
+      }
+      await clearAuthSession();
       return null;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Logout failed');
+      return rejectWithValue(error.message || 'Logout failed');
     }
   }
 );
@@ -86,12 +123,32 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(hydrateAuth.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(hydrateAuth.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isHydrated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.isAuthenticated = Boolean(action.payload.token && action.payload.user);
+      })
+      .addCase(hydrateAuth.rejected, (state, action) => {
+        state.loading = false;
+        state.isHydrated = true;
+        state.user = null;
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = action.payload || 'Session could not be restored.';
+      })
       .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
+        state.isHydrated = true;
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
@@ -115,6 +172,17 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.isAuthenticated = false;
+        state.isHydrated = true;
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(logout.rejected, (state, action) => {
+        state.user = null;
+        state.token = null;
+        state.isAuthenticated = false;
+        state.isHydrated = true;
+        state.loading = false;
+        state.error = action.payload || 'Logout failed';
       });
   },
 });

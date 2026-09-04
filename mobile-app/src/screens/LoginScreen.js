@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
+import CampusSecurityBackground from '../assets/images/campus-security-background.svg';
 import { login } from '../store/authSlice';
 
 const LoginScreen = ({ navigation }) => {
@@ -40,19 +42,24 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar barStyle="light-content" backgroundColor="#102B36" />
+      <CampusSecurityBackground style={styles.backgroundImage} width="100%" height="100%" />
+      <View style={styles.overlay} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
+          <View style={styles.brandMark}><Icon name="shield" size={30} color="#B8E8D7" /></View>
           <Text style={styles.title}>Campus Security</Text>
           <Text style={styles.subtitle}>Emergency Response System</Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Icon name="email" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="email" size={20} color="#B8E8D7" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Email"
@@ -60,48 +67,39 @@ const LoginScreen = ({ navigation }) => {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              placeholderTextColor="#999"
+              placeholderTextColor="#9BB1B2"
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="lock" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="lock" size={20} color="#B8E8D7" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
-              placeholderTextColor="#999"
+              placeholderTextColor="#9BB1B2"
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             >
-              <Icon
-                name={showPassword ? 'visibility' : 'visibility-off'}
-                size={20}
-                color="#666"
-              />
+              <Icon name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#B8E8D7" />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            style={styles.forgotPassword}
-          >
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotPassword}>
+            <Icon name="help-outline" size={17} color="#B8E8D7" />
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.loginButton, loading && styles.disabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
+          <TouchableOpacity style={[styles.loginButton, loading && styles.disabled]} onPress={handleLogin} disabled={loading}>
             {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#102B36" />
             ) : (
-              <Text style={styles.loginButtonText}>Login</Text>
+              <><Icon name="login" size={20} color="#102B36" /><Text style={styles.loginButtonText}>Sign in</Text></>
             )}
           </TouchableOpacity>
 
@@ -118,91 +116,27 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 8,
-  },
-  form: {
-    width: '100%',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    marginBottom: 16,
-    paddingHorizontal: 12,
-    backgroundColor: '#F5F5F5',
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#333',
-  },
-  eyeIcon: {
-    padding: 8,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    color: '#2196F3',
-    fontSize: 14,
-  },
-  loginButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  disabled: {
-    opacity: 0.7,
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  registerText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  registerLink: {
-    color: '#2196F3',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#102B36' },
+  backgroundImage: { ...StyleSheet.absoluteFillObject },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4, 19, 27, 0.62)' },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center', minHeight: '100%', paddingHorizontal: 20, paddingVertical: 32 },
+  header: { alignItems: 'center', marginBottom: 28 },
+  brandMark: { alignItems: 'center', justifyContent: 'center', width: 58, height: 58, marginBottom: 14, borderRadius: 18, backgroundColor: 'rgba(184, 232, 215, 0.14)', borderWidth: 1, borderColor: 'rgba(184, 232, 215, 0.35)' },
+  title: { color: '#FFFFFF', fontSize: 28, fontWeight: 'bold' },
+  subtitle: { marginTop: 8, color: '#C7D9D7', fontSize: 16 },
+  form: { width: '100%', padding: 18, borderWidth: 1, borderColor: 'rgba(184, 232, 215, 0.28)', borderRadius: 18, backgroundColor: 'rgba(8, 29, 38, 0.76)' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginBottom: 16, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(184, 232, 215, 0.35)', borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, paddingVertical: 14, color: '#FFFFFF', fontSize: 16 },
+  eyeIcon: { alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 },
+  forgotPassword: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 5, minHeight: 44, marginBottom: 18 },
+  forgotPasswordText: { color: '#B8E8D7', fontSize: 14 },
+  loginButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 54, marginBottom: 20, paddingHorizontal: 16, borderRadius: 13, backgroundColor: '#B8E8D7' },
+  disabled: { opacity: 0.7 },
+  loginButtonText: { color: '#102B36', fontSize: 16, fontWeight: '700' },
+  registerContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
+  registerText: { color: '#C7D9D7', fontSize: 14 },
+  registerLink: { color: '#B8E8D7', fontSize: 14, fontWeight: '700' },
 });
 
 export default LoginScreen;

@@ -73,6 +73,7 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+hermesEnabled = (findProperty('expo.jsEngine') ?: "hermes") == "hermes"
 
 android {
     ndkVersion "23.1.7779620"

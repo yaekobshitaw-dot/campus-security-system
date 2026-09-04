@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import io from 'socket.io-client';
+import { getSocketBaseUrl } from '../config/server';
 
 class LocalEventEmitter {
   constructor() {
@@ -24,17 +24,7 @@ class LocalEventEmitter {
   }
 }
 
-const getWSURL = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      return 'ws://10.0.2.2:5002';
-    }
-    return 'ws://172.16.76.145:5002';
-  }
-  return 'wss://api.yourdomain.com';
-};
-
-const WS_URL = process.env.WS_URL || getWSURL();
+const WS_URL = process.env.WS_URL || getSocketBaseUrl();
 
 class SocketService extends LocalEventEmitter {
   constructor() {
@@ -60,12 +50,12 @@ class SocketService extends LocalEventEmitter {
 
       this.socket = io(WS_URL, {
         auth: { token },
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
         timeout: 20000,
-        forceNew: true,
       });
 
       this.socket.on('connect', () => {
@@ -82,8 +72,10 @@ class SocketService extends LocalEventEmitter {
       });
 
       this.socket.on('connect_error', (error) => {
-        console.log('Socket connection error:', error.message || error);
         this.reconnectAttempts++;
+        if (this.reconnectAttempts <= 3 || this.reconnectAttempts % 5 === 0) {
+          console.warn('Socket connection error:', error.message || error);
+        }
         this.emit('error', error);
       });
 

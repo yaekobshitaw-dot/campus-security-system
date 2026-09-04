@@ -14,7 +14,7 @@ module.exports = {
   refreshTokenSecret: requiredSecret('REFRESH_TOKEN_SECRET'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
-  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
-  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
-  twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER || ''
+  lomisendApiKey: process.env.LOMISEND_API_KEY || '',
+  lomisendSenderId: process.env.LOMISEND_SENDER_ID || '',
+  lomisendTimeoutMs: Number(process.env.LOMISEND_TIMEOUT_MS || 20000),
 };

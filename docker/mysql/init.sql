@@ -13,8 +13,25 @@ CREATE TABLE IF NOT EXISTS users (
     longitude DECIMAL(10,7) NULL,
     location_updated_at DATETIME NULL,
     availability_status ENUM('available', 'responding', 'busy', 'offline') NOT NULL DEFAULT 'offline',
+    phone VARCHAR(32) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sms_messages (
+    sms_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    sender_user_id CHAR(36) NOT NULL,
+    recipient_user_id CHAR(36) NOT NULL,
+    recipient_phone VARCHAR(32) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('queued', 'sent', 'failed', 'delivered', 'expired') NOT NULL DEFAULT 'queued',
+    provider VARCHAR(50) NULL,
+    error_message TEXT NULL,
+    sent_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_user_id) REFERENCES users(user_id),
+    FOREIGN KEY (recipient_user_id) REFERENCES users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS incidents (
