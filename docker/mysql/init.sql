@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS sms_messages (
 
 CREATE TABLE IF NOT EXISTS incidents (
     incident_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-    user_id CHAR(36) NOT NULL,
+    user_id CHAR(36) NULL,
     type VARCHAR(50) NOT NULL,
     description TEXT,
     severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     location_name VARCHAR(255),
     building VARCHAR(100),
     room VARCHAR(50),
+    floor VARCHAR(20),
     latitude DECIMAL(10,7) NULL,
     longitude DECIMAL(10,7) NULL,
     is_anonymous BOOLEAN DEFAULT FALSE,

@@ -1,7 +1,7 @@
 const SERVER_CONFIG = {
   development: {
-    apiBaseUrl: 'http://172.16.76.145:5002/api',
-    socketBaseUrl: 'http://172.16.76.145:5002',
+    apiBaseUrl: 'http://localhost:5000/api',
+    socketBaseUrl: 'http://localhost:5000',
   },
   production: {
     apiBaseUrl: 'https://api.yourdomain.com/api',

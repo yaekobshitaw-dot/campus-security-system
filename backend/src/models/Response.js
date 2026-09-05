@@ -35,8 +35,8 @@ Response.init({
   modelName: 'Response',
   tableName: 'responses',
   timestamps: true,
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  createdAt: 'created_at',
+  updatedAt: 'updated_at'
 });
 
 module.exports = Response;

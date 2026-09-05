@@ -2,10 +2,12 @@ import {
   DashboardOutlined,
   DescriptionOutlined,
   EventNoteOutlined,
+  InsightsOutlined,
   Logout,
   MapOutlined,
   PeopleAltOutlined,
   ReportProblemOutlined,
+  SmsOutlined,
   ShieldOutlined,
   TaskAltOutlined,
   WarningAmberOutlined,
@@ -158,6 +160,9 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
     { label: 'Evidence', path: '/evidence', icon: DescriptionOutlined },
     { label: 'Security officers', path: '/officers', icon: PeopleAltOutlined },
     { label: 'User management', path: '/users', icon: PeopleAltOutlined },
+    { label: 'Analytics', path: '/analytics', icon: InsightsOutlined },
+    { label: 'Responses', path: '/responses', icon: SmsOutlined },
+    { label: 'Alerts and zones', path: '/alerts', icon: WarningAmberOutlined },
   ];
 
   return (
@@ -183,7 +188,11 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
         </p>
 
         <nav className="mt-3 space-y-1">
-          {items.map(({ label, path, icon: Icon, badge }) => {
+          {items.filter(({ path }) => {
+            if (path === '/users') return user?.role === 'admin';
+            if (['/analytics', '/responses'].includes(path)) return ['security', 'admin'].includes(user?.role);
+            return true;
+          }).map(({ label, path, icon: Icon, badge }) => {
             const normalized = path.replace('/', '').split('/')[0] || 'overview';
             const isActive = activeSection === normalized || (activeSection === 'overview' && path === '/dashboard');
 

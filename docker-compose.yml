@@ -37,7 +37,7 @@
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?Set REFRESH_TOKEN_SECRET in the environment}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:5001}
     ports:
-      - "5000:5000"
+      - "5000:5002"
     depends_on:
       mysql:
         condition: service_healthy
@@ -66,8 +66,8 @@
     container_name: campus-dashboard
     restart: unless-stopped
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://backend:5002/api}
-      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://backend:5002/api}
+      VITE_API_URL: ${VITE_API_URL:-/api}
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
     ports:
       - "5173:5173"
     depends_on:

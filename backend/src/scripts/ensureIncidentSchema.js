@@ -5,6 +5,7 @@ const requiredColumns = {
   latitude: 'DECIMAL(10,7) NULL',
   longitude: 'DECIMAL(10,7) NULL',
   is_sos: 'BOOLEAN NOT NULL DEFAULT FALSE',
+  floor: 'VARCHAR(20) NULL',
   photos: 'JSON NULL'
 };
 
@@ -34,6 +35,30 @@ async function ensureIncidentSchema() {
 
   const columns = await sequelize.query('SHOW COLUMNS FROM incidents', { type: QueryTypes.SELECT });
   const existingColumns = new Set(columns.map((column) => column.Field));
+
+  const userIdColumn = columns.find((column) => column.Field === 'user_id');
+  const userForeignKeys = await sequelize.query(
+    `SELECT CONSTRAINT_NAME
+     FROM information_schema.KEY_COLUMN_USAGE
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'incidents'
+       AND COLUMN_NAME = 'user_id'
+       AND REFERENCED_TABLE_NAME = 'users'`,
+    { type: QueryTypes.SELECT }
+  );
+  if (userIdColumn && (userIdColumn.Null === 'NO' || userForeignKeys.length === 0)) {
+    for (const foreignKey of userForeignKeys) {
+      const constraintName = String(foreignKey.CONSTRAINT_NAME).replace(/`/g, '');
+      await sequelize.query(`ALTER TABLE incidents DROP FOREIGN KEY \`${constraintName}\``);
+    }
+    await sequelize.query(
+      'ALTER TABLE incidents MODIFY COLUMN user_id CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL'
+    );
+    const constraintName = String(userForeignKeys[0]?.CONSTRAINT_NAME || 'incidents_ibfk_1').replace(/`/g, '');
+    await sequelize.query(
+      `ALTER TABLE incidents ADD CONSTRAINT \`${constraintName}\` FOREIGN KEY (user_id) REFERENCES users(user_id)`
+    );
+  }
 
   const statusColumn = columns.find((column) => column.Field === 'status');
   if (statusColumn && !statusColumn.Type.includes("'investigating'")) {

@@ -41,6 +41,10 @@ const Incident = sequelize.define('Incident', {
     type: DataTypes.STRING(50),
     allowNull: true
   },
+  floor: {
+    type: DataTypes.STRING(20),
+    allowNull: true
+  },
   latitude: {
     type: DataTypes.DECIMAL(10, 7),
     allowNull: true

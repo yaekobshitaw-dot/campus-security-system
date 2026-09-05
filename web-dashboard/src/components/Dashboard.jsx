@@ -13,6 +13,9 @@ import api from '../services/api';
 import { DashboardLayout, IncidentTable } from './DashboardLayout';
 import EvidencePreview from './EvidencePreview';
 import IncidentMap from './dashboard/IncidentMap.jsx';
+import IncidentCreateModal from './IncidentCreateModal';
+import { AlertsZonesPage, AnalyticsPage, ResponsesPage } from './OperationsPages';
+import { readAlert } from '../services/operations';
 
 const activeStatuses = ['reported', 'investigating', 'dispatched', 'on_scene'];
 const metricToneClasses = {
@@ -25,6 +28,7 @@ const routes = {
   '/dashboard': 'overview', '/incidents/active': 'incidents', '/incidents/history': 'history',
   '/map': 'map', '/sos': 'sos', '/emergency': 'emergency', '/evidence': 'evidence',
   '/officers': 'officers', '/users': 'users',
+  '/analytics': 'analytics', '/responses': 'responses', '/alerts': 'alerts', '/zones': 'zones',
 };
 const titleCase = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
@@ -61,20 +65,41 @@ function Dashboard() {
   const [incidents, setIncidents] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [users, setUsers] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [responses, setResponses] = useState([]);
+  const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [operationsLoading, setOperationsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [operationsError, setOperationsError] = useState('');
   const [selected, setSelected] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const section = routes[location.pathname] || (location.pathname.startsWith('/incidents/') ? 'detail' : 'overview');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const canViewOperations = ['security', 'admin'].includes(user.role);
+  const canViewUsers = user.role === 'admin';
 
   const loadData = useCallback(async () => {
     setLoading(true); setError('');
-    const results = await Promise.allSettled([api.get('/incidents'), api.get('/alerts'), api.get('/users/all')]);
-    const [incidentResult, alertResult, userResult] = results;
+    const requests = [api.get('/incidents'), api.get('/alerts'), api.get('/zones')];
+    if (canViewUsers) requests.push(api.get('/users/all'));
+    if (canViewOperations) requests.push(api.get('/analytics'), api.get('/responses'));
+    const results = await Promise.allSettled(requests);
+    const [incidentResult, alertResult, zoneResult] = results;
+    const userResult = canViewUsers ? results[3] : null;
+    const analyticsResult = canViewOperations ? (canViewUsers ? results[4] : results[3]) : null;
+    const responseResult = canViewOperations ? (canViewUsers ? results[5] : results[4]) : null;
     if (incidentResult.status === 'fulfilled') setIncidents(incidentResult.value.data?.data || []);
     if (alertResult.status === 'fulfilled') setAlerts(alertResult.value.data?.data || []);
-    if (userResult.status === 'fulfilled') setUsers(userResult.value.data?.data || []);
+    if (userResult?.status === 'fulfilled') setUsers(userResult.value.data?.data || []);
+    if (zoneResult.status === 'fulfilled') setZones(zoneResult.value.data?.data || []);
+    if (analyticsResult?.status === 'fulfilled') setAnalytics(analyticsResult.value.data?.data || null);
+    if (responseResult?.status === 'fulfilled') setResponses(responseResult.value.data?.data || []);
     if (results.every((result) => result.status === 'rejected')) setError('The dashboard API did not return data. Check the backend connection and your session.');
     else if (results.some((result) => result.status === 'rejected')) setError('Some dashboard data could not be loaded. Available data remains visible.');
+    const operationsResults = [zoneResult, analyticsResult, responseResult].filter(Boolean);
+    setOperationsError(operationsResults.every((result) => result.status === 'rejected') ? 'Operations data is unavailable for this account.' : '');
+    setOperationsLoading(false);
     setLoading(false);
   }, []);
   useEffect(() => { loadData(); }, [loadData]);
@@ -84,13 +109,14 @@ function Dashboard() {
   const critical = useMemo(() => incidents.filter((incident) => incident.is_sos || incident.severity === 'critical'), [incidents]);
   const officers = useMemo(() => users.filter((user) => user.role === 'security'), [users]);
   const detail = selected || incidents.find((incident) => incident.incident_id === location.pathname.split('/').pop());
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const view = (incident) => { setSelected(incident); navigate(`/incidents/${incident.incident_id}`); };
   const changeStatus = async (incident, status) => { try { await api.patch(`/incidents/${incident.incident_id}/status`, { status }); await loadData(); } catch (requestError) { setError(requestError.response?.data?.message || 'Unable to update incident status.'); } };
   const refreshButton = <button type="button" className="dashboard-button" onClick={loadData}><Refresh className="text-[18px]" /> Refresh</button>;
+  const createButton = <button type="button" className="dashboard-button primary" onClick={() => setCreateOpen(true)}>Report incident</button>;
+  const markAlertRead = async (alertId) => { try { await readAlert(alertId); await loadData(); } catch (requestError) { setOperationsError(requestError.response?.data?.message || 'Unable to mark alert as read.'); } };
 
-  const table = (items, title, description) => <><Heading eyebrow="Incident operations" title={title} description={description} action={refreshButton} /><IncidentTable incidents={items} loading={loading} onView={view} onStatusChange={changeStatus} /></>;
-  const overview = <div className="space-y-6"><Heading eyebrow="Security operations center" title="Campus overview" description="Live incident, response, and system activity from the campus security service." action={refreshButton} /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={ReportProblemOutlined} label="Total incidents" value={stats.total} /><Metric icon={WarningAmberOutlined} label="Active incidents" value={stats.active} tone="amber" /><Metric icon={ShieldOutlined} label="Critical / SOS" value={critical.length} tone="red" /><Metric icon={PeopleAltOutlined} label="Security officers" value={officers.length} tone="teal" /></div><div className="grid gap-6 xl:grid-cols-5"><section className="dashboard-panel xl:col-span-3"><Heading eyebrow="Priority queue" title="Recent incidents" action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>View queue</button>} />{active.length ? <IncidentTable incidents={active.slice(0, 6)} onView={view} onStatusChange={changeStatus} /> : <EmptyState title="No active incidents" message="The response queue is clear." />}</section><section className="dashboard-panel xl:col-span-2"><Heading eyebrow="Communications" title="Latest alerts" />{alerts.length ? <div className="space-y-3">{alerts.slice(0, 5).map((alert) => <div key={alert.alert_id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div className="flex gap-3"><WarningAmberOutlined className="text-amber-600" /><div><p className="text-sm font-bold text-slate-900">{alert.title || titleCase(alert.type)}</p><p className="mt-1 text-xs leading-5 text-slate-600">{alert.message || 'No additional details.'}</p></div></div></div>)}</div> : <EmptyState title="No alerts" message="There are no alerts to display." />}</section></div></div>;
+  const table = (items, title, description) => <><Heading eyebrow="Incident operations" title={title} description={description} action={<div className="flex gap-2">{createButton}{refreshButton}</div>} /><IncidentTable incidents={items} loading={loading} onView={view} onStatusChange={changeStatus} /></>;
+  const overview = <div className="space-y-6"><Heading eyebrow="Security operations center" title="Campus overview" description="Live incident, response, and system activity from the campus security service." action={<div className="flex gap-2">{createButton}{refreshButton}</div>} /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={ReportProblemOutlined} label="Total incidents" value={stats.total} /><Metric icon={WarningAmberOutlined} label="Active incidents" value={stats.active} tone="amber" /><Metric icon={ShieldOutlined} label="Critical / SOS" value={critical.length} tone="red" /><Metric icon={PeopleAltOutlined} label="Security officers" value={officers.length} tone="teal" /></div><div className="grid gap-6 xl:grid-cols-5"><section className="dashboard-panel xl:col-span-3"><Heading eyebrow="Priority queue" title="Recent incidents" action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>View queue</button>} />{active.length ? <IncidentTable incidents={active.slice(0, 6)} onView={view} onStatusChange={changeStatus} /> : <EmptyState title="No active incidents" message="The response queue is clear." />}</section><section className="dashboard-panel xl:col-span-2"><Heading eyebrow="Communications" title="Latest alerts" />{alerts.length ? <div className="space-y-3">{alerts.slice(0, 5).map((alert) => <div key={alert.alert_id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div className="flex gap-3"><WarningAmberOutlined className="text-amber-600" /><div><p className="text-sm font-bold text-slate-900">{alert.title || titleCase(alert.type)}</p><p className="mt-1 text-xs leading-5 text-slate-600">{alert.message || 'No additional details.'}</p></div></div></div>)}</div> : <EmptyState title="No alerts" message="There are no alerts to display." />}</section></div></div>;
   const map = <div className="space-y-6"><Heading eyebrow="Geospatial response" title="Live incident map" description="Locations returned by the incident service." />{loading ? <div className="inline-loading">Loading map data...</div> : <IncidentMap incidents={incidents} height={520} />}</div>;
   const detailView = detail ? <div className="space-y-6"><Heading eyebrow="Incident record" title={titleCase(detail.type)} action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/history')}>Back to incidents</button>} /><div className="detail-grid"><section className="detail-panel"><div className="flex flex-wrap gap-2"><span className={`severity-badge ${detail.severity}`}>{detail.severity}</span><span className={`status-badge ${detail.status}`}>{titleCase(detail.status)}</span>{detail.is_sos && <span className="status-badge border-red-200 bg-red-100 text-red-700">SOS</span>}</div><dl className="mt-6 grid gap-5 sm:grid-cols-2"><Detail label="Description" value={detail.description || 'No description provided'} wide /><Detail label="Location" value={detail.location_name || detail.building || 'Unavailable'} /><Detail label="Reporter" value={detail.reporter?.name || (detail.is_anonymous ? 'Anonymous' : 'Campus member')} /><Detail label="Reported" value={new Date(detail.created_at).toLocaleString()} /></dl></section><section className="detail-panel"><Heading eyebrow="Evidence" title="Attached photos" />{detail.photos?.length ? <EvidencePreview photos={detail.photos} /> : <EmptyState title="No evidence attached" message="This incident has no uploaded photos." />}</section></div></div> : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
   const evidence = <div className="space-y-6"><Heading eyebrow="Evidence review" title="Incident evidence" description="Uploaded photos associated with incident records." />{incidents.filter((incident) => incident.photos?.length).length ? <div className="evidence-grid">{incidents.filter((incident) => incident.photos?.length).map((incident) => <article className="evidence-card" key={incident.incident_id}><div className="mb-4 flex items-start justify-between"><div><h3 className="font-black text-slate-900">{titleCase(incident.type)}</h3><p className="mt-1 text-xs text-slate-500">{incident.location_name || 'Campus'}</p></div><button type="button" className="table-action" onClick={() => view(incident)}>View</button></div><EvidencePreview photos={incident.photos} /></article>)}</div> : <EmptyState title="No evidence available" message="Photo evidence will appear here when incidents include uploads." />}</div>;
@@ -105,7 +131,10 @@ function Dashboard() {
   if (section === 'evidence') content = evidence;
   if (section === 'users') content = usersView;
   if (section === 'officers') content = officersView;
-  return <DashboardLayout user={user} activeSection={section} incidents={incidents} onNavigate={navigate} onLogout={() => { localStorage.clear(); navigate('/login'); }}><div className="mx-auto max-w-[1500px]">{error && <div className="dashboard-error" role="alert"><ErrorOutline /><div><strong>Dashboard data issue</strong><p>{error}</p></div><button type="button" className="table-action" onClick={loadData}>Retry</button></div>}{content}</div></DashboardLayout>;
+  if (section === 'analytics') content = <AnalyticsPage analytics={analytics} loading={operationsLoading} error={operationsError} onRefresh={loadData} />;
+  if (section === 'responses') content = <ResponsesPage responses={responses} loading={operationsLoading} error={operationsError} onRefresh={loadData} />;
+  if (section === 'alerts' || section === 'zones') content = <AlertsZonesPage alerts={alerts} zones={zones} loading={operationsLoading} error={operationsError} onRefresh={loadData} onReadAlert={markAlertRead} canManage={['admin', 'security'].includes(user.role)} />;
+  return <DashboardLayout user={user} activeSection={section} incidents={incidents} onNavigate={navigate} onLogout={() => { localStorage.clear(); navigate('/login'); }}><div className="mx-auto max-w-[1500px]">{error && <div className="dashboard-error" role="alert"><ErrorOutline /><div><strong>Dashboard data issue</strong><p>{error}</p></div><button type="button" className="table-action" onClick={loadData}>Retry</button></div>}{content}</div>{createOpen && <IncidentCreateModal onClose={() => setCreateOpen(false)} onSuccess={async () => { setCreateOpen(false); await loadData(); }} />}</DashboardLayout>;
 }
 
 const Detail = ({ label, value, wide }) => <div className={wide ? 'sm:col-span-2' : ''}><dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</dt><dd className="mt-2 text-sm leading-6 text-slate-800">{value}</dd></div>;
