@@ -1,5 +1,5 @@
 ﻿:root {
-  --primary: #5ab0ff;
+  --primary: #38ac5f;
   --primary-strong: #2991ef;
   --primary-dark: #0b1730;
   --accent: #8ce7c8;
@@ -9,7 +9,7 @@
   --surface-strong: #f9fafb;
   --surface-soft: #f3f6f9;
   --surface-elevated: #ffffff;
-  --page-bg: #f5f7fa;
+  --page-bg: #faf5f88c;
   --page-bg-strong: #f1f4f8;
   --shell-bg: #f3f5f7;
   --sidebar-bg: #f8fafc;

@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
-import { useEffect } from 'react';
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
+import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, useMap } from 'react-leaflet';
 
 const CAMPUS_CENTER = [9.0227, 38.7468];
 const statusColor = {
@@ -18,6 +18,30 @@ const coordinatesFor = (latitude, longitude) => {
     : null;
 };
 
+const polygonCoordinatesFor = (coordinates) => {
+  let geometry = coordinates;
+  if (typeof geometry === 'string') {
+    try {
+      geometry = JSON.parse(geometry);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  if (geometry?.type !== 'Polygon' || !Array.isArray(geometry.coordinates) || !geometry.coordinates.length) return null;
+
+  const rings = geometry.coordinates.map((ring) => {
+    if (!Array.isArray(ring) || ring.length < 4) return null;
+    const positions = ring.map((position) => Array.isArray(position) ? coordinatesFor(position[1], position[0]) : null);
+    if (positions.some((position) => !position)) return null;
+    const first = positions[0];
+    const last = positions[positions.length - 1];
+    return first[0] === last[0] && first[1] === last[1] ? positions : null;
+  });
+
+  return rings.every(Boolean) ? rings : null;
+};
+
 const distanceMeters = (from, to) => {
   const earthRadius = 6371000;
   const radians = (degrees) => degrees * Math.PI / 180;
@@ -30,27 +54,50 @@ const distanceMeters = (from, to) => {
 
 const formatDistance = (meters) => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 
-function RecenterOnLatestSOS({ incidents, focusIncidentId }) {
+function FitMapToData({ incidents, officers, zones }) {
   const map = useMap();
+  const hasFitted = useRef(false);
 
   useEffect(() => {
-    const focusedIncident = incidents.find((incident) => String(incident.incident_id) === String(focusIncidentId));
-    const latestSOS = incidents.find((incident) => incident.is_sos && coordinatesFor(incident.latitude, incident.longitude));
-    const target = focusedIncident || latestSOS;
-    const position = target && coordinatesFor(target.latitude, target.longitude);
-    if (position) map.setView(position, 17, { animate: true });
-  }, [incidents, focusIncidentId, map]);
+    if (hasFitted.current) return;
+
+    const bounds = [];
+    zones.forEach((zone) => {
+      const polygon = polygonCoordinatesFor(zone.coordinates);
+      if (polygon) {
+        polygon.flat().forEach((position) => bounds.push(position));
+        return;
+      }
+
+      const center = coordinatesFor(zone.center_lat, zone.center_lng);
+      if (center && (zone.coordinates === null || zone.coordinates === undefined || zone.coordinates === '')) {
+        bounds.push(center);
+      }
+    });
+    incidents.forEach((incident) => {
+      const position = coordinatesFor(incident.latitude, incident.longitude);
+      if (position) bounds.push(position);
+    });
+    officers.forEach((officer) => {
+      const position = coordinatesFor(officer.latitude, officer.longitude);
+      if (position) bounds.push(position);
+    });
+
+    if (!bounds.length) return;
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+    hasFitted.current = true;
+  }, [incidents, map, officers, zones]);
 
   return null;
 }
 
-export default function SecurityMap({ incidents = [], officers = [], onAssign, focusIncidentId }) {
+export default function SecurityMap({ incidents = [], officers = [], zones = [], onAssign }) {
   const invalidSOSCount = incidents.filter((incident) => incident.is_sos && !coordinatesFor(incident.latitude, incident.longitude)).length;
   const unavailableOfficerCount = officers.filter((officer) => !coordinatesFor(officer.latitude, officer.longitude)).length;
 
   return (
     <MapContainer center={CAMPUS_CENTER} zoom={15} style={{ height: 360, width: '100%' }} scrollWheelZoom>
-      <RecenterOnLatestSOS incidents={incidents} focusIncidentId={focusIncidentId} />
+      <FitMapToData incidents={incidents} officers={officers} zones={zones} />
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -89,6 +136,29 @@ export default function SecurityMap({ incidents = [], officers = [], onAssign, f
             </Popup>
           </CircleMarker>
         );
+      })}
+      {zones.map((zone) => {
+        const polygon = polygonCoordinatesFor(zone.coordinates);
+        const center = coordinatesFor(zone.center_lat, zone.center_lng);
+        const radius = Number(zone.radius);
+        const hasCircle = center && Number.isInteger(radius) && radius > 0;
+        const hasPolygonData = zone.coordinates !== null && zone.coordinates !== undefined && zone.coordinates !== '';
+        const popup = (
+          <Popup>
+            <strong>{zone.name}</strong>
+            {zone.description && <><br />Description: {zone.description}</>}
+            {hasCircle && <><br />Radius: {radius} m</>}
+            {zone.security_contact && <><br />Security contact: {zone.security_contact}</>}
+          </Popup>
+        );
+
+        if (polygon) {
+          return <Polygon key={`zone-${zone.zone_id}`} positions={polygon} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.18 }}>{popup}</Polygon>;
+        }
+        if (!hasPolygonData && hasCircle) {
+          return <Circle key={`zone-${zone.zone_id}`} center={center} radius={radius} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.18 }}>{popup}</Circle>;
+        }
+        return null;
       })}
       {invalidSOSCount > 0 && (
         <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#8a1c1c', border: '1px solid #e4b4b4', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>

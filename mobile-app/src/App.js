@@ -3,10 +3,11 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StatusBar, View } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AppNavigator from './navigation/AppNavigator';
+import { setAuthInvalidationHandler } from './services/api';
 import { startOfficerLocationUpdates } from './services/officerLocation';
 import { getPendingSms, sendSmsResult } from './services/smsService';
 import { store } from './store';
-import { hydrateAuth } from './store/authSlice';
+import { hydrateAuth, sessionExpired } from './store/authSlice';
 
 function AppContent() {
   const dispatch = useDispatch();
@@ -17,6 +18,8 @@ function AppContent() {
   useEffect(() => {
     dispatch(hydrateAuth());
   }, [dispatch]);
+
+  useEffect(() => setAuthInvalidationHandler(() => dispatch(sessionExpired())), [dispatch]);
 
   useEffect(() => {
     if (userRole !== 'security') return undefined;
@@ -42,7 +45,9 @@ function AppContent() {
           }
         }
       } catch (error) {
-        console.warn('Pending SMS polling failed:', error.message || error);
+        if (error.response?.status !== 401) {
+          console.error('Pending SMS polling failed:', error.message || error);
+        }
       }
     };
 

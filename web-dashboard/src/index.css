@@ -1,6 +1,4 @@
-﻿@tailwind base;
-@tailwind components;
-@tailwind utilities;
+﻿@import "tailwindcss";
 
 :root {
   color-scheme: light;
@@ -28,7 +26,7 @@ body {
 
 @layer components {
   .dashboard-panel {
-    @apply rounded-3xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-100;
+    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-100;
   }
 
   .dashboard-eyebrow {
@@ -36,7 +34,7 @@ body {
   }
 
   .dashboard-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-900 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .dashboard-button.primary {
@@ -88,8 +86,80 @@ body {
     @apply bg-slate-50;
   }
 
+  .dashboard-metric-critical {
+    @apply border-red-200/80;
+  }
+
+  .incident-table-scroll {
+    scrollbar-color: #94a3b8 #f1f5f9;
+    scrollbar-width: thin;
+  }
+
+  .incident-table {
+    table-layout: auto;
+  }
+
+  .incident-table th,
+  .incident-table td {
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .incident-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .incident-column-main {
+    min-width: 260px;
+  }
+
+  .incident-column-compact {
+    min-width: 108px;
+  }
+
+  .incident-column-updated {
+    min-width: 136px;
+  }
+
+  .incident-column-action {
+    min-width: 170px;
+  }
+
+  .incident-action-cell {
+    min-width: 170px;
+  }
+
+  @media (max-width: 1279px) {
+    .incident-table-shell {
+      max-width: 100%;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .dashboard-panel {
+      @apply p-4;
+    }
+
+    .dashboard-heading {
+      @apply mb-4 pb-3;
+    }
+  }
+
   .table-action {
-    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .form-field {
+    @apply flex flex-col gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-500;
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    @apply min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .form-field textarea {
+    @apply min-h-24 resize-y;
   }
 
   .inline-loading {

@@ -1,28 +1,7 @@
 {
   "name": "CampusSecurity",
-  "jsEngine": "hermes",
-  "icon": "./src/assets/images/campus-security-icon.png",
-  "plugins": [
-    "expo-notifications"
-  ],
+  "displayName": "CampusSecurity",
   "android": {
-    "adaptiveIcon": {
-      "foregroundImage": "./src/assets/images/campus-security-icon-foreground.png",
-      "backgroundColor": "#102B36"
-    },
-    "permissions": [
-      "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION",
-      "CAMERA",
-      "READ_MEDIA_IMAGES"
-    ],
     "package": "com.anonymous.campussecurity"
-  },
-  "ios": {
-    "infoPlist": {
-      "NSLocationWhenInUseUsageDescription": "Campus Security uses your location to attach useful context to incident and SOS reports.",
-      "NSCameraUsageDescription": "Campus Security uses your camera to attach incident photos.",
-      "NSPhotoLibraryUsageDescription": "Campus Security uses your photo library to attach incident photos."
-    }
   }
 }

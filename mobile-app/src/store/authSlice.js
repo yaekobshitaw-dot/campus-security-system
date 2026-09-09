@@ -64,8 +64,8 @@ export const login = createAsyncThunk(
       await registerForPushNotifications();
       return { user, token: accessToken };
     } catch (error) {
-      if (__DEV__) {
-        console.warn('Login request failed:', {
+      if (__DEV__ && (!error.response || error.response.status >= 500)) {
+        console.error('Login request failed:', {
           message: error?.message,
           code: error?.code,
           status: error?.response?.status,
@@ -98,7 +98,9 @@ export const logout = createAsyncThunk(
         try {
           await api.post('/auth/logout');
         } catch (error) {
-          console.warn('Server logout failed; clearing local session anyway.', error?.message || error);
+          if (!error.response || error.response.status >= 500) {
+            console.error('Server logout failed; clearing local session anyway.', error?.message || error);
+          }
         }
       }
       await clearAuthSession();
@@ -119,6 +121,14 @@ const authSlice = createSlice({
     setUser: (state, action) => {
       state.user = action.payload;
       state.isAuthenticated = true;
+    },
+    sessionExpired: (state) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isHydrated = true;
+      state.loading = false;
+      state.error = 'Session expired. Please sign in again.';
     },
   },
   extraReducers: (builder) => {
@@ -187,5 +197,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setUser } = authSlice.actions;
+export const { clearError, setUser, sessionExpired } = authSlice.actions;
 export default authSlice.reducer;

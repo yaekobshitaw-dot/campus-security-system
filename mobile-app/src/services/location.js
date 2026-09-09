@@ -1,7 +1,26 @@
-import * as Location from 'expo-location';
-import { Alert } from 'react-native';
+import { Alert, PermissionsAndroid, Platform } from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
 
 const LOCATION_TIMEOUT_MS = 20000;
+
+const requestLocationPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  const granted = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    {
+      title: 'Location permission required',
+      message: 'Campus Security needs access to your location to attach incident and SOS context.',
+      buttonNeutral: 'Ask Later',
+      buttonNegative: 'Cancel',
+      buttonPositive: 'Allow',
+    }
+  );
+
+  return granted === PermissionsAndroid.RESULTS.GRANTED;
+};
 
 const withTimeout = (promise, timeoutMs) => {
   let timeoutId;
@@ -22,36 +41,50 @@ const toLocation = (location) => {
   return {
     latitude,
     longitude,
-    accuracy: Number.isFinite(Number(location.coords.accuracy)) ? Number(location.coords.accuracy) : null,
+    accuracy: Number.isFinite(Number(location?.coords?.accuracy)) ? Number(location.coords.accuracy) : null,
   };
 };
 
 export const getLocation = async () => {
-  let { status } = await Location.getForegroundPermissionsAsync();
-  if (status !== 'granted') {
-    ({ status } = await Location.requestForegroundPermissionsAsync());
-  }
-
-  if (status !== 'granted') {
+  const hasPermission = await requestLocationPermission();
+  if (!hasPermission) {
     throw new Error('Location permission was denied. Enable it in Settings to attach your location.');
   }
 
-  const servicesEnabled = await Location.hasServicesEnabledAsync();
-  if (!servicesEnabled) {
-    throw new Error('Location services are turned off.');
-  }
-
   try {
-    const location = await withTimeout(Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
-    }), LOCATION_TIMEOUT_MS);
+    const location = await withTimeout(
+      new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          (position) => resolve(position),
+          (error) => reject(new Error(error?.message || 'Unable to determine the current device location.')),
+          {
+            enableHighAccuracy: true,
+            timeout: LOCATION_TIMEOUT_MS,
+            maximumAge: 10000,
+            distanceFilter: 10,
+          }
+        );
+      }),
+      LOCATION_TIMEOUT_MS
+    );
     return toLocation(location);
   } catch (currentLocationError) {
     try {
-      const lastKnown = await Location.getLastKnownPositionAsync({
-        maxAge: 300000,
-        requiredAccuracy: 1000,
-      });
+      const lastKnown = await withTimeout(
+        new Promise((resolve, reject) => {
+          Geolocation.getCurrentPosition(
+            (position) => resolve(position),
+            (error) => reject(error),
+            {
+              enableHighAccuracy: false,
+              timeout: LOCATION_TIMEOUT_MS,
+              maximumAge: 300000,
+              distanceFilter: 50,
+            }
+          );
+        }),
+        LOCATION_TIMEOUT_MS
+      );
       if (lastKnown) return toLocation(lastKnown);
     } catch {
     }

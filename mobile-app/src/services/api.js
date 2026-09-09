@@ -4,12 +4,24 @@ import { Platform } from 'react-native';
 import { getApiBaseUrl } from '../config/server';
 import { socketService } from './socket';
 
+let authInvalidationHandler = null;
+
+export const setAuthInvalidationHandler = (handler) => {
+  authInvalidationHandler = handler;
+
+  return () => {
+    if (authInvalidationHandler === handler) {
+      authInvalidationHandler = null;
+    }
+  };
+};
+
 export const clearAuthSession = async () => {
   try {
     await AsyncStorage.removeItem('auth_token');
     await AsyncStorage.removeItem('user');
   } catch (error) {
-    console.warn('Failed to clear stored auth session:', error);
+    console.error('Failed to clear stored auth session:', error);
   }
 
   socketService.disconnect();
@@ -29,9 +41,6 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem('auth_token');
-  if (__DEV__) {
-    console.warn('API request:', config.method?.toUpperCase(), `${config.baseURL || ''}${config.url || ''}`);
-  }
   if (config.data instanceof FormData && config.headers) {
     delete config.headers['Content-Type'];
     delete config.headers['content-type'];
@@ -47,6 +56,7 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       await clearAuthSession();
+      authInvalidationHandler?.();
     }
     return Promise.reject(error);
   }

@@ -1,16 +1,16 @@
 const SERVER_CONFIG = {
   development: {
-    apiBaseUrl: 'http://localhost:5000/api',
-    socketBaseUrl: 'http://localhost:5000',
+    apiBaseUrl: globalThis.__APP_API_BASE_URL__ || 'http://10.0.2.2:5002/api',
+    socketBaseUrl: globalThis.__APP_SOCKET_BASE_URL__ || 'http://10.0.2.2:5002',
   },
   production: {
-    apiBaseUrl: 'https://api.yourdomain.com/api',
-    socketBaseUrl: 'wss://api.yourdomain.com',
+    apiBaseUrl: globalThis.__APP_API_BASE_URL__ || 'https://api.yourdomain.com/api',
+    socketBaseUrl: globalThis.__APP_SOCKET_BASE_URL__ || 'wss://api.yourdomain.com',
   },
 };
 
 export const getApiBaseUrl = () => {
-  const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || globalThis.__APP_API_BASE_URL__;
+  const configuredApiUrl = globalThis.__APP_API_BASE_URL__;
   if (configuredApiUrl) {
     return configuredApiUrl;
   }
@@ -24,7 +24,7 @@ export const getServerBaseUrl = () => {
 };
 
 export const getDerivedSocketUrl = () => {
-  const configuredSocketUrl = process.env.EXPO_PUBLIC_WS_URL || globalThis.__APP_SOCKET_BASE_URL__;
+  const configuredSocketUrl = globalThis.__APP_SOCKET_BASE_URL__;
   if (configuredSocketUrl) {
     return configuredSocketUrl;
   }

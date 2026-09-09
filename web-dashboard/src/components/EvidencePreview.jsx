@@ -32,10 +32,10 @@ export default function EvidencePreview({ photos }) {
   const [failedUrls, setFailedUrls] = useState([]);
   const availableReferences = references.filter((url) => !failedUrls.includes(url));
 
-  if (!availableReferences.length) return <small>No evidence</small>;
+  if (!availableReferences.length) return <small className="text-xs font-semibold text-slate-500">No evidence</small>;
 
   return (
-    <div className="flex h-[72px] w-[110px] items-center gap-1 overflow-hidden rounded-lg border border-slate-200 bg-slate-50" onClick={(event) => event.stopPropagation()}>
+    <div className="flex h-[84px] w-[124px] items-center gap-1 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm" onClick={(event) => event.stopPropagation()}>
       {availableReferences.map((url) => <EvidenceImage key={url} url={url} onError={() => setFailedUrls((current) => [...current, url])} />)}
     </div>
   );

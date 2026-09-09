@@ -2,6 +2,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const { validateZonePayload } = require('../validators/zoneValidator');
 
 const Zone = sequelize.define('Zone', {
   zone_id: {
@@ -46,7 +47,12 @@ const Zone = sequelize.define('Zone', {
   tableName: 'zones',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  validate: {
+    geometryContract() {
+      validateZonePayload(this.toJSON());
+    }
+  }
 });
 
 // Static methods

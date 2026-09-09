@@ -1,30 +1,64 @@
 ﻿import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ForgotPasswordScreen, LoginScreen, ResetPasswordScreen } from './components/AuthScreens';
 import Dashboard from './components/Dashboard';
 import PublicSite, { AuthPage } from './components/PublicSite';
+import api from './services/api';
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const handleUnauthorized = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      if (location.pathname !== '/login') navigate('/login', { replace: true });
+    };
+
+    window.addEventListener('campus-security:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('campus-security:unauthorized', handleUnauthorized);
+  }, [location.pathname, navigate]);
+
+  useEffect(() => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    if (token && savedUser) {
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      if (!token || !savedUser) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('user');
+        const response = await api.get('/users/profile');
+        if (!cancelled) {
+          setUser(response.data.data);
+          localStorage.setItem('user', JSON.stringify(response.data.data));
+        }
+      } catch (error) {
+        if (error.response?.status !== 401 && !cancelled) setLoading(false);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    if (location.pathname !== '/login') navigate('/login', { replace: true });
   };
 
   if (loading) return <div className="app-loading">Loading Campus Security...</div>;
