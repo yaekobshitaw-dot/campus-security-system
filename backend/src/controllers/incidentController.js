@@ -1,4 +1,4 @@
-﻿const { Alert, Incident, Response, User } = require('../models');
+﻿const { Alert, Incident, Response, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { processIncidentPhotos } = require('../services/uploadService');
 const { sendPushNotification } = require('../services/notificationService');
@@ -69,6 +69,22 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
 
 const emitProtected = (io, event, payload) => {
   if (io) io.to('role:security').to('role:admin').emit(event, payload);
+};
+
+exports.clearHistory = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const deletedCount = await Incident.destroy({ where: {}, transaction });
+    await transaction.commit();
+    return res.status(200).json({
+      success: true,
+      message: 'Incident history cleared successfully',
+      data: { deleted_count: deletedCount }
+    });
+  } catch (error) {
+    await transaction.rollback();
+    return res.status(500).json({ success: false, message: 'Failed to clear incident history' });
+  }
 };
 
 const notifySecurityBySms = async (senderUserId, recipients, message) => {

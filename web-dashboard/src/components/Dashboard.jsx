@@ -12,17 +12,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { DashboardLayout, IncidentTable } from './DashboardLayout';
 import EvidencePreview from './EvidencePreview';
-import IncidentMap from './dashboard/IncidentMap.jsx';
+import SecurityMap from './SecurityMap.jsx';
 import IncidentCreateModal from './IncidentCreateModal';
+import ZoneManagement from './ZoneManagement';
 import { AlertsZonesPage, AnalyticsPage, ResponsesPage } from './OperationsPages';
 import { readAlert } from '../services/operations';
 
 const activeStatuses = ['reported', 'investigating', 'dispatched', 'on_scene'];
 const metricToneClasses = {
-  slate: 'bg-slate-100 text-slate-700',
-  amber: 'bg-amber-100 text-amber-700',
-  red: 'bg-red-100 text-red-700',
-  teal: 'bg-teal-100 text-teal-700',
+  slate: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200',
+  amber: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  red: 'bg-red-50 text-red-700 ring-1 ring-red-200',
+  teal: 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200',
 };
 const routes = {
   '/dashboard': 'overview', '/incidents/active': 'incidents', '/incidents/history': 'history',
@@ -45,83 +46,167 @@ function statsFor(incidents) {
 }
 
 const Metric = ({ icon: Icon, label, value, tone = 'slate' }) => (
-  <article className="dashboard-panel flex min-h-[142px] flex-col justify-between">
-    <div className="flex items-center justify-between"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${metricToneClasses[tone] || metricToneClasses.slate}`}><Icon className="text-[21px]" /></span><span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Live</span></div>
-    <div><p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p><p className="mt-1 text-3xl font-black text-slate-950">{value}</p></div>
+  <article className={`dashboard-metric dashboard-panel flex min-h-[132px] flex-col justify-between border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.045)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)] ${tone === 'red' ? 'dashboard-metric-critical' : ''}`}>
+    <div className="flex items-center justify-between"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${metricToneClasses[tone] || metricToneClasses.slate}`}><Icon className="text-[20px]" /></span><span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Live</span></div>
+    <div><p className="mt-3 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</p><p className="mt-0.5 text-[2rem] font-black leading-none tracking-tight text-[#0b1f3a]">{value}</p></div>
   </article>
 );
 
 const Heading = ({ eyebrow, title, description, action }) => (
-  <div className="panel-heading"><div><p className="dashboard-eyebrow">{eyebrow}</p><h2 className="mt-2">{title}</h2>{description && <span className="mt-1 block">{description}</span>}</div>{action}</div>
+  <div className="dashboard-heading mb-5 flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="dashboard-eyebrow">{eyebrow}</p><h2 className="mt-1.5 text-xl font-black tracking-tight text-[#0b1f3a] sm:text-2xl">{title}</h2>{description && <span className="mt-1 block max-w-2xl text-sm leading-6 text-slate-500">{description}</span>}</div>{action && <div className="flex flex-wrap items-center gap-2">{action}</div>}</div>
 );
 
 const EmptyState = ({ icon: Icon = CheckCircleOutline, title, message }) => (
-  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center"><Icon className="mb-3 rounded-2xl bg-slate-100 p-3 text-[54px] text-slate-500" /><h3 className="text-lg font-black text-slate-900">{title}</h3><p className="mt-2 max-w-md text-sm text-slate-500">{message}</p></div>
+  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm"><Icon className="mb-3 rounded-2xl bg-cyan-50 p-3 text-[54px] text-cyan-700 ring-1 ring-cyan-100" /><h3 className="text-lg font-black text-[#0b1f3a]">{title}</h3><p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{message}</p></div>
 );
 
-function Dashboard() {
+const RequestError = ({ message, onRetry }) => (
+  <div className="flex min-h-[180px] flex-col items-center justify-center rounded-3xl border border-red-200 bg-red-50/80 p-8 text-center shadow-sm">
+    <ErrorOutline className="mb-3 text-[42px] text-red-600" />
+    <h3 className="text-lg font-black text-red-900">{message}</h3>
+    <button type="button" className="mt-4 inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-3.5 py-2 text-sm font-black text-red-700 shadow-sm transition hover:border-red-300 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2" onClick={onRetry}>Retry</button>
+  </div>
+);
+
+const AccessDenied = () => <EmptyState icon={ShieldOutlined} title="Access denied" message="Your account does not have permission to view this section." />;
+
+const resourceNames = ['incidents', 'alerts', 'zones', 'users', 'stats', 'analytics', 'responses', 'officers'];
+const initialResourceState = resourceNames.reduce((state, name) => ({ ...state, [name]: { status: ['incidents', 'alerts', 'zones'].includes(name) ? 'loading' : 'idle', error: '' } }), {});
+const resourceStatus = (value) => {
+  if (Array.isArray(value)) return value.length ? 'success' : 'empty';
+  if (value && typeof value === 'object') return Object.keys(value).length ? 'success' : 'empty';
+  return 'empty';
+};
+
+function Dashboard({ user: authenticatedUser }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState([]);
+  const [serverStats, setServerStats] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [users, setUsers] = useState([]);
+  const [officers, setOfficers] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [responses, setResponses] = useState([]);
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [operationsLoading, setOperationsLoading] = useState(true);
+  const [userStatusLoading, setUserStatusLoading] = useState('');
+  const [clearHistoryLoading, setClearHistoryLoading] = useState(false);
   const [error, setError] = useState('');
-  const [operationsError, setOperationsError] = useState('');
-  const [selected, setSelected] = useState(null);
+  const [, setOperationsError] = useState('');
+  const [resourceState, setResourceState] = useState(initialResourceState);
   const [createOpen, setCreateOpen] = useState(false);
   const section = routes[location.pathname] || (location.pathname.startsWith('/incidents/') ? 'detail' : 'overview');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = authenticatedUser || {};
   const canViewOperations = ['security', 'admin'].includes(user.role);
   const canViewUsers = user.role === 'admin';
+  const protectedSection = (section === 'users' && !canViewUsers) || (['officers', 'analytics', 'responses'].includes(section) && !canViewOperations);
 
   const loadData = useCallback(async () => {
     setLoading(true); setError('');
+    setStatsLoading(true);
     const requests = [api.get('/incidents'), api.get('/alerts'), api.get('/zones')];
-    if (canViewUsers) requests.push(api.get('/users/all'));
-    if (canViewOperations) requests.push(api.get('/analytics'), api.get('/responses'));
+      const requestedResources = ['incidents', 'alerts', 'zones'];
+      if (canViewUsers) requestedResources.push('users');
+      if (canViewOperations) requestedResources.push('stats', 'analytics', 'responses', 'officers');
+      setResourceState((current) => ({
+        ...current,
+        ...requestedResources.reduce((state, name) => ({ ...state, [name]: { status: 'loading', error: '' } }), {}),
+      }));
+    const userIndex = canViewUsers ? requests.push(api.get('/users/all')) - 1 : -1;
+    const statsIndex = canViewOperations ? requests.push(api.get('/incidents/stats')) - 1 : -1;
+    const analyticsIndex = canViewOperations ? requests.push(api.get('/analytics')) - 1 : -1;
+    const responseIndex = canViewOperations ? requests.push(api.get('/responses')) - 1 : -1;
+    const officersIndex = canViewOperations ? requests.push(api.get('/users/security-officers')) - 1 : -1;
     const results = await Promise.allSettled(requests);
     const [incidentResult, alertResult, zoneResult] = results;
-    const userResult = canViewUsers ? results[3] : null;
-    const analyticsResult = canViewOperations ? (canViewUsers ? results[4] : results[3]) : null;
-    const responseResult = canViewOperations ? (canViewUsers ? results[5] : results[4]) : null;
+    const userResult = userIndex >= 0 ? results[userIndex] : null;
+    const statsResult = statsIndex >= 0 ? results[statsIndex] : null;
+    const analyticsResult = analyticsIndex >= 0 ? results[analyticsIndex] : null;
+    const responseResult = responseIndex >= 0 ? results[responseIndex] : null;
+    const officersResult = officersIndex >= 0 ? results[officersIndex] : null;
+      const resourceResults = { incidents: incidentResult, alerts: alertResult, zones: zoneResult, users: userResult, stats: statsResult, analytics: analyticsResult, responses: responseResult, officers: officersResult };
+      setResourceState((current) => Object.entries(resourceResults).reduce((state, [name, result]) => {
+        if (!result) return state;
+        return {
+          ...state,
+          [name]: result.status === 'fulfilled'
+            ? { status: resourceStatus(result.value.data?.data), error: '' }
+            : { status: 'error', error: result.reason?.response?.data?.message || `Failed to load ${name}.` },
+        };
+      }, current));
     if (incidentResult.status === 'fulfilled') setIncidents(incidentResult.value.data?.data || []);
     if (alertResult.status === 'fulfilled') setAlerts(alertResult.value.data?.data || []);
     if (userResult?.status === 'fulfilled') setUsers(userResult.value.data?.data || []);
+    if (statsResult?.status === 'fulfilled') setServerStats(statsResult.value.data?.data || null);
     if (zoneResult.status === 'fulfilled') setZones(zoneResult.value.data?.data || []);
     if (analyticsResult?.status === 'fulfilled') setAnalytics(analyticsResult.value.data?.data || null);
     if (responseResult?.status === 'fulfilled') setResponses(responseResult.value.data?.data || []);
+    if (officersResult?.status === 'fulfilled') setOfficers(officersResult.value.data?.data || []);
     if (results.every((result) => result.status === 'rejected')) setError('The dashboard API did not return data. Check the backend connection and your session.');
     else if (results.some((result) => result.status === 'rejected')) setError('Some dashboard data could not be loaded. Available data remains visible.');
-    const operationsResults = [zoneResult, analyticsResult, responseResult].filter(Boolean);
+    const operationsResults = [zoneResult, statsResult, analyticsResult, responseResult, officersResult].filter(Boolean);
     setOperationsError(operationsResults.every((result) => result.status === 'rejected') ? 'Operations data is unavailable for this account.' : '');
+    setStatsLoading(false);
     setOperationsLoading(false);
     setLoading(false);
-  }, []);
+  }, [canViewOperations, canViewUsers]);
   useEffect(() => { loadData(); }, [loadData]);
 
-  const stats = useMemo(() => statsFor(incidents), [incidents]);
+  const stats = useMemo(() => {
+    const calculated = statsFor(incidents);
+    if (statsLoading) return { ...calculated, total: '...', active: '...' };
+    return serverStats ? { ...calculated, total: serverStats.total, active: serverStats.active, resolved: serverStats.resolved } : calculated;
+  }, [incidents, serverStats, statsLoading]);
   const active = useMemo(() => incidents.filter((incident) => activeStatuses.includes(incident.status)), [incidents]);
   const critical = useMemo(() => incidents.filter((incident) => incident.is_sos || incident.severity === 'critical'), [incidents]);
-  const officers = useMemo(() => users.filter((user) => user.role === 'security'), [users]);
-  const detail = selected || incidents.find((incident) => incident.incident_id === location.pathname.split('/').pop());
-  const view = (incident) => { setSelected(incident); navigate(`/incidents/${incident.incident_id}`); };
+  const detail = incidents.find((incident) => String(incident.incident_id) === location.pathname.split('/').pop());
+  const view = (incident) => navigate(`/incidents/${incident.incident_id}`);
   const changeStatus = async (incident, status) => { try { await api.patch(`/incidents/${incident.incident_id}/status`, { status }); await loadData(); } catch (requestError) { setError(requestError.response?.data?.message || 'Unable to update incident status.'); } };
+  const changeUserStatus = async (account) => {
+    setUserStatusLoading(account.user_id);
+    setError('');
+    try {
+      const response = await api.patch(`/users/${account.user_id}/status`, { is_active: !account.is_active });
+      const updatedUser = response.data?.data;
+      setUsers((currentUsers) => currentUsers.map((userAccount) => (
+        userAccount.user_id === account.user_id
+          ? { ...userAccount, ...(updatedUser || { is_active: !account.is_active }) }
+          : userAccount
+      )));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to update user status.');
+    } finally {
+      setUserStatusLoading('');
+    }
+  };
+  const clearHistory = async () => {
+    if (clearHistoryLoading || !window.confirm('Clear all incident history permanently? This action cannot be undone.')) return;
+    setClearHistoryLoading(true);
+    setError('');
+    try {
+      await api.delete('/incidents/history');
+      await loadData();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to clear incident history.');
+    } finally {
+      setClearHistoryLoading(false);
+    }
+  };
   const refreshButton = <button type="button" className="dashboard-button" onClick={loadData}><Refresh className="text-[18px]" /> Refresh</button>;
   const createButton = <button type="button" className="dashboard-button primary" onClick={() => setCreateOpen(true)}>Report incident</button>;
   const markAlertRead = async (alertId) => { try { await readAlert(alertId); await loadData(); } catch (requestError) { setOperationsError(requestError.response?.data?.message || 'Unable to mark alert as read.'); } };
 
-  const table = (items, title, description) => <><Heading eyebrow="Incident operations" title={title} description={description} action={<div className="flex gap-2">{createButton}{refreshButton}</div>} /><IncidentTable incidents={items} loading={loading} onView={view} onStatusChange={changeStatus} /></>;
-  const overview = <div className="space-y-6"><Heading eyebrow="Security operations center" title="Campus overview" description="Live incident, response, and system activity from the campus security service." action={<div className="flex gap-2">{createButton}{refreshButton}</div>} /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={ReportProblemOutlined} label="Total incidents" value={stats.total} /><Metric icon={WarningAmberOutlined} label="Active incidents" value={stats.active} tone="amber" /><Metric icon={ShieldOutlined} label="Critical / SOS" value={critical.length} tone="red" /><Metric icon={PeopleAltOutlined} label="Security officers" value={officers.length} tone="teal" /></div><div className="grid gap-6 xl:grid-cols-5"><section className="dashboard-panel xl:col-span-3"><Heading eyebrow="Priority queue" title="Recent incidents" action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>View queue</button>} />{active.length ? <IncidentTable incidents={active.slice(0, 6)} onView={view} onStatusChange={changeStatus} /> : <EmptyState title="No active incidents" message="The response queue is clear." />}</section><section className="dashboard-panel xl:col-span-2"><Heading eyebrow="Communications" title="Latest alerts" />{alerts.length ? <div className="space-y-3">{alerts.slice(0, 5).map((alert) => <div key={alert.alert_id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div className="flex gap-3"><WarningAmberOutlined className="text-amber-600" /><div><p className="text-sm font-bold text-slate-900">{alert.title || titleCase(alert.type)}</p><p className="mt-1 text-xs leading-5 text-slate-600">{alert.message || 'No additional details.'}</p></div></div></div>)}</div> : <EmptyState title="No alerts" message="There are no alerts to display." />}</section></div></div>;
-  const map = <div className="space-y-6"><Heading eyebrow="Geospatial response" title="Live incident map" description="Locations returned by the incident service." />{loading ? <div className="inline-loading">Loading map data...</div> : <IncidentMap incidents={incidents} height={520} />}</div>;
-  const detailView = detail ? <div className="space-y-6"><Heading eyebrow="Incident record" title={titleCase(detail.type)} action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/history')}>Back to incidents</button>} /><div className="detail-grid"><section className="detail-panel"><div className="flex flex-wrap gap-2"><span className={`severity-badge ${detail.severity}`}>{detail.severity}</span><span className={`status-badge ${detail.status}`}>{titleCase(detail.status)}</span>{detail.is_sos && <span className="status-badge border-red-200 bg-red-100 text-red-700">SOS</span>}</div><dl className="mt-6 grid gap-5 sm:grid-cols-2"><Detail label="Description" value={detail.description || 'No description provided'} wide /><Detail label="Location" value={detail.location_name || detail.building || 'Unavailable'} /><Detail label="Reporter" value={detail.reporter?.name || (detail.is_anonymous ? 'Anonymous' : 'Campus member')} /><Detail label="Reported" value={new Date(detail.created_at).toLocaleString()} /></dl></section><section className="detail-panel"><Heading eyebrow="Evidence" title="Attached photos" />{detail.photos?.length ? <EvidencePreview photos={detail.photos} /> : <EmptyState title="No evidence attached" message="This incident has no uploaded photos." />}</section></div></div> : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
-  const evidence = <div className="space-y-6"><Heading eyebrow="Evidence review" title="Incident evidence" description="Uploaded photos associated with incident records." />{incidents.filter((incident) => incident.photos?.length).length ? <div className="evidence-grid">{incidents.filter((incident) => incident.photos?.length).map((incident) => <article className="evidence-card" key={incident.incident_id}><div className="mb-4 flex items-start justify-between"><div><h3 className="font-black text-slate-900">{titleCase(incident.type)}</h3><p className="mt-1 text-xs text-slate-500">{incident.location_name || 'Campus'}</p></div><button type="button" className="table-action" onClick={() => view(incident)}>View</button></div><EvidencePreview photos={incident.photos} /></article>)}</div> : <EmptyState title="No evidence available" message="Photo evidence will appear here when incidents include uploads." />}</div>;
-  const usersView = <div className="space-y-6"><Heading eyebrow="Access and people" title="User management" description="Campus accounts returned by the security service." />{users.length ? <div className="dashboard-panel overflow-x-auto"><table className="dashboard-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody>{users.map((account) => <tr key={account.user_id}><td className="font-bold">{account.name}</td><td>{account.email}</td><td>{titleCase(account.role)}</td><td><span className="status-badge resolved">{account.is_active ? 'Active' : 'Inactive'}</span></td></tr>)}</tbody></table></div> : <EmptyState icon={PeopleAltOutlined} title="No users returned" message="User management data is unavailable or empty." />}</div>;
-  const officersView = <div className="space-y-6"><Heading eyebrow="Response team" title="Security officers" description="Officer availability from the security service." />{officers.length ? <div className="officer-grid">{officers.map((officer) => <article className="officer-card" key={officer.user_id}><div className="officer-card-heading"><strong>{officer.name}</strong><span className={`officer-status ${officer.availability_status || 'offline'}`}>{titleCase(officer.availability_status || 'offline')}</span></div><p className="text-sm text-slate-600">{officer.email}</p><p className="mt-3 text-xs text-slate-500">{officer.latitude != null ? `Location: ${officer.latitude}, ${officer.longitude}` : 'Location unavailable'}</p></article>)}</div> : <EmptyState icon={PeopleAltOutlined} title="No security officers" message="No officer records are currently available." />}</div>;
+  const table = (items, title, description) => <><Heading eyebrow="Incident operations" title={title} description={description} action={<div className="flex gap-2">{createButton}{refreshButton}</div>} />{resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <IncidentTable incidents={items} loading={loading} onView={view} onStatusChange={changeStatus} />}</>;
+  const overview = <div className="space-y-8"><Heading eyebrow="Security operations center" title="Campus overview" description="Live incident, response, and system activity from the campus security service." action={<div className="flex flex-wrap gap-2">{createButton}{refreshButton}</div>} /><div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={ReportProblemOutlined} label="Total incidents" value={stats.total} /><Metric icon={WarningAmberOutlined} label="Active incidents" value={stats.active} tone="amber" /><Metric icon={ShieldOutlined} label="Critical / SOS" value={critical.length} tone="red" /><Metric icon={PeopleAltOutlined} label="Security officers" value={resourceState.officers.status === 'error' ? '!' : officers.length} tone="teal" /></div><div className="grid gap-6 xl:grid-cols-5"><section className="dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] xl:col-span-3"><Heading eyebrow="Priority queue" title="Recent incidents" action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>View queue</button>} />{resourceState.incidents.status === 'loading' ? <div className="inline-loading">Loading incidents...</div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : active.length ? <IncidentTable incidents={active.slice(0, 6)} onView={view} onStatusChange={changeStatus} /> : <EmptyState title="No active incidents" message="The response queue is clear." />}</section><section className="dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] xl:col-span-2"><Heading eyebrow="Communications" title="Latest alerts" />{resourceState.alerts.status === 'loading' ? <div className="inline-loading">Loading alerts...</div> : resourceState.alerts.status === 'error' ? <RequestError message={resourceState.alerts.error} onRetry={loadData} /> : alerts.length ? <div className="space-y-3">{alerts.slice(0, 5).map((alert) => <div key={alert.alert_id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 transition hover:border-cyan-200 hover:bg-cyan-50/30"><div className="flex gap-3"><WarningAmberOutlined className="text-amber-600" /><div><p className="text-sm font-bold text-[#0b1f3a]">{alert.title || titleCase(alert.type)}</p><p className="mt-1 text-xs leading-5 text-slate-600">{alert.message || 'No additional details.'}</p></div></div></div>)}</div> : <EmptyState title="No alerts" message="There are no alerts to display." />}</section></div></div>;
+  const map = <div className="space-y-8"><Heading eyebrow="Geospatial response" title="Live incident map" description="Locations returned by the incident service." />{resourceState.incidents.status === 'loading' ? <div className="inline-loading">Loading map data...</div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-2 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"><SecurityMap incidents={incidents} officers={canViewOperations ? officers : []} zones={zones} /></div>}</div>;
+  const detailView = detail ? <div className="space-y-8"><Heading eyebrow="Incident record" title={titleCase(detail.type)} action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/history')}>Back to incidents</button>} /><div className="detail-grid"><section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><div className="flex flex-wrap gap-2"><span className={`severity-badge ${detail.severity}`}>{detail.severity}</span><span className={`status-badge ${detail.status}`}>{titleCase(detail.status)}</span>{detail.is_sos && <span className="status-badge border-red-200 bg-red-100 text-red-700">SOS</span>}</div><dl className="mt-6 grid gap-5 sm:grid-cols-2"><Detail label="Description" value={detail.description || 'No description provided'} wide /><Detail label="Location" value={detail.location_name || detail.building || 'Unavailable'} /><Detail label="Reporter" value={detail.reporter?.name || (detail.is_anonymous ? 'Anonymous' : 'Campus member')} /><Detail label="Reported" value={new Date(detail.created_at).toLocaleString()} /></dl></section><section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><Heading eyebrow="Evidence" title="Attached photos" />{detail.photos?.length ? <EvidencePreview photos={detail.photos} /> : <EmptyState title="No evidence attached" message="This incident has no uploaded photos." />}</section></div></div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
+  const evidence = <div className="space-y-6"><Heading eyebrow="Evidence review" title="Incident evidence" description="Uploaded photos associated with incident records." />{resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : incidents.filter((incident) => incident.photos?.length).length ? <div className="evidence-grid">{incidents.filter((incident) => incident.photos?.length).map((incident) => <article className="evidence-card" key={incident.incident_id}><div className="mb-4 flex items-start justify-between"><div><h3 className="font-black text-slate-900">{titleCase(incident.type)}</h3><p className="mt-1 text-xs text-slate-500">{incident.location_name || 'Campus'}</p></div><button type="button" className="table-action" onClick={() => view(incident)}>View</button></div><EvidencePreview photos={incident.photos} /></article>)}</div> : <EmptyState title="No evidence available" message="Photo evidence will appear here when incidents include uploads." />}</div>;
+  const usersView = <div className="space-y-8"><Heading eyebrow="Access and people" title="User management" description="Campus accounts returned by the security service." />{users.length ? <div className="dashboard-panel overflow-x-auto border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><table className="dashboard-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>{users.map((account) => <tr key={account.user_id}><td className="font-bold text-[#0b1f3a]">{account.name}</td><td>{account.email}</td><td>{titleCase(account.role)}</td><td><span className={`status-badge ${account.is_active ? 'resolved' : ''}`}>{account.is_active ? 'Active' : 'Inactive'}</span></td><td><button type="button" className="table-action" onClick={() => changeUserStatus(account)} disabled={userStatusLoading === account.user_id}>{userStatusLoading === account.user_id ? 'Updating...' : account.is_active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody></table></div> : <EmptyState icon={PeopleAltOutlined} title="No users returned" message="User management data is unavailable or empty." />}</div>;
+  const officersView = <div className="space-y-8"><Heading eyebrow="Response team" title="Security officers" description="Officer availability from the security service." />{officers.length ? <div className="officer-grid">{officers.map((officer) => <article className="officer-card border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" key={officer.user_id}><div className="officer-card-heading"><strong className="text-[#0b1f3a]">{officer.name}</strong><span className={`officer-status ${officer.availability_status || 'offline'}`}>{titleCase(officer.availability_status || 'offline')}</span></div><p className="text-sm text-slate-600">{officer.email}</p><p className="mt-3 text-xs text-slate-500">{officer.latitude != null ? `Location: ${officer.latitude}, ${officer.longitude}` : 'Location unavailable'}</p></article>)}</div> : <EmptyState icon={PeopleAltOutlined} title="No security officers" message="No officer records are currently available." />}</div>;
+  const alertsZonesError = resourceState.alerts.status === 'error' ? resourceState.alerts.error : resourceState.zones.status === 'error' ? resourceState.zones.error : '';
   let content = overview;
   if (section === 'incidents') content = table(active, 'Active incidents', 'Reports currently in the response queue.');
   if (section === 'history') content = table(incidents, 'Incident history', 'All incident records returned by the backend.');
@@ -129,12 +214,14 @@ function Dashboard() {
   if (section === 'map') content = map;
   if (section === 'detail') content = detailView;
   if (section === 'evidence') content = evidence;
-  if (section === 'users') content = usersView;
-  if (section === 'officers') content = officersView;
-  if (section === 'analytics') content = <AnalyticsPage analytics={analytics} loading={operationsLoading} error={operationsError} onRefresh={loadData} />;
-  if (section === 'responses') content = <ResponsesPage responses={responses} loading={operationsLoading} error={operationsError} onRefresh={loadData} />;
-  if (section === 'alerts' || section === 'zones') content = <AlertsZonesPage alerts={alerts} zones={zones} loading={operationsLoading} error={operationsError} onRefresh={loadData} onReadAlert={markAlertRead} canManage={['admin', 'security'].includes(user.role)} />;
-  return <DashboardLayout user={user} activeSection={section} incidents={incidents} onNavigate={navigate} onLogout={() => { localStorage.clear(); navigate('/login'); }}><div className="mx-auto max-w-[1500px]">{error && <div className="dashboard-error" role="alert"><ErrorOutline /><div><strong>Dashboard data issue</strong><p>{error}</p></div><button type="button" className="table-action" onClick={loadData}>Retry</button></div>}{content}</div>{createOpen && <IncidentCreateModal onClose={() => setCreateOpen(false)} onSuccess={async () => { setCreateOpen(false); await loadData(); }} />}</DashboardLayout>;
+  if (protectedSection) content = <AccessDenied />;
+  else if (section === 'zones') content = <ZoneManagement zones={zones} loading={resourceState.zones.status === 'loading'} error={resourceState.zones.status === 'error' ? resourceState.zones.error : ''} canManage={['admin', 'security'].includes(user.role)} onRefresh={loadData} />;
+  else if (section === 'users') content = resourceState.users.status === 'loading' ? <div className="inline-loading">Loading users...</div> : resourceState.users.status === 'error' ? <RequestError message={resourceState.users.error} onRetry={loadData} /> : usersView;
+  else if (section === 'officers') content = resourceState.officers.status === 'loading' ? <div className="inline-loading">Loading officers...</div> : resourceState.officers.status === 'error' ? <RequestError message={resourceState.officers.error} onRetry={loadData} /> : officersView;
+  else if (section === 'analytics') content = <AnalyticsPage analytics={analytics} loading={operationsLoading} error={resourceState.analytics.status === 'error' ? resourceState.analytics.error : ''} onRefresh={loadData} />;
+  else if (section === 'responses') content = <ResponsesPage responses={responses} loading={operationsLoading} error={resourceState.responses.status === 'error' ? resourceState.responses.error : ''} onRefresh={loadData} />;
+  else if (section === 'alerts' || section === 'zones') content = <AlertsZonesPage alerts={alerts} zones={zones} loading={operationsLoading} error={alertsZonesError} onRefresh={loadData} onReadAlert={markAlertRead} canManage={['admin', 'security'].includes(user.role)} />;
+  return <DashboardLayout user={user} activeSection={section} incidents={incidents} onNavigate={navigate} onLogout={() => { localStorage.clear(); navigate('/login'); }} onClearHistory={clearHistory} clearHistoryLoading={clearHistoryLoading}><div className="mx-auto w-full max-w-[1500px] space-y-6">{error && <div className="dashboard-error" role="alert"><ErrorOutline /><div><strong>Dashboard data issue</strong><p>{error}</p></div><button type="button" className="table-action" onClick={loadData}>Retry</button></div>}{content}</div>{createOpen && <IncidentCreateModal onClose={() => setCreateOpen(false)} onSuccess={async () => { setCreateOpen(false); await loadData(); }} />}</DashboardLayout>;
 }
 
 const Detail = ({ label, value, wide }) => <div className={wide ? 'sm:col-span-2' : ''}><dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</dt><dd className="mt-2 text-sm leading-6 text-slate-800">{value}</dd></div>;

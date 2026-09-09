@@ -9,6 +9,7 @@ router.post('/sos', authorize('student', 'faculty', 'staff', 'security', 'admin'
 router.post('/', authorize('student', 'faculty', 'staff', 'security', 'admin'), uploadIncidentPhotos.array('photos', 5), incidentController.create);
 router.get('/', authorize('student', 'faculty', 'staff', 'security', 'admin'), incidentController.getAll);
 router.get('/stats', authorize('security', 'admin'), incidentController.getStats);
+router.delete('/history', authorize('admin'), incidentController.clearHistory);
 router.patch('/:incident_id/status', authorize('security', 'admin'), incidentController.updateStatus);
 router.post('/:incident_id/assign', authorize('security', 'admin'), incidentController.assignIncident);
 router.patch('/:incident_id/response', authorize('security', 'admin'), incidentController.updateResponseStatus);
