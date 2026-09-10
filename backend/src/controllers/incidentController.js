@@ -3,9 +3,17 @@ const { Op } = require('sequelize');
 const { processIncidentPhotos } = require('../services/uploadService');
 const { sendPushNotification } = require('../services/notificationService');
 const { sendSmsMessage } = require('../services/smsService');
+const {
+  canAccessIncidentEvidence,
+  evidenceExists,
+  getProtectedEvidenceUrl,
+  isStoredEvidence,
+  resolveEvidencePath
+} = require('../services/evidenceService');
 
 const SUPPORTED_STATUSES = ['reported', 'investigating', 'resolved', 'dispatched', 'on_scene', 'closed'];
 const RESPONSE_STATUSES = ['responding', 'resolved', 'closed'];
+const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const recentSOSRequests = new Map();
 const asBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const isValidCoordinate = (value, minimum, maximum) => {
@@ -69,6 +77,15 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
 
 const emitProtected = (io, event, payload) => {
   if (io) io.to('role:security').to('role:admin').emit(event, payload);
+};
+const emitIncidentEvent = (io, incident, event, payload) => {
+  if (!io) return;
+  const recipients = io.to('role:security').to('role:admin');
+  if (incident?.user_id) recipients.to(`user:${incident.user_id}`);
+  recipients.emit(event, payload);
+};
+const emitToIncidentOwner = (io, incident, event, payload) => {
+  if (io && incident?.user_id) io.to(`user:${incident.user_id}`).emit(event, payload);
 };
 
 exports.clearHistory = async (req, res) => {
@@ -227,6 +244,9 @@ exports.assignIncident = async (req, res) => {
   const { incident_id: incidentId } = req.params;
   const { officer_id: officerId } = req.body || {};
   if (!officerId) return res.status(400).json({ success: false, message: 'officer_id is required' });
+  if (!isUuid(incidentId) || !isUuid(officerId)) {
+    return res.status(400).json({ success: false, message: 'incident_id and officer_id must be valid UUIDs' });
+  }
 
   try {
     const incident = await Incident.findByPk(incidentId);
@@ -254,9 +274,36 @@ exports.assignIncident = async (req, res) => {
     const response = await assignIncidentToOfficer(incident, officer, req.user.user_id);
     const payload = assignmentPayload(incident, officer, distanceMeters || 0, req.user.user_id);
     payload.response_id = response.response_id;
+    const updatedIncident = {
+      ...incident.toJSON(),
+      responses: [{
+        ...response.toJSON(),
+        responder: { user_id: officer.user_id, name: officer.name, role: officer.role }
+      }]
+    };
+    const ownerAlert = incident.user_id ? await Alert.create({
+      incident_id: incident.incident_id,
+      type: 'incident_assigned',
+      title: 'Security officer assigned',
+      message: `${officer.name} has been assigned to your incident.`,
+      channel: 'mobile',
+      sent_at: new Date()
+    }) : null;
+    const owner = incident.user_id
+      ? await User.findOne({ where: { user_id: incident.user_id, is_active: true } })
+      : null;
     emitProtected(req.app.get('io'), 'incident_assigned', payload);
     emitProtected(req.app.get('io'), 'officer_assignment', payload);
-    return res.status(201).json({ success: true, message: 'Incident assigned successfully', data: payload });
+    emitToIncidentOwner(req.app.get('io'), incident, 'incident-updated', updatedIncident);
+    if (ownerAlert) emitToIncidentOwner(req.app.get('io'), incident, 'alert-received', ownerAlert.toJSON());
+    if (owner) {
+      await sendPushNotification([owner], {
+        title: 'Security officer assigned',
+        body: `${officer.name} has been assigned to your incident.`,
+        data: { incident_id: incident.incident_id, status: incident.status, officer_id: officer.user_id }
+      });
+    }
+    return res.status(201).json({ success: true, message: 'Incident assigned successfully', data: updatedIncident, assignment: payload });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to assign incident' });
   }
@@ -284,8 +331,29 @@ exports.updateResponseStatus = async (req, res) => {
       await User.update({ availability_status: 'available' }, { where: { user_id: response.responder_id } });
     }
     const payload = { incident_id: incidentId, response_id: response.response_id, status, incident_status: incidentStatus };
-    emitProtected(req.app.get('io'), 'incident-updated', { ...incident.toJSON(), ...payload });
+    const updatedIncident = { ...incident.toJSON(), ...payload };
+    const ownerAlert = incident.user_id ? await Alert.create({
+      incident_id: incident.incident_id,
+      type: incidentStatus === 'resolved' ? 'incident_resolved' : 'incident_updated',
+      title: 'Incident status updated',
+      message: `Your ${incident.type} incident is now ${incidentStatus}.`,
+      channel: 'mobile',
+      sent_at: new Date()
+    }) : null;
+    const owner = incident.user_id
+      ? await User.findOne({ where: { user_id: incident.user_id, is_active: true } })
+      : null;
+    emitProtected(req.app.get('io'), 'incident-updated', updatedIncident);
     emitProtected(req.app.get('io'), 'officer_assignment', payload);
+    emitToIncidentOwner(req.app.get('io'), incident, 'incident-updated', updatedIncident);
+    if (ownerAlert) emitToIncidentOwner(req.app.get('io'), incident, 'alert-received', ownerAlert.toJSON());
+    if (owner) {
+      await sendPushNotification([owner], {
+        title: 'Incident status updated',
+        body: `Your ${incident.type} incident is now ${incidentStatus}.`,
+        data: { incident_id: incident.incident_id, status: incidentStatus }
+      });
+    }
     return res.status(200).json({ success: true, message: 'Response status updated successfully', data: payload });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to update response status' });
@@ -352,8 +420,8 @@ exports.create = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.emit('new-incident', incident.toJSON());
-      io.emit('alert-received', alert.toJSON());
+      emitIncidentEvent(io, incident, 'new-incident', incident.toJSON());
+      emitIncidentEvent(io, incident, 'alert-received', alert.toJSON());
     }
 
     const recipients = await User.findAll({ where: { is_active: true, role: ['security', 'admin'] } });
@@ -367,7 +435,12 @@ exports.create = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Incident reported successfully',
-      data: { ...incident.toJSON(), photos: normalizePhotos(incident.photos) }
+      data: {
+        ...incident.toJSON(),
+        photos: normalizePhotos(incident.photos)
+          .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
+          .filter(Boolean)
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to report incident' });
@@ -399,10 +472,34 @@ exports.getAll = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: incidents.map((incident) => ({ ...incident.toJSON(), photos: normalizePhotos(incident.photos) }))
+      data: incidents.map((incident) => ({
+        ...incident.toJSON(),
+        photos: normalizePhotos(incident.photos)
+          .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
+          .filter(Boolean)
+      }))
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to fetch incidents' });
+  }
+};
+
+exports.serveEvidence = async (req, res) => {
+  try {
+    const incident = await Incident.findByPk(req.params.incident_id);
+    const filename = req.params.filename;
+    if (!incident || !canAccessIncidentEvidence(req.user, incident) || !isStoredEvidence(incident, filename)) {
+      return res.status(404).json({ success: false, message: 'Evidence not found' });
+    }
+
+    const evidencePath = resolveEvidencePath(filename);
+    if (!evidencePath || !evidenceExists(evidencePath)) {
+      return res.status(404).json({ success: false, message: 'Evidence not found' });
+    }
+
+    return res.sendFile(evidencePath);
+  } catch (error) {
+    return res.status(404).json({ success: false, message: 'Evidence not found' });
   }
 };
 
@@ -457,8 +554,10 @@ exports.updateStatus = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.emit('incident-updated', incident.toJSON());
-      io.emit('alert-received', alert.toJSON());
+      emitProtected(io, 'incident-updated', incident.toJSON());
+      emitProtected(io, 'alert-received', alert.toJSON());
+      emitToIncidentOwner(io, incident, 'incident-updated', incident.toJSON());
+      emitToIncidentOwner(io, incident, 'alert-received', alert.toJSON());
     }
 
     const recipients = incident.user_id

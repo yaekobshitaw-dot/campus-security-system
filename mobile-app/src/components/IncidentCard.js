@@ -50,6 +50,7 @@ export const IncidentCard = ({ incident, onPress }) => {
   const getStatusColor = (status) => {
     const colors = {
       reported: '#FF9800',
+      investigating: '#8A5B9C',
       acknowledged: '#2196F3',
       dispatched: '#9C27B0',
       on_scene: '#4CAF50',
@@ -59,6 +60,7 @@ export const IncidentCard = ({ incident, onPress }) => {
     };
     return colors[status] || '#999';
   };
+  const getStatusLabel = (status) => status === 'investigating' ? 'In Progress' : status;
 
   const getSeverityLabel = (severity) => {
     return severity.charAt(0).toUpperCase() + severity.slice(1);
@@ -76,7 +78,7 @@ export const IncidentCard = ({ incident, onPress }) => {
           <Text style={styles.typeText}>{incident.type.replace('_', ' ')}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(incident.status) }]}>
-          <Text style={styles.statusText}>{incident.status}</Text>
+          <Text style={styles.statusText}>{getStatusLabel(incident.status)}</Text>
         </View>
       </View>
 

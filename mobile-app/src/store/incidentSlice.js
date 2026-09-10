@@ -42,6 +42,10 @@ const dedupeIncidentList = (list, incoming) => {
   return list.filter((item) => (item.incident_id || item.id) !== incidentId);
 };
 
+const mergeIncident = (list, incoming) => list.map((item) => (
+  item.incident_id === incoming.incident_id ? { ...item, ...incoming } : item
+));
+
 export const fetchIncidents = createAsyncThunk(
   'incidents/fetch',
   async (params, { rejectWithValue }) => {
@@ -96,11 +100,12 @@ const incidentSlice = createSlice({
       state.recentIncidents = [incident, ...recentDeduped];
     },
     updateIncident: (state, action) => {
-      const index = state.incidents.findIndex(
-        (i) => i.incident_id === action.payload.incident_id
-      );
-      if (index !== -1) {
-        state.incidents[index] = action.payload;
+      const incident = action.payload;
+      if (!incident?.incident_id) return;
+      state.incidents = mergeIncident(state.incidents, incident);
+      state.recentIncidents = mergeIncident(state.recentIncidents, incident);
+      if (state.currentIncident?.incident_id === incident.incident_id) {
+        state.currentIncident = { ...state.currentIncident, ...incident };
       }
     },
   },

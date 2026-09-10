@@ -20,6 +20,7 @@ const AlertsScreen = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const { alerts, loading } = useSelector(state => state.alerts);
+  const { user } = useSelector(state => state.auth);
 
   useEffect(() => {
     loadAlerts();
@@ -58,10 +59,16 @@ const AlertsScreen = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Alerts</Text>
-        <TouchableOpacity style={styles.markAllButton} onPress={() => dispatch(markAllAlertsAsRead())}>
-          <Icon name="done-all" size={18} color={colors.teal} />
-          <Text style={styles.markAllRead}>Mark All Read</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {user?.role !== 'admin' && <TouchableOpacity style={styles.announcementsButton} onPress={() => navigation.navigate('Announcements')} accessibilityRole="button" accessibilityLabel="Open announcements">
+            <Icon name="campaign" size={19} color={colors.teal} />
+            <Text style={styles.markAllRead}>Announcements</Text>
+          </TouchableOpacity>}
+          <TouchableOpacity style={styles.markAllButton} onPress={() => dispatch(markAllAlertsAsRead())} accessibilityRole="button" accessibilityLabel="Mark all alerts read">
+            <Icon name="done-all" size={18} color={colors.teal} />
+            <Text style={styles.markAllRead}>Mark All Read</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -110,6 +117,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  announcementsButton: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 6 },
   markAllButton: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8 },
   listContainer: {
     padding: 16,

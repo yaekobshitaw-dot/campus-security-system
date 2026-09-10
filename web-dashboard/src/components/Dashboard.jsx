@@ -16,7 +16,9 @@ import SecurityMap from './SecurityMap.jsx';
 import IncidentCreateModal from './IncidentCreateModal';
 import ZoneManagement from './ZoneManagement';
 import { AlertsZonesPage, AnalyticsPage, ResponsesPage } from './OperationsPages';
+import AnnouncementsPage from './AnnouncementsPage';
 import { readAlert } from '../services/operations';
+import webSocket from '../services/socket';
 
 const activeStatuses = ['reported', 'investigating', 'dispatched', 'on_scene'];
 const metricToneClasses = {
@@ -30,8 +32,22 @@ const routes = {
   '/map': 'map', '/sos': 'sos', '/emergency': 'emergency', '/evidence': 'evidence',
   '/officers': 'officers', '/users': 'users',
   '/analytics': 'analytics', '/responses': 'responses', '/alerts': 'alerts', '/zones': 'zones',
+  '/announcements': 'announcements',
 };
 const titleCase = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const statusLabel = (value) => value === 'investigating' ? 'In Progress' : titleCase(value);
+const validOfficerCoordinates = (officer) => officer?.latitude !== null && officer?.latitude !== undefined
+  && officer?.longitude !== null && officer?.longitude !== undefined
+  && officer?.latitude !== '' && officer?.longitude !== ''
+  && Number.isFinite(Number(officer?.latitude))
+  && Number(officer.latitude) >= -90 && Number(officer.latitude) <= 90
+  && Number.isFinite(Number(officer?.longitude))
+  && Number(officer.longitude) >= -180 && Number(officer.longitude) <= 180;
+const officerLocationLabel = (officer) => {
+  if (!validOfficerCoordinates(officer) || officer.location_status === 'unavailable') return 'Location unavailable';
+  const label = officer.location_status === 'last_known' ? 'Last known location' : 'Location';
+  return `${label}: ${Number(officer.latitude).toFixed(5)}, ${Number(officer.longitude).toFixed(5)}`;
+};
 
 function statsFor(incidents) {
   return incidents.reduce((stats, incident) => {
@@ -78,6 +94,16 @@ const resourceStatus = (value) => {
   return 'empty';
 };
 
+const notificationsStorageKey = (userId) => `campus-security:notifications:${userId || 'anonymous'}`;
+const readStoredNotifications = (userId) => {
+  try {
+    const stored = sessionStorage.getItem(notificationsStorageKey(userId));
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
 function Dashboard({ user: authenticatedUser }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -94,15 +120,25 @@ function Dashboard({ user: authenticatedUser }) {
   const [operationsLoading, setOperationsLoading] = useState(true);
   const [userStatusLoading, setUserStatusLoading] = useState('');
   const [clearHistoryLoading, setClearHistoryLoading] = useState(false);
+  const [assignmentLoading, setAssignmentLoading] = useState('');
+  const user = authenticatedUser || {};
+  const [notifications, setNotifications] = useState(() => readStoredNotifications(user.user_id));
   const [error, setError] = useState('');
   const [, setOperationsError] = useState('');
   const [resourceState, setResourceState] = useState(initialResourceState);
   const [createOpen, setCreateOpen] = useState(false);
   const section = routes[location.pathname] || (location.pathname.startsWith('/incidents/') ? 'detail' : 'overview');
-  const user = authenticatedUser || {};
   const canViewOperations = ['security', 'admin'].includes(user.role);
   const canViewUsers = user.role === 'admin';
   const protectedSection = (section === 'users' && !canViewUsers) || (['officers', 'analytics', 'responses'].includes(section) && !canViewOperations);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(notificationsStorageKey(user.user_id), JSON.stringify(notifications));
+    } catch {
+      // Session storage can be unavailable in privacy-restricted browsers.
+    }
+  }, [notifications, user.user_id]);
 
   const loadData = useCallback(async () => {
     setLoading(true); setError('');
@@ -154,6 +190,65 @@ function Dashboard({ user: authenticatedUser }) {
     setLoading(false);
   }, [canViewOperations, canViewUsers]);
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    webSocket.connect();
+    const refreshOperationalData = () => loadData();
+    const addNotification = (payload, type) => {
+      const incidentId = payload?.incident_id || payload?.incident?.incident_id || payload?.alert?.incident_id;
+      const notificationId = incidentId || payload?.alert_id || Date.now();
+      const isSOS = type === 'sos' || payload?.is_sos || payload?.type === 'sos_alert';
+      const title = isSOS ? '🚨 SOS Emergency' : '🚨 New Incident Report';
+      const message = isSOS
+        ? 'An SOS emergency has been reported.'
+        : 'A new security incident has been reported.';
+      setNotifications((current) => {
+        const existing = current.find((notification) => notification.id === notificationId);
+        if (existing) {
+          return current.map((notification) => notification.id === notificationId ? {
+            ...notification,
+            incident_id: incidentId || notification.incident_id,
+            title,
+            message,
+            type: isSOS ? 'sos' : 'incident',
+            severity: payload?.severity || notification.severity,
+            location_name: payload?.location_name || notification.location_name,
+            created_at: payload?.created_at || notification.created_at,
+          } : notification);
+        }
+        return [{
+          id: notificationId,
+          incident_id: incidentId,
+          title,
+          type: isSOS ? 'sos' : 'incident',
+          message,
+          severity: payload?.severity || (payload?.is_sos ? 'critical' : 'high'),
+          incident_type: payload?.type,
+          location_name: payload?.location_name || payload?.building,
+          created_at: payload?.created_at || new Date().toISOString(),
+          read: false,
+        }, ...current].slice(0, 20);
+      });
+      loadData();
+    };
+    const handleIncident = (incident) => addNotification(incident, incident?.is_sos ? 'sos' : 'incident');
+    const handleSos = (alert) => addNotification(alert, 'sos');
+    const handleAlert = (alert) => addNotification(alert, alert?.type === 'sos_alert' ? 'sos' : 'incident');
+    webSocket.on('new-incident', handleIncident);
+    webSocket.on('sos_alert', handleSos);
+    webSocket.on('alert-received', handleAlert);
+    webSocket.on('officer-location-updated', refreshOperationalData);
+    webSocket.on('incident_assigned', refreshOperationalData);
+    webSocket.on('officer_assignment', refreshOperationalData);
+    return () => {
+      webSocket.off('new-incident', handleIncident);
+      webSocket.off('sos_alert', handleSos);
+      webSocket.off('alert-received', handleAlert);
+      webSocket.off('officer-location-updated', refreshOperationalData);
+      webSocket.off('incident_assigned', refreshOperationalData);
+      webSocket.off('officer_assignment', refreshOperationalData);
+      webSocket.disconnect();
+    };
+  }, [loadData]);
 
   const stats = useMemo(() => {
     const calculated = statsFor(incidents);
@@ -163,8 +258,22 @@ function Dashboard({ user: authenticatedUser }) {
   const active = useMemo(() => incidents.filter((incident) => activeStatuses.includes(incident.status)), [incidents]);
   const critical = useMemo(() => incidents.filter((incident) => incident.is_sos || incident.severity === 'critical'), [incidents]);
   const detail = incidents.find((incident) => String(incident.incident_id) === location.pathname.split('/').pop());
+  const detailOfficer = detail?.responses?.[0]?.responder?.name || 'Unassigned';
   const view = (incident) => navigate(`/incidents/${incident.incident_id}`);
   const changeStatus = async (incident, status) => { try { await api.patch(`/incidents/${incident.incident_id}/status`, { status }); await loadData(); } catch (requestError) { setError(requestError.response?.data?.message || 'Unable to update incident status.'); } };
+  const assignOfficer = async (incident, officerId) => {
+    if (!officerId || assignmentLoading) return;
+    setAssignmentLoading(incident.incident_id);
+    setError('');
+    try {
+      await api.post(`/incidents/${incident.incident_id}/assign`, { officer_id: officerId });
+      await loadData();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to assign security officer.');
+    } finally {
+      setAssignmentLoading('');
+    }
+  };
   const changeUserStatus = async (account) => {
     setUserStatusLoading(account.user_id);
     setError('');
@@ -196,16 +305,18 @@ function Dashboard({ user: authenticatedUser }) {
     }
   };
   const refreshButton = <button type="button" className="dashboard-button" onClick={loadData}><Refresh className="text-[18px]" /> Refresh</button>;
-  const createButton = <button type="button" className="dashboard-button primary" onClick={() => setCreateOpen(true)}>Report incident</button>;
+  const isSOSSection = section === 'sos' || section === 'emergency';
+  const createButton = <button type="button" className="dashboard-button primary" onClick={() => setCreateOpen(true)}>{isSOSSection ? 'Send SOS alert' : 'Report incident'}</button>;
   const markAlertRead = async (alertId) => { try { await readAlert(alertId); await loadData(); } catch (requestError) { setOperationsError(requestError.response?.data?.message || 'Unable to mark alert as read.'); } };
+  const markNotificationsRead = () => setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
 
-  const table = (items, title, description) => <><Heading eyebrow="Incident operations" title={title} description={description} action={<div className="flex gap-2">{createButton}{refreshButton}</div>} />{resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <IncidentTable incidents={items} loading={loading} onView={view} onStatusChange={changeStatus} />}</>;
+  const table = (items, title, description) => <><Heading eyebrow="Incident operations" title={title} description={description} action={<div className="flex gap-2">{createButton}{refreshButton}</div>} />{resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <IncidentTable incidents={items} officers={officers} loading={loading} onView={view} onStatusChange={changeStatus} onAssign={assignOfficer} assignmentLoading={assignmentLoading} privileged={canViewOperations} />}</>;
   const overview = <div className="space-y-8"><Heading eyebrow="Security operations center" title="Campus overview" description="Live incident, response, and system activity from the campus security service." action={<div className="flex flex-wrap gap-2">{createButton}{refreshButton}</div>} /><div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={ReportProblemOutlined} label="Total incidents" value={stats.total} /><Metric icon={WarningAmberOutlined} label="Active incidents" value={stats.active} tone="amber" /><Metric icon={ShieldOutlined} label="Critical / SOS" value={critical.length} tone="red" /><Metric icon={PeopleAltOutlined} label="Security officers" value={resourceState.officers.status === 'error' ? '!' : officers.length} tone="teal" /></div><div className="grid gap-6 xl:grid-cols-5"><section className="dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] xl:col-span-3"><Heading eyebrow="Priority queue" title="Recent incidents" action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>View queue</button>} />{resourceState.incidents.status === 'loading' ? <div className="inline-loading">Loading incidents...</div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : active.length ? <IncidentTable incidents={active.slice(0, 6)} onView={view} onStatusChange={changeStatus} /> : <EmptyState title="No active incidents" message="The response queue is clear." />}</section><section className="dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] xl:col-span-2"><Heading eyebrow="Communications" title="Latest alerts" />{resourceState.alerts.status === 'loading' ? <div className="inline-loading">Loading alerts...</div> : resourceState.alerts.status === 'error' ? <RequestError message={resourceState.alerts.error} onRetry={loadData} /> : alerts.length ? <div className="space-y-3">{alerts.slice(0, 5).map((alert) => <div key={alert.alert_id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 transition hover:border-cyan-200 hover:bg-cyan-50/30"><div className="flex gap-3"><WarningAmberOutlined className="text-amber-600" /><div><p className="text-sm font-bold text-[#0b1f3a]">{alert.title || titleCase(alert.type)}</p><p className="mt-1 text-xs leading-5 text-slate-600">{alert.message || 'No additional details.'}</p></div></div></div>)}</div> : <EmptyState title="No alerts" message="There are no alerts to display." />}</section></div></div>;
   const map = <div className="space-y-8"><Heading eyebrow="Geospatial response" title="Live incident map" description="Locations returned by the incident service." />{resourceState.incidents.status === 'loading' ? <div className="inline-loading">Loading map data...</div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-2 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"><SecurityMap incidents={incidents} officers={canViewOperations ? officers : []} zones={zones} /></div>}</div>;
-  const detailView = detail ? <div className="space-y-8"><Heading eyebrow="Incident record" title={titleCase(detail.type)} action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/history')}>Back to incidents</button>} /><div className="detail-grid"><section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><div className="flex flex-wrap gap-2"><span className={`severity-badge ${detail.severity}`}>{detail.severity}</span><span className={`status-badge ${detail.status}`}>{titleCase(detail.status)}</span>{detail.is_sos && <span className="status-badge border-red-200 bg-red-100 text-red-700">SOS</span>}</div><dl className="mt-6 grid gap-5 sm:grid-cols-2"><Detail label="Description" value={detail.description || 'No description provided'} wide /><Detail label="Location" value={detail.location_name || detail.building || 'Unavailable'} /><Detail label="Reporter" value={detail.reporter?.name || (detail.is_anonymous ? 'Anonymous' : 'Campus member')} /><Detail label="Reported" value={new Date(detail.created_at).toLocaleString()} /></dl></section><section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><Heading eyebrow="Evidence" title="Attached photos" />{detail.photos?.length ? <EvidencePreview photos={detail.photos} /> : <EmptyState title="No evidence attached" message="This incident has no uploaded photos." />}</section></div></div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
+  const detailView = detail ? <div className="space-y-8"><Heading eyebrow="Incident record" title={titleCase(detail.type)} action={<button type="button" className="dashboard-button" onClick={() => navigate('/incidents/history')}>Back to incidents</button>} /><div className="detail-grid"><section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><div className="flex flex-wrap gap-2"><span className={`severity-badge ${detail.severity}`}>{detail.severity}</span><span className={`status-badge ${detail.status}`}>{statusLabel(detail.status)}</span>{detail.is_sos && <span className="status-badge border-red-200 bg-red-100 text-red-700">SOS</span>}</div><dl className="mt-6 grid gap-5 sm:grid-cols-2"><Detail label="Description" value={detail.description || 'No description provided'} wide /><Detail label="Location" value={detail.location_name || detail.building || 'Unavailable'} /><Detail label="Reporter" value={detail.reporter?.name || (detail.is_anonymous ? 'Anonymous' : 'Campus member')} /><Detail label="Assigned officer" value={detailOfficer} /><Detail label="Reported" value={new Date(detail.created_at).toLocaleString()} /></dl></section><section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><Heading eyebrow="Evidence" title="Attached photos" />{detail.photos?.length ? <EvidencePreview photos={detail.photos} /> : <EmptyState title="No evidence attached" message="This incident has no uploaded photos." />}</section></div></div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
   const evidence = <div className="space-y-6"><Heading eyebrow="Evidence review" title="Incident evidence" description="Uploaded photos associated with incident records." />{resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : incidents.filter((incident) => incident.photos?.length).length ? <div className="evidence-grid">{incidents.filter((incident) => incident.photos?.length).map((incident) => <article className="evidence-card" key={incident.incident_id}><div className="mb-4 flex items-start justify-between"><div><h3 className="font-black text-slate-900">{titleCase(incident.type)}</h3><p className="mt-1 text-xs text-slate-500">{incident.location_name || 'Campus'}</p></div><button type="button" className="table-action" onClick={() => view(incident)}>View</button></div><EvidencePreview photos={incident.photos} /></article>)}</div> : <EmptyState title="No evidence available" message="Photo evidence will appear here when incidents include uploads." />}</div>;
   const usersView = <div className="space-y-8"><Heading eyebrow="Access and people" title="User management" description="Campus accounts returned by the security service." />{users.length ? <div className="dashboard-panel overflow-x-auto border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><table className="dashboard-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>{users.map((account) => <tr key={account.user_id}><td className="font-bold text-[#0b1f3a]">{account.name}</td><td>{account.email}</td><td>{titleCase(account.role)}</td><td><span className={`status-badge ${account.is_active ? 'resolved' : ''}`}>{account.is_active ? 'Active' : 'Inactive'}</span></td><td><button type="button" className="table-action" onClick={() => changeUserStatus(account)} disabled={userStatusLoading === account.user_id}>{userStatusLoading === account.user_id ? 'Updating...' : account.is_active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody></table></div> : <EmptyState icon={PeopleAltOutlined} title="No users returned" message="User management data is unavailable or empty." />}</div>;
-  const officersView = <div className="space-y-8"><Heading eyebrow="Response team" title="Security officers" description="Officer availability from the security service." />{officers.length ? <div className="officer-grid">{officers.map((officer) => <article className="officer-card border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" key={officer.user_id}><div className="officer-card-heading"><strong className="text-[#0b1f3a]">{officer.name}</strong><span className={`officer-status ${officer.availability_status || 'offline'}`}>{titleCase(officer.availability_status || 'offline')}</span></div><p className="text-sm text-slate-600">{officer.email}</p><p className="mt-3 text-xs text-slate-500">{officer.latitude != null ? `Location: ${officer.latitude}, ${officer.longitude}` : 'Location unavailable'}</p></article>)}</div> : <EmptyState icon={PeopleAltOutlined} title="No security officers" message="No officer records are currently available." />}</div>;
+  const officersView = <div className="space-y-8"><Heading eyebrow="Response team" title="Security officers" description="Officer availability from the security service." />{officers.length ? <div className="officer-grid">{officers.map((officer) => <article className="officer-card border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" key={officer.user_id}><div className="officer-card-heading"><strong className="text-[#0b1f3a]">{officer.name}</strong><span className={`officer-status ${officer.availability_status || 'offline'}`}>{titleCase(officer.availability_status || 'offline')}</span></div><p className="text-sm text-slate-600">{officer.email}</p><p className="mt-3 text-xs text-slate-500">{officerLocationLabel(officer)}</p></article>)}</div> : <EmptyState icon={PeopleAltOutlined} title="No security officers" message="No officer records are currently available." />}</div>;
   const alertsZonesError = resourceState.alerts.status === 'error' ? resourceState.alerts.error : resourceState.zones.status === 'error' ? resourceState.zones.error : '';
   let content = overview;
   if (section === 'incidents') content = table(active, 'Active incidents', 'Reports currently in the response queue.');
@@ -220,8 +331,9 @@ function Dashboard({ user: authenticatedUser }) {
   else if (section === 'officers') content = resourceState.officers.status === 'loading' ? <div className="inline-loading">Loading officers...</div> : resourceState.officers.status === 'error' ? <RequestError message={resourceState.officers.error} onRetry={loadData} /> : officersView;
   else if (section === 'analytics') content = <AnalyticsPage analytics={analytics} loading={operationsLoading} error={resourceState.analytics.status === 'error' ? resourceState.analytics.error : ''} onRefresh={loadData} />;
   else if (section === 'responses') content = <ResponsesPage responses={responses} loading={operationsLoading} error={resourceState.responses.status === 'error' ? resourceState.responses.error : ''} onRefresh={loadData} />;
+  else if (section === 'announcements') content = <AnnouncementsPage user={user} />;
   else if (section === 'alerts' || section === 'zones') content = <AlertsZonesPage alerts={alerts} zones={zones} loading={operationsLoading} error={alertsZonesError} onRefresh={loadData} onReadAlert={markAlertRead} canManage={['admin', 'security'].includes(user.role)} />;
-  return <DashboardLayout user={user} activeSection={section} incidents={incidents} onNavigate={navigate} onLogout={() => { localStorage.clear(); navigate('/login'); }} onClearHistory={clearHistory} clearHistoryLoading={clearHistoryLoading}><div className="mx-auto w-full max-w-[1500px] space-y-6">{error && <div className="dashboard-error" role="alert"><ErrorOutline /><div><strong>Dashboard data issue</strong><p>{error}</p></div><button type="button" className="table-action" onClick={loadData}>Retry</button></div>}{content}</div>{createOpen && <IncidentCreateModal onClose={() => setCreateOpen(false)} onSuccess={async () => { setCreateOpen(false); await loadData(); }} />}</DashboardLayout>;
+  return <DashboardLayout user={user} activeSection={section} incidents={incidents} notifications={notifications} onNotificationsRead={markNotificationsRead} onNavigate={navigate} onLogout={() => { localStorage.clear(); navigate('/login'); }} onClearHistory={clearHistory} clearHistoryLoading={clearHistoryLoading}><div className="mx-auto w-full max-w-[1500px] space-y-6">{error && <div className="dashboard-error" role="alert"><ErrorOutline /><div><strong>Dashboard data issue</strong><p>{error}</p></div><button type="button" className="table-action" onClick={loadData}>Retry</button></div>}{content}</div>{createOpen && <IncidentCreateModal isSOS={isSOSSection} onClose={() => setCreateOpen(false)} onSuccess={async () => { setCreateOpen(false); await loadData(); }} />}</DashboardLayout>;
 }
 
 const Detail = ({ label, value, wide }) => <div className={wide ? 'sm:col-span-2' : ''}><dt className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</dt><dd className="mt-2 text-sm leading-6 text-slate-800">{value}</dd></div>;

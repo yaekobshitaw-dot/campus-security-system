@@ -3,13 +3,6 @@ import { getLocation } from './location';
 
 const LOCATION_UPDATE_INTERVAL_MS = 30000;
 
-const sendAvailableStatus = async () => {
-  try {
-    await api.patch('/users/me/location', { availability_status: 'available' });
-  } catch {
-  }
-};
-
 export const startOfficerLocationUpdates = () => {
   let stopped = false;
   let updateInProgress = false;
@@ -18,15 +11,19 @@ export const startOfficerLocationUpdates = () => {
     if (stopped || updateInProgress) return;
     updateInProgress = true;
     try {
-      await sendAvailableStatus();
       const location = await getLocation();
+      if (__DEV__) console.log('Officer GPS location acquired.');
       if (!stopped) {
         await api.patch('/users/me/location', {
           latitude: location.latitude,
           longitude: location.longitude,
         });
+        if (__DEV__) console.log('Officer location update accepted by the server.');
       }
-    } catch {
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Officer location update failed:', error?.response?.data?.message || error?.message || 'Unknown location error');
+      }
     } finally {
       updateInProgress = false;
     }

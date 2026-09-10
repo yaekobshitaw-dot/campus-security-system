@@ -1,7 +1,7 @@
 const SERVER_CONFIG = {
   development: {
-    apiBaseUrl: globalThis.__APP_API_BASE_URL__ || 'http://10.0.2.2:5002/api',
-    socketBaseUrl: globalThis.__APP_SOCKET_BASE_URL__ || 'http://10.0.2.2:5002',
+    apiBaseUrl: globalThis.__APP_API_BASE_URL__ || 'http://172.16.37.45:5002/api',
+    socketBaseUrl: globalThis.__APP_SOCKET_BASE_URL__ || 'http://127.0.0.1:5002',
   },
   production: {
     apiBaseUrl: globalThis.__APP_API_BASE_URL__ || 'https://api.yourdomain.com/api',

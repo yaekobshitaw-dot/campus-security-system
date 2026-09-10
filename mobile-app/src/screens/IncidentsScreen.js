@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { colors } from '../components/ui';
 import { fetchIncidents } from '../store/incidentSlice';
 
-const statusLabel = (status) => ({ reported: 'Reported', investigating: 'Investigating', resolved: 'Resolved', acknowledged: 'Acknowledged', dispatched: 'Officer assigned', on_scene: 'On scene', closed: 'Closed', cancelled: 'Cancelled' }[status] || 'Reported');
+const statusLabel = (status) => ({ reported: 'Reported', investigating: 'In Progress', resolved: 'Resolved', acknowledged: 'Acknowledged', dispatched: 'Dispatched', on_scene: 'On Scene', closed: 'Closed', cancelled: 'Cancelled' }[status] || 'Reported');
 const statusColor = (status) => status === 'resolved' || status === 'closed' ? '#2D8A61' : status === 'investigating' || status === 'dispatched' || status === 'on_scene' ? '#8A5B9C' : '#C17A24';
 
 const IncidentsScreen = ({ navigation }) => {

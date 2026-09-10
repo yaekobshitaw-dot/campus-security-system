@@ -1,6 +1,6 @@
 import { CheckCircleOutline, Refresh, WarningAmberOutlined } from '@mui/icons-material';
 
-const titleCase = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const titleCase = (value) => value === 'investigating' ? 'In Progress' : String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const Heading = ({ eyebrow, title, description, action }) => <div className="mb-5 flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="dashboard-eyebrow">{eyebrow}</p><h2 className="mt-2 text-xl font-black tracking-tight text-[#0b1f3a] sm:text-2xl">{title}</h2>{description && <span className="mt-1 block max-w-2xl text-sm leading-6 text-slate-500">{description}</span>}</div>{action && <div className="flex flex-wrap items-center gap-2">{action}</div>}</div>;
 const EmptyState = ({ title, message }) => <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm"><CheckCircleOutline className="mb-3 rounded-2xl bg-cyan-50 p-3 text-[54px] text-cyan-700 ring-1 ring-cyan-100" /><h3 className="text-lg font-black text-[#0b1f3a]">{title}</h3><p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{message}</p></div>;
 

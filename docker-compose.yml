@@ -36,6 +36,10 @@
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the environment}
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?Set REFRESH_TOKEN_SECRET in the environment}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:5001}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-15000}
+      ASSISTANT_RATE_LIMIT_MAX: ${ASSISTANT_RATE_LIMIT_MAX:-30}
     ports:
       - "5000:5002"
     depends_on:
@@ -44,6 +48,8 @@
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - campus-network
 

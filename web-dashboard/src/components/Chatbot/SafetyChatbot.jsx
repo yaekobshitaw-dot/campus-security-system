@@ -1,43 +1,41 @@
-﻿// src/components/Chatbot/SafetyChatbot.jsx
-import React, { useState, useRef, useEffect } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
+import api from '../../services/api';
 
-const SafetyChatbot = () => {
+const quickRepliesByRole = {
+  student: ['How do I report an incident?', 'What does In Progress mean?', 'What is my latest incident status?', 'How do I send SOS?'],
+  faculty: ['How do I report an incident?', 'What does In Progress mean?', 'What should I do during a fire?'],
+  staff: ['How do I report an incident?', 'What does In Progress mean?', 'What should I do during an emergency?'],
+  security: ['What incidents are assigned to me?', 'What does On Scene mean?', 'How does the response workflow work?'],
+  admin: ['What are the current incident statistics?', 'How does officer assignment work?', 'How does the security workflow work?']
+};
+
+const SafetyChatbot = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { text: 'Hello! I\'m your Campus Safety Assistant. How can I help you?', sender: 'bot' }
+    { text: 'Hello! I\'m your Campus Security Assistant. How can I help?', sender: 'bot' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const messagesEndRef = useRef(null);
 
-  const quickReplies = ['How to report an incident?', 'Emergency contacts', 'Safety tips', 'Security office location'];
+  const quickReplies = quickRepliesByRole[user?.role] || quickRepliesByRole.student;
 
-  const getBotResponse = (userMessage) => {
-    const lower = userMessage.toLowerCase();
-    if (lower.includes('report') || lower.includes('incident')) {
-      return 'To report an incident, click the "Report Incident" button on the dashboard. Fill in the details and submit.';
-    } else if (lower.includes('emergency') || lower.includes('contact')) {
-      return 'Emergency Contacts:\nSecurity: +251-911-234-567\nMedical: +251-911-765-432\nPolice: 911';
-    } else if (lower.includes('safety') || lower.includes('tip')) {
-      return 'Safety Tips:\n1. Stay aware of your surroundings\n2. Report suspicious activity\n3. Use well-lit paths at night';
-    } else if (lower.includes('security') || lower.includes('office')) {
-      return 'The Campus Security Office is in Building A, Room 101. Open 24/7.';
-    } else {
-      return 'I can help with:\n• Reporting incidents\n• Emergency contacts\n• Safety tips\n• Security office location';
-    }
-  };
-
-  const sendMessage = () => {
-    if (!input.trim()) return;
-    const userMessage = input;
+  const sendMessage = async (message = input) => {
+    const userMessage = message.trim();
+    if (!userMessage || loading) return;
     setInput('');
+    setError('');
     setMessages(prev => [...prev, { text: userMessage, sender: 'user' }]);
     setLoading(true);
-    setTimeout(() => {
-      const response = getBotResponse(userMessage);
-      setMessages(prev => [...prev, { text: response, sender: 'bot' }]);
+    try {
+      const response = await api.post('/assistant/chat', { message: userMessage });
+      setMessages(prev => [...prev, { text: response.data.message, sender: 'bot', source: response.data.source }]);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'The assistant is temporarily unavailable.');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
@@ -46,12 +44,12 @@ const SafetyChatbot = () => {
 
   return (
     <>
-      <button onClick={() => setIsOpen(!isOpen)} style={styles.chatButton}>💬</button>
+      <button type="button" onClick={() => setIsOpen(!isOpen)} style={styles.chatButton} aria-label="Open AI Security Assistant">💬</button>
       {isOpen && (
         <div style={styles.chatWindow}>
           <div style={styles.chatHeader}>
-            <span>🤖 Safety Assistant</span>
-            <button onClick={() => setIsOpen(false)} style={styles.closeBtn}>✕</button>
+            <span>🤖 AI Security Assistant</span>
+            <button type="button" onClick={() => setIsOpen(false)} style={styles.closeBtn} aria-label="Close assistant">✕</button>
           </div>
           <div style={styles.chatMessages}>
             {messages.map((msg, index) => (
@@ -60,18 +58,19 @@ const SafetyChatbot = () => {
               </div>
             ))}
             {loading && <div style={{...styles.message, alignSelf: 'flex-start', backgroundColor: '#f5f5f5'}}>Typing...</div>}
+            {error && <div role="alert" style={styles.error}>{error}</div>}
             <div ref={messagesEndRef} />
           </div>
           <div style={styles.quickReplies}>
-            {quickReplies.map((reply, index) => (
-              <button key={index} onClick={() => { setInput(reply); setTimeout(sendMessage, 100); }} style={styles.quickReplyBtn}>
+            {quickReplies.map((reply) => (
+              <button type="button" key={reply} onClick={() => sendMessage(reply)} style={styles.quickReplyBtn} disabled={loading}>
                 {reply}
               </button>
             ))}
           </div>
           <div style={styles.chatInput}>
-            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && sendMessage()} placeholder="Type a message..." style={styles.input} />
-            <button onClick={sendMessage} style={styles.sendBtn}>Send</button>
+            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} placeholder="Ask a security question..." style={styles.input} maxLength={2000} disabled={loading} />
+            <button type="button" onClick={() => sendMessage()} style={styles.sendBtn} disabled={loading || !input.trim()}>Send</button>
           </div>
         </div>
       )}
@@ -86,6 +85,7 @@ const styles = {
   closeBtn: { background: 'none', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' },
   chatMessages: { padding: '15px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' },
   message: { padding: '10px 15px', borderRadius: '18px', maxWidth: '80%', wordWrap: 'break-word', whiteSpace: 'pre-line' },
+  error: { padding: '8px 10px', color: '#b42318', backgroundColor: '#fef3f2', borderRadius: '8px', fontSize: '12px' },
   quickReplies: { padding: '10px', display: 'flex', flexWrap: 'wrap', gap: '5px', borderTop: '1px solid #eee' },
   quickReplyBtn: { backgroundColor: '#e3f2fd', border: '1px solid #2196F3', borderRadius: '20px', padding: '5px 12px', fontSize: '12px', cursor: 'pointer', color: '#2196F3' },
   chatInput: { padding: '10px', display: 'flex', gap: '10px', borderTop: '1px solid #eee' },

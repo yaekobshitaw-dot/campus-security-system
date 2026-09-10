@@ -5,6 +5,9 @@ const Alert = require('./Alert');
 const Response = require('./Response');
 const SmsMessage = require('./SmsMessage');
 const Zone = require('./Zone');
+const Announcement = require('./Announcement');
+const AnnouncementAudience = require('./AnnouncementAudience');
+const AnnouncementRead = require('./AnnouncementRead');
 
 User.hasMany(Incident, { foreignKey: 'user_id', as: 'reportedIncidents' });
 Incident.belongsTo(User, { foreignKey: 'user_id', as: 'reporter' });
@@ -17,5 +20,20 @@ User.hasMany(SmsMessage, { foreignKey: 'recipient_user_id', as: 'receivedSmsMess
 User.hasMany(SmsMessage, { foreignKey: 'sender_user_id', as: 'sentSmsMessages' });
 SmsMessage.belongsTo(User, { foreignKey: 'recipient_user_id', as: 'recipient' });
 SmsMessage.belongsTo(User, { foreignKey: 'sender_user_id', as: 'sender' });
+Announcement.hasMany(AnnouncementAudience, { foreignKey: 'announcement_id', as: 'audiences' });
+AnnouncementAudience.belongsTo(Announcement, { foreignKey: 'announcement_id', as: 'announcement' });
+Announcement.hasMany(AnnouncementRead, { foreignKey: 'announcement_id', as: 'reads' });
+AnnouncementRead.belongsTo(Announcement, { foreignKey: 'announcement_id', as: 'announcement' });
 
-module.exports = { sequelize, User, Incident, Alert, Response, SmsMessage, Zone };
+module.exports = {
+	sequelize,
+	User,
+	Incident,
+	Alert,
+	Response,
+	SmsMessage,
+	Zone,
+	Announcement,
+	AnnouncementAudience,
+	AnnouncementRead
+};

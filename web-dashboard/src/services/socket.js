@@ -2,7 +2,9 @@ import { io } from 'socket.io-client';
 
 const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL || (
-  API_URL.startsWith('http') ? API_URL.replace(/\/api$/, '') : 'http://localhost:5002'
+  API_URL.startsWith('http')
+    ? API_URL.replace(/\/api$/, '')
+    : `${window.location.protocol}//${window.location.hostname}:5002`
 );
 const SOCKET_URL = configuredSocketUrl
   .replace(/^ws:\/\//, 'http://')

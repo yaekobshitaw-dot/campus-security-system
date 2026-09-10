@@ -17,6 +17,15 @@ const normalizeRole = (role, allowedRoles, fallbackRole = 'student') => {
   const normalized = String(role || '').trim().toLowerCase();
   return allowedRoles.includes(normalized) ? normalized : fallbackRole;
 };
+const isValidBootstrapSecret = (providedSecret) => {
+  const configuredSecret = String(process.env.ADMIN_BOOTSTRAP_SECRET || '');
+  const suppliedSecret = String(providedSecret || '');
+  if (!configuredSecret || !suppliedSecret || configuredSecret.length !== suppliedSecret.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(Buffer.from(configuredSecret), Buffer.from(suppliedSecret));
+};
 
 const PUBLIC_REGISTRATION_ROLES = ['student', 'faculty', 'staff'];
 const ADMIN_MANAGED_ROLES = ['student', 'faculty', 'staff', 'security', 'admin'];
@@ -140,6 +149,22 @@ exports.createUserByAdmin = async (req, res) => {
 
 exports.setupFirstAdmin = async (req, res) => {
   try {
+    const configuredSecret = String(process.env.ADMIN_BOOTSTRAP_SECRET || '');
+    const suppliedSecret = req.get('x-admin-bootstrap-secret');
+    if (!configuredSecret) {
+      return res.status(503).json({
+        success: false,
+        message: 'First-admin setup is not configured'
+      });
+    }
+
+    if (!isValidBootstrapSecret(suppliedSecret)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid bootstrap credentials'
+      });
+    }
+
     const { name, email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 

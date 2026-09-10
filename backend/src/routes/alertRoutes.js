@@ -7,8 +7,13 @@ router.use(authenticate);
 
 router.get('/', async (req, res) => {
   try {
+    const isPrivileged = ['security', 'admin'].includes(req.user.role);
     const alerts = await Alert.findAll({
-      include: [{ model: Incident, as: 'incident' }],
+      include: [{
+        model: Incident,
+        as: 'incident',
+        ...(isPrivileged ? {} : { where: { user_id: req.user.user_id }, required: true })
+      }],
       order: [['sent_at', 'DESC']]
     });
     return res.json({ success: true, data: alerts });
@@ -23,7 +28,15 @@ router.post('/', (req, res) => {
 
 router.put('/:id/read', async (req, res) => {
   try {
-    const alert = await Alert.findByPk(req.params.id);
+    const isPrivileged = ['security', 'admin'].includes(req.user.role);
+    const alert = await Alert.findOne({
+      where: { alert_id: req.params.id },
+      include: [{
+        model: Incident,
+        as: 'incident',
+        ...(isPrivileged ? {} : { where: { user_id: req.user.user_id }, required: true })
+      }]
+    });
     if (!alert) return res.status(404).json({ success: false, message: 'Alert not found' });
     await alert.update({ is_read: true });
     return res.json({ success: true, data: alert });

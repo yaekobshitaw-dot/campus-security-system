@@ -11,6 +11,7 @@ const statusColor = {
 };
 
 const coordinatesFor = (latitude, longitude) => {
+  if (latitude === null || latitude === undefined || latitude === '' || longitude === null || longitude === undefined || longitude === '') return null;
   const lat = Number(latitude);
   const lng = Number(longitude);
   return Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lng) && lng >= -180 && lng <= 180

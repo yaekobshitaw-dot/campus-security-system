@@ -18,6 +18,7 @@ function initSocket(io) {
 
   io.on('connection', (socket) => {
     socket.join(`role:${socket.user.role}`);
+    socket.join(`user:${socket.user.user_id}`);
   });
 }
 

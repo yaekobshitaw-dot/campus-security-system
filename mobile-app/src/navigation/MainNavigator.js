@@ -3,7 +3,10 @@ import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { colors } from '../components/ui';
 import AlertDetailScreen from '../screens/AlertDetailScreen';
+import AnnouncementDetailScreen from '../screens/AnnouncementDetailScreen';
+import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import AlertsScreen from '../screens/AlertsScreen';
+import AssistantScreen from '../screens/AssistantScreen';
 import EmergencyContactsScreen from '../screens/EmergencyContactsScreen';
 import HomeScreen from '../screens/HomeScreen';
 import IncidentDetailScreen from '../screens/IncidentDetailScreen';
@@ -35,6 +38,8 @@ const AlertStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AlertsRoot" component={AlertsScreen} />
       <Stack.Screen name="AlertDetail" component={AlertDetailScreen} />
+      <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
+      <Stack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} />
     </Stack.Navigator>
   );
 };
@@ -69,6 +74,8 @@ const MainNavigator = () => {
             iconName = focused ? 'home' : 'home';
           } else if (route.name === 'Alerts') {
             iconName = focused ? 'notifications' : 'notifications-none';
+          } else if (route.name === 'Assistant') {
+            iconName = focused ? 'smart-toy' : 'smart-toy';
           } else if (route.name === 'Report') {
             iconName = focused ? 'add-alert' : 'outlined-flag';
           } else if (route.name === 'Profile') {
@@ -100,6 +107,7 @@ const MainNavigator = () => {
     >
       <Tab.Screen name="Home" component={HomeStack} />
       <Tab.Screen name="Alerts" component={AlertStack} />
+      <Tab.Screen name="Assistant" component={AssistantScreen} />
       <Tab.Screen name="Report" component={ReportStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>

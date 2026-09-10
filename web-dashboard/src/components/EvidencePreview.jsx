@@ -1,21 +1,16 @@
-import { useState } from 'react';
-
-const backendOrigin = () => {
-  const configured = import.meta.env.VITE_MEDIA_BASE_URL || import.meta.env.VITE_API_URL;
-  if (configured?.startsWith('http')) return configured.replace(/\/api\/?$/, '');
-  return 'http://localhost:5002';
-};
+import { useEffect, useState } from 'react';
+import api from '../services/api';
 
 const mediaUrl = (reference) => {
   if (typeof reference !== 'string') return null;
-  if (reference.startsWith('/uploads/')) return `${backendOrigin()}${reference}`;
 
   try {
     const url = new URL(reference);
-    if (url.pathname.startsWith('/uploads/')) return `${backendOrigin()}${url.pathname}`;
-    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+    return url.pathname.includes('/api/incidents/') && url.pathname.includes('/evidence/')
+      ? reference
+      : null;
   } catch {
-    return null;
+    return reference.startsWith('/api/incidents/') && reference.includes('/evidence/') ? reference : null;
   }
 };
 
@@ -43,12 +38,38 @@ export default function EvidencePreview({ photos }) {
 
 function EvidenceImage({ url, onError }) {
   const [state, setState] = useState('loading');
-  const filename = decodeURIComponent(new URL(url).pathname.split('/').pop());
+  const [objectUrl, setObjectUrl] = useState(null);
+  const filename = decodeURIComponent(new URL(url, window.location.origin).pathname.split('/').pop());
 
-  return (
+  useEffect(() => {
+    let active = true;
+    let createdUrl = null;
+
+    const apiPath = url.replace(/^\/api(?=\/)/, '');
+    api.get(apiPath, { responseType: 'blob' })
+      .then((response) => {
+        if (!active) return;
+        createdUrl = URL.createObjectURL(response.data);
+        setObjectUrl(createdUrl);
+        setState('loaded');
+      })
+      .catch(() => {
+        if (active) {
+          setState('error');
+          onError();
+        }
+      });
+
+    return () => {
+      active = false;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [url, onError]);
+
+  return state !== 'error' && objectUrl ? (
     <div className="evidence-item">
-      {state !== 'error' && <a href={url} target="_blank" rel="noreferrer" aria-label={`Open ${filename}`}><img src={url} alt={filename} loading="lazy" onLoad={() => setState('loaded')} onError={() => { setState('error'); onError(); }} /></a>}
+      <a href={objectUrl} target="_blank" rel="noreferrer" aria-label={`Open ${filename}`}><img src={objectUrl} alt={filename} loading="lazy" /></a>
       <small>{filename}</small>
     </div>
-  );
+  ) : state === 'loading' ? <small>Loading evidence...</small> : null;
 }

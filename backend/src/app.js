@@ -1,5 +1,4 @@
 ﻿const express = require('express');
-const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -13,8 +12,10 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const zoneRoutes = require('./routes/zoneRoutes');
 const responseRoutes = require('./routes/responseRoutes');
 const smsRoutes = require('./routes/smsRoutes');
+const assistantRoutes = require('./routes/assistantRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
-const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, assistantLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { corsOrigin } = require('./config/cors');
 
 const app = express();
@@ -28,7 +29,6 @@ app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
@@ -38,6 +38,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/sms', smsRoutes);
+app.use('/api/assistant', assistantLimiter, assistantRoutes);
+app.use('/api/announcements', announcementRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });

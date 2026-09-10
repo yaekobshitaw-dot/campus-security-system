@@ -5,16 +5,19 @@ import {
   InsightsOutlined,
   Logout,
   Close,
+  CampaignOutlined,
   Menu,
   MapOutlined,
   PeopleAltOutlined,
   ReportProblemOutlined,
+  NotificationsOutlined,
   SmsOutlined,
   ShieldOutlined,
   TaskAltOutlined,
   WarningAmberOutlined,
 } from '@mui/icons-material';
 import { useMemo, useState } from 'react';
+import SafetyChatbot from './Chatbot/SafetyChatbot';
 
 const statusClasses = {
   reported: 'border-slate-200 bg-slate-100 text-slate-700',
@@ -45,6 +48,7 @@ const navigationItems = [
   { label: 'Analytics', path: '/analytics', icon: InsightsOutlined },
   { label: 'Responses', path: '/responses', icon: SmsOutlined },
   { label: 'Alerts and zones', path: '/alerts', icon: WarningAmberOutlined },
+  { label: 'Announcements', path: '/announcements', icon: CampaignOutlined },
   { label: 'Zones', path: '/zones', icon: MapOutlined },
 ];
 
@@ -59,6 +63,7 @@ const toTitleCase = (value) =>
   String(value ?? 'incident')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const statusLabel = (value) => value === 'investigating' ? 'In Progress' : toTitleCase(value);
 
 const formatDate = (value) => (value ? new Date(value).toLocaleString() : 'Unknown');
 
@@ -70,6 +75,8 @@ export function DashboardLayout({
   user,
   activeSection = 'overview',
   incidents = [],
+  notifications = [],
+  onNotificationsRead = () => { },
   onNavigate = () => { },
   onLogout = () => { },
   onClearHistory = async () => { },
@@ -77,6 +84,8 @@ export function DashboardLayout({
   children,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
   const activeIncidentCount = incidents.filter((incident) =>
     ['reported', 'investigating', 'dispatched', 'on_scene'].includes(incident.status),
   ).length;
@@ -101,7 +110,7 @@ export function DashboardLayout({
         />
 
         <main className="flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
-          <header className="dashboard-header sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-sm">
+          <header className="dashboard-header relative sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-sm">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6 sm:py-3 lg:px-8">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
@@ -131,13 +140,19 @@ export function DashboardLayout({
 
                 <button
                   type="button"
-                  onClick={() => onNavigate('/incidents/active')}
+                  onClick={() => { setNotificationsOpen((open) => !open); onNotificationsRead(); }}
                   className="dashboard-icon-button relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
                   aria-label="Notifications"
+                  aria-expanded={notificationsOpen}
                 >
-                  <WarningAmberOutlined className="text-[18px]" />
-                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1 py-0.5 text-center text-[9px] font-black text-white">9</span>
+                  <NotificationsOutlined className="text-[18px]" />
+                  {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1 py-0.5 text-center text-[9px] font-black text-white">{unreadCount}</span>}
                 </button>
+
+                {notificationsOpen && <div className="absolute right-4 top-[4.5rem] z-30 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-2 pb-2"><strong className="text-sm text-[#0b1f3a]">Live notifications</strong><span className="text-xs font-bold text-slate-400">{unreadCount} unread</span></div>
+                  {notifications.length ? <div className="max-h-72 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} type="button" onClick={() => { setNotificationsOpen(false); onNavigate(notification.incident_id ? `/incidents/${notification.incident_id}` : '/incidents/active'); }} className={cn('block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-cyan-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} · ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` · ${notification.location_name}` : ''} · {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}</div> : <p className="px-2 py-5 text-center text-xs text-slate-500">No new notifications</p>}
+                </div>}
 
                 <button
                   type="button"
@@ -209,6 +224,7 @@ export function DashboardLayout({
           <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
+      <SafetyChatbot user={user} />
     </div>
   );
 }
@@ -315,9 +331,12 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
 
 export function IncidentTable({
   incidents = [],
+  officers = [],
   loading = false,
   onView = () => { },
   onStatusChange = () => { },
+  onAssign = () => { },
+  assignmentLoading = '',
   privileged = true,
 }) {
   const visibleIncidents = useMemo(() => incidents || [], [incidents]);
@@ -382,7 +401,10 @@ export function IncidentTable({
 
           <tbody className="divide-y divide-slate-200 bg-white">
             {visibleIncidents.map((incident) => {
-              const responder = incident?.responses?.[0]?.responder ?? 'Unassigned';
+              const assignedResponse = incident?.responses?.[0];
+              const responder = assignedResponse?.responder ?? 'Unassigned';
+              const assignedOfficerId = assignedResponse?.responder_id || responder?.user_id || '';
+              const isAssignmentLoading = assignmentLoading === incident.incident_id;
 
               return (
                 <tr
@@ -422,7 +444,7 @@ export function IncidentTable({
                         statusClasses[incident.status] || 'border-slate-200 bg-slate-100 text-slate-700',
                       )}
                     >
-                      {toTitleCase(incident.status)}
+                      {statusLabel(incident.status)}
                     </span>
                   </td>
 
@@ -466,7 +488,24 @@ export function IncidentTable({
                         >
                           {Object.keys(statusClasses).map((status) => (
                             <option key={status} value={status}>
-                              {toTitleCase(status)}
+                              {statusLabel(status)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {privileged && officers.length > 0 && (
+                        <select
+                          value={assignedOfficerId}
+                          onChange={(event) => onAssign(incident, event.target.value)}
+                          disabled={Boolean(assignedOfficerId) || isAssignmentLoading}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={`Assign officer for ${incident.type}`}
+                        >
+                          <option value="">{isAssignmentLoading ? 'Assigning...' : 'Assign officer'}</option>
+                          {officers.map((officer) => (
+                            <option key={officer.user_id} value={officer.user_id} disabled={officer.availability_status !== 'available'}>
+                              {officer.name}{officer.availability_status !== 'available' ? ` (${toTitleCase(officer.availability_status)})` : ''}
                             </option>
                           ))}
                         </select>
