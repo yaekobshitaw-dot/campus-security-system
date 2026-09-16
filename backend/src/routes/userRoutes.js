@@ -2,6 +2,8 @@
 const router = express.Router();
 const { authenticate, authorize } = require('../middleware/auth');
 const { Incident, Response, User } = require('../models');
+const { uploadProfilePhoto } = require('../middleware/profilePhotoUpload');
+const profilePhotoController = require('../controllers/profilePhotoController');
 
 const LOCATION_STALE_AFTER_MS = 2 * 60 * 1000;
 const isValidCoordinate = (value, minimum, maximum) => value !== null && value !== undefined && value !== ''
@@ -14,11 +16,16 @@ router.get('/profile', (req, res) => {
   res.json({ success: true, data: req.user });
 });
 
+router.put('/me/profile-photo', uploadProfilePhoto.single('profile_photo'), profilePhotoController.update);
+router.delete('/me/profile-photo', profilePhotoController.remove);
+router.put('/:userId/profile-photo', authorize('admin'), uploadProfilePhoto.single('profile_photo'), profilePhotoController.update);
+router.delete('/:userId/profile-photo', authorize('admin'), profilePhotoController.remove);
+
 router.get('/security-officers', authorize('security', 'admin'), async (req, res) => {
   try {
     const officers = await User.findAll({
       where: { role: 'security', is_active: true },
-      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status', 'location_updated_at']
+      attributes: ['user_id', 'name', 'role', 'profile_photo_url', 'latitude', 'longitude', 'availability_status', 'location_updated_at']
     });
     const activeResponses = await Response.findAll({
       where: { status: ['assigned', 'responding'] },

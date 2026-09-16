@@ -1,0 +1,260 @@
+/* ------------------------------------------------------------------
+   Incident Analytics — design tokens
+   (shares the palette established for the zone dashboard)
+   ------------------------------------------------------------------ */
+:root {
+  --ink: #0b1f3a;
+  --ink-deep: #06162b;
+  --surface: #ffffff;
+  --canvas: #f4f7fb;
+  --line: #e3e9f1;
+  --muted: #64748b;
+  --signal: #0e7c86;
+
+  --low: #94a3b8;
+  --medium: #2f8fd1;
+  --high: #d68a1f;
+  --critical: #c23b3b;
+
+  --font-ui: -apple-system, "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-md: 14px;
+  --radius-lg: 18px;
+}
+
+.analytics {
+  background: var(--canvas);
+  padding: 2rem;
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------
+   Header
+   ------------------------------------------------------------------ */
+.analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.analytics-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--signal);
+  text-transform: uppercase;
+}
+
+.analytics-title {
+  margin: 0.375rem 0 0.25rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.analytics-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.refresh-button:hover {
+  border-color: var(--signal);
+  background: #f0f8f8;
+}
+
+/* ------------------------------------------------------------------
+   Stat cards
+   ------------------------------------------------------------------ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: var(--muted);
+  margin-bottom: 0.9rem;
+}
+
+.live-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.live-badge.critical { background: #fbecec; color: var(--critical); }
+.live-badge.high     { background: #fbf1e0; color: var(--high); }
+.live-badge.resolved { background: #e9f5f5; color: var(--signal); }
+.live-badge.active   { background: #eaf1fb; color: var(--medium); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.stat-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.35rem;
+}
+
+.stat-value {
+  font-family: var(--font-num);
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------
+   Panels
+   ------------------------------------------------------------------ */
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .panel-grid { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.panel-title {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0 0 1.25rem;
+}
+
+/* ------------------------------------------------------------------
+   Severity bars — width and color both carry meaning
+   ------------------------------------------------------------------ */
+.severity-row {
+  margin-bottom: 1.1rem;
+}
+
+.severity-row:last-child {
+  margin-bottom: 0;
+}
+
+.severity-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.875rem;
+  margin-bottom: 0.4rem;
+}
+
+.severity-row-head span:first-child {
+  font-weight: 600;
+}
+
+.severity-row-head span:last-child {
+  font-family: var(--font-num);
+  font-weight: 700;
+}
+
+.severity-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #eef1f6;
+  overflow: hidden;
+}
+
+.severity-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 300ms ease;
+}
+
+.severity-fill.low      { background: var(--low); }
+.severity-fill.medium   { background: var(--medium); }
+.severity-fill.high     { background: var(--high); }
+.severity-fill.critical { background: var(--critical); }
+
+/* ------------------------------------------------------------------
+   Status grid — small quiet tiles, not colored pills
+   ------------------------------------------------------------------ */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.status-tile {
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.status-tile-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.3rem;
+}
+
+.status-tile-value {
+  font-family: var(--font-num);
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-badge::before { animation: none; }
+  .refresh-button, .severity-fill { transition: none; }
+}

@@ -63,10 +63,42 @@ const validateSmsPayload = ({ recipientUserId, message }) => {
   return { recipientUserId: String(recipientUserId), message: sanitizedMessage };
 };
 
+const validateBroadcastPayload = ({ recipientUserIds, message, idempotencyKey }) => {
+  if (!Array.isArray(recipientUserIds) || recipientUserIds.length === 0) {
+    throw new Error('At least one recipient is required.');
+  }
+
+  const uniqueRecipientIds = [...new Set(recipientUserIds.map((value) => String(value)))];
+  if (uniqueRecipientIds.some((value) => !UUID_REGEX.test(value))) {
+    throw new Error('All recipient user IDs must be valid.');
+  }
+
+  const sanitizedMessage = sanitizeSmsMessage(message);
+  if (!sanitizedMessage) {
+    throw new Error('Message cannot be empty.');
+  }
+
+  if (sanitizedMessage.length > 1600) {
+    throw new Error('Message exceeds the 1600 character limit.');
+  }
+
+  const normalizedIdempotencyKey = String(idempotencyKey || '').trim();
+  if (!/^[A-Za-z0-9._:-]{16,128}$/.test(normalizedIdempotencyKey)) {
+    throw new Error('A valid idempotency key is required.');
+  }
+
+  return {
+    recipientUserIds: uniqueRecipientIds,
+    message: sanitizedMessage,
+    idempotencyKey: normalizedIdempotencyKey,
+  };
+};
+
 module.exports = {
   normalizePhoneNumber,
   toE164,
   validatePhoneNumber,
   sanitizeSmsMessage,
   validateSmsPayload,
+  validateBroadcastPayload,
 };

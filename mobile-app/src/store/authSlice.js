@@ -111,6 +111,40 @@ export const logout = createAsyncThunk(
   }
 );
 
+export const updateProfilePhoto = createAsyncThunk(
+  'auth/updateProfilePhoto',
+  async (photo, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append('profile_photo', {
+        uri: photo.uri,
+        name: photo.fileName,
+        type: photo.mimeType,
+      });
+      const response = await api.put('/users/me/profile-photo', formData);
+      const user = response.data.data;
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      return user;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Unable to upload profile photo');
+    }
+  }
+);
+
+export const removeProfilePhoto = createAsyncThunk(
+  'auth/removeProfilePhoto',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.delete('/users/me/profile-photo');
+      const user = response.data.data;
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      return user;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Unable to remove profile photo');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -193,6 +227,20 @@ const authSlice = createSlice({
         state.isHydrated = true;
         state.loading = false;
         state.error = action.payload || 'Logout failed';
+      })
+      .addCase(updateProfilePhoto.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(updateProfilePhoto.rejected, (state, action) => {
+        state.error = action.payload || 'Unable to upload profile photo';
+      })
+      .addCase(removeProfilePhoto.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(removeProfilePhoto.rejected, (state, action) => {
+        state.error = action.payload || 'Unable to remove profile photo';
       });
   },
 });

@@ -1,13 +1,30 @@
 import 'leaflet/dist/leaflet.css';
-import { useEffect, useRef } from 'react';
-import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, useMap } from 'react-leaflet';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Circle, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { divIcon } from 'leaflet';
 
-const CAMPUS_CENTER = [9.0227, 38.7468];
-const statusColor = {
-  available: '#2d8a61',
-  responding: '#d9533f',
-  busy: '#c17a24',
-  offline: '#68757a'
+const CAMPUS_CENTER = [10.9854535, 39.2631819];
+const locationTypes = ['all', 'university', 'administration', 'classroom', 'seminar', 'building/block', 'gate', 'security_post', 'dormitory', 'library', 'clinic', 'cafeteria', 'parking', 'sports', 'emergency_point', 'other'];
+const locationTypeLabels = {
+  university: 'University', administration: 'Administration', classroom: 'Classroom', seminar: 'Seminar', 'building/block': 'Building / block', library: 'Library', dormitory: 'Dormitory',
+  cafeteria: 'Cafeteria', clinic: 'Health / clinic', gate: 'Main gate', security_post: 'Security post',
+  parking: 'Parking', sports: 'Sports / recreation', emergency_point: 'Emergency point', other: 'Campus place'
+};
+const markerIcon = (background, symbol) => divIcon({
+  className: 'campus-map-marker',
+  html: `<span style="background:${background}">${symbol}</span>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  popupAnchor: [0, -15]
+});
+
+const icons = {
+  campus: markerIcon('#0b1f3a', 'C'),
+  place: markerIcon('#0e7c86', 'P'),
+  zone: markerIcon('#2563eb', 'Z'),
+  incident: markerIcon('#d9534f', '!'),
+  sos: markerIcon('#991b1b', 'SOS'),
+  officer: markerIcon('#2d8a61', 'S'),
 };
 
 const coordinatesFor = (latitude, longitude) => {
@@ -24,11 +41,10 @@ const polygonCoordinatesFor = (coordinates) => {
   if (typeof geometry === 'string') {
     try {
       geometry = JSON.parse(geometry);
-    } catch (error) {
+    } catch {
       return null;
     }
   }
-
   if (geometry?.type !== 'Polygon' || !Array.isArray(geometry.coordinates) || !geometry.coordinates.length) return null;
 
   const rings = geometry.coordinates.map((ring) => {
@@ -43,6 +59,21 @@ const polygonCoordinatesFor = (coordinates) => {
   return rings.every(Boolean) ? rings : null;
 };
 
+const zoneCenter = (zone) => {
+  const directCenter = coordinatesFor(zone.center_lat, zone.center_lng);
+  if (directCenter) return directCenter;
+  const polygon = polygonCoordinatesFor(zone.coordinates);
+  if (!polygon?.[0]?.length) return null;
+  const positions = polygon[0];
+  return positions.reduce((center, position) => [center[0] + position[0] / positions.length, center[1] + position[1] / positions.length], [0, 0]);
+};
+
+const locationMatches = (location, query, type) => {
+  const matchesType = type === 'all' || location.type === type;
+  const searchable = `${location.name || ''} ${location.description || ''} ${location.block || ''} ${location.zone || ''}`.toLowerCase();
+  return matchesType && searchable.includes(query.toLowerCase());
+};
+
 const distanceMeters = (from, to) => {
   const earthRadius = 6371000;
   const radians = (degrees) => degrees * Math.PI / 180;
@@ -55,14 +86,21 @@ const distanceMeters = (from, to) => {
 
 const formatDistance = (meters) => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 
-function FitMapToData({ incidents, officers, zones }) {
+function FitCampusButton({ bounds }) {
   const map = useMap();
-  const hasFitted = useRef(false);
+  return <button type="button" className="campus-map-control" onClick={() => bounds.length && map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 })}>Fit campus</button>;
+}
+
+function FitMapToData({ campusLocations, incidents, officers, zones }) {
+  const map = useMap();
+  const fittedKey = useRef('');
 
   useEffect(() => {
-    if (hasFitted.current) return;
-
     const bounds = [];
+    campusLocations.forEach((location) => {
+      const position = coordinatesFor(location.latitude, location.longitude);
+      if (position) bounds.push(position);
+    });
     zones.forEach((zone) => {
       const polygon = polygonCoordinatesFor(zone.coordinates);
       if (polygon) {
@@ -75,30 +113,57 @@ function FitMapToData({ incidents, officers, zones }) {
         bounds.push(center);
       }
     });
-    incidents.forEach((incident) => {
-      const position = coordinatesFor(incident.latitude, incident.longitude);
-      if (position) bounds.push(position);
-    });
-    officers.forEach((officer) => {
-      const position = coordinatesFor(officer.latitude, officer.longitude);
-      if (position) bounds.push(position);
-    });
+    if (!bounds.length) {
+      incidents.forEach((incident) => {
+        const position = coordinatesFor(incident.latitude, incident.longitude);
+        if (position) bounds.push(position);
+      });
+      officers.forEach((officer) => {
+        const position = coordinatesFor(officer.latitude, officer.longitude);
+        if (position) bounds.push(position);
+      });
+    }
 
-    if (!bounds.length) return;
+    const dataKey = bounds.map((position) => position.join(',')).join('|');
+    if (!bounds.length || fittedKey.current === dataKey) return;
     map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
-    hasFitted.current = true;
-  }, [incidents, map, officers, zones]);
+    fittedKey.current = dataKey;
+  }, [campusLocations, incidents, map, officers, zones]);
 
   return null;
 }
 
-export default function SecurityMap({ incidents = [], officers = [], zones = [], onAssign }) {
+function LocationMapEvents({ enabled, onMapClick }) {
+  useMapEvents({ click: (event) => { if (enabled) onMapClick?.(event.latlng); } });
+  return null;
+}
+
+export default function SecurityMap({ incidents = [], officers = [], zones = [], campusLocations = [], onAssign, selectedLocationId, onMapClick, onLocationDragEnd }) {
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState('all');
+  const visibleLocations = useMemo(() => campusLocations.filter((location) => locationMatches(location, query, type)), [campusLocations, query, type]);
+  const campusBounds = useMemo(() => [
+    ...campusLocations.map((location) => coordinatesFor(location.latitude, location.longitude)).filter(Boolean),
+    ...zones.flatMap((zone) => {
+      const polygon = polygonCoordinatesFor(zone.coordinates);
+      return polygon ? polygon.flat() : [zoneCenter(zone)].filter(Boolean);
+    })
+  ], [campusLocations, zones]);
   const invalidSOSCount = incidents.filter((incident) => incident.is_sos && !coordinatesFor(incident.latitude, incident.longitude)).length;
   const unavailableOfficerCount = officers.filter((officer) => !coordinatesFor(officer.latitude, officer.longitude)).length;
 
   return (
-    <MapContainer center={CAMPUS_CENTER} zoom={15} style={{ height: 360, width: '100%' }} scrollWheelZoom>
-      <FitMapToData incidents={incidents} officers={officers} zones={zones} />
+    <MapContainer center={CAMPUS_CENTER} zoom={15} style={{ height: 520, width: '100%' }} scrollWheelZoom>
+      <FitMapToData campusLocations={campusLocations} incidents={incidents} officers={officers} zones={zones} />
+      <LocationMapEvents enabled={Boolean(selectedLocationId)} onMapClick={onMapClick} />
+      <FitCampusButton bounds={campusBounds} />
+      <div className="campus-map-toolbar">
+        <label>Search campus places<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Library, gate, block..." /></label>
+        <label>Type<select value={type} onChange={(event) => setType(event.target.value)}>{locationTypes.map((value) => <option key={value} value={value}>{value === 'all' ? 'All places' : locationTypeLabels[value]}</option>)}</select></label>
+      </div>
+      <div className="campus-map-legend" aria-label="Map legend">
+        <strong>Map legend</strong><span><i className="legend-dot place" />Campus place</span><span><i className="legend-dot officer" />Officer</span><span><i className="legend-dot incident" />Incident</span><span><i className="legend-dot sos" />SOS</span><span><i className="legend-dot zone" />Security zone</span>
+      </div>
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -108,7 +173,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
         if (!position) return null;
         const assigned = incident.responses?.[0]?.responder;
         return (
-          <CircleMarker key={`incident-${incident.incident_id}`} center={position} radius={10} pathOptions={{ color: '#a71919', fillColor: '#d9533f', fillOpacity: 0.9 }}>
+          <Marker key={`incident-${incident.incident_id}`} position={position} icon={incident.is_sos ? icons.sos : icons.incident}>
             <Popup>
               <strong>{incident.is_sos ? 'SOS' : 'Incident'}</strong>
               <br />Type: {incident.type}
@@ -117,7 +182,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
               <br />Coordinates: {position[0].toFixed(7)}, {position[1].toFixed(7)}
               {!incident.is_sos && <><br />{assigned ? `Assigned: ${assigned.name}` : 'Unassigned'}</>}
             </Popup>
-          </CircleMarker>
+          </Marker>
         );
       })}
       {officers.map((officer) => {
@@ -126,7 +191,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
         const assignment = incidents.find((incident) => incident.responses?.some((response) => response.responder_id === officer.user_id || response.responder?.user_id === officer.user_id));
         const incidentPosition = assignment && coordinatesFor(assignment.latitude, assignment.longitude);
         return (
-          <CircleMarker key={`officer-${officer.user_id}`} center={position} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: statusColor[officer.availability_status] || statusColor.offline, fillOpacity: 1 }}>
+          <Marker key={`officer-${officer.user_id}`} position={position} icon={icons.officer}>
             <Popup>
               <strong>{officer.name}</strong>
               <br />Status: {officer.availability_status || 'unavailable'}
@@ -135,7 +200,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
               <br />Last update: {officer.location_updated_at ? new Date(officer.location_updated_at).toLocaleString() : 'Unavailable'}
               {onAssign && <><br /><button type="button" onClick={() => onAssign(officer.user_id)}>Assign selected incident</button></>}
             </Popup>
-          </CircleMarker>
+          </Marker>
         );
       })}
       {zones.map((zone) => {
@@ -144,23 +209,29 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
         const radius = Number(zone.radius);
         const hasCircle = center && Number.isInteger(radius) && radius > 0;
         const hasPolygonData = zone.coordinates !== null && zone.coordinates !== undefined && zone.coordinates !== '';
-        const popup = (
-          <Popup>
+        const popupContent = (
+          <>
             <strong>{zone.name}</strong>
             {zone.description && <><br />Description: {zone.description}</>}
             {hasCircle && <><br />Radius: {radius} m</>}
             {zone.security_contact && <><br />Security contact: {zone.security_contact}</>}
-          </Popup>
+          </>
         );
 
         if (polygon) {
-          return <Polygon key={`zone-${zone.zone_id}`} positions={polygon} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.18 }}>{popup}</Polygon>;
+          return <Fragment key={`zone-group-${zone.zone_id}`}><Polygon positions={polygon} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.18 }}><Popup>{popupContent}</Popup></Polygon>{zoneCenter(zone) && <Marker position={zoneCenter(zone)} icon={icons.zone}><Popup>{popupContent}</Popup></Marker>}</Fragment>;
         }
         if (!hasPolygonData && hasCircle) {
-          return <Circle key={`zone-${zone.zone_id}`} center={center} radius={radius} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.18 }}>{popup}</Circle>;
+          return <Fragment key={`zone-group-${zone.zone_id}`}><Circle center={center} radius={radius} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.18 }}><Popup>{popupContent}</Popup></Circle><Marker position={center} icon={icons.zone}><Popup>{popupContent}</Popup></Marker></Fragment>;
         }
         return null;
       })}
+      {visibleLocations.map((location) => {
+        const position = coordinatesFor(location.latitude, location.longitude);
+        if (!position) return null;
+        return <Marker key={`place-${location.location_id || location.id}`} position={position} draggable={location.location_id === selectedLocationId} eventHandlers={location.location_id === selectedLocationId ? { dragend: (event) => onLocationDragEnd?.(event.target.getLatLng()) } : undefined} icon={location.type === 'university' || location.type === 'campus' ? icons.campus : icons.place}><Popup><strong>{location.name}</strong><br />Type: {locationTypeLabels[location.type] || location.type || 'Campus place'}{location.description && <><br />{location.description}</>}{location.location_id === selectedLocationId && <><br />Drag to adjust, then save.</>}</Popup></Marker>;
+      })}
+      {!campusLocations.some((location) => location.type !== 'university' && location.type !== 'campus' && coordinatesFor(location.latitude, location.longitude)) && !zones.length && <div className="campus-map-notice">No individual campus locations have verified coordinates yet. Select a location and place it on the map.</div>}
       {invalidSOSCount > 0 && (
         <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#8a1c1c', border: '1px solid #e4b4b4', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
           SOS: Location unavailable

@@ -44,6 +44,14 @@ const errorHandler = (err, req, res, next) => {
     error = new AppError(message, 400);
   }
 
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    error = new AppError('Uploaded image must be 5 MB or smaller', 400);
+  }
+
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    error = new AppError('Only one profile photo may be uploaded', 400);
+  }
+
   res.status(error.statusCode || 500).json({
     success: false,
     message: error.message || 'Internal server error',

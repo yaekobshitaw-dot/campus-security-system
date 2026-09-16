@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -13,9 +14,9 @@ const AnnouncementsScreen = ({ navigation }) => {
   const canViewAnnouncements = ['student', 'faculty', 'staff', 'security'].includes(user?.role);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (canViewAnnouncements) dispatch(fetchAnnouncements());
-  }, [canViewAnnouncements, dispatch]);
+  }, [canViewAnnouncements, dispatch]));
 
   const refresh = async () => {
     setRefreshing(true);

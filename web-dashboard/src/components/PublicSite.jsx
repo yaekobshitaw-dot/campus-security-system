@@ -37,6 +37,18 @@ const navLinks = [
   { to: '/contact', label: 'Contact' }
 ];
 
+// Real campus photos used in the rotating hero carousel.
+// Place the matching image files in your project's public/images/ folder
+// with these exact filenames (or update the paths below to wherever you
+// host them).
+const heroSlides = [
+  '/images/campus-1.jpg', // main entrance arch
+  '/images/campus-2.jpg', // campus road with dorm block
+  '/images/campus-3.jpg', // admin building approach
+  '/images/campus-4.jpg', // aerial road + residence halls
+  '/images/campus-5.jpg'  // STEM/admin block + lawn
+];
+
 function PublicNav({ user, onLogout }) {
   const [open, setOpen] = useState(false);
 
@@ -44,7 +56,7 @@ function PublicNav({ user, onLogout }) {
     <header className="public-nav-wrap">
       <nav className="public-nav" aria-label="Main navigation">
         <Link to="/" className="brand" onClick={() => setOpen(false)}>
-          <span className="brand-mark"><ShieldCheck size={22} /></span>
+          <span className="brand-mark"><img src="/images/logo.png" alt="Mekdela Amba University logo" /></span>
           <span>Campus<span>Secure</span></span>
         </Link>
         <button className="mobile-menu" onClick={() => setOpen(!open)} aria-label={open ? 'Close menu' : 'Open menu'}>
@@ -74,7 +86,7 @@ function PublicFooter() {
     <footer className="public-footer">
       <div className="footer-grid">
         <div>
-          <Link to="/" className="brand footer-brand"><span className="brand-mark"><ShieldCheck size={22} /></span><span>Campus<span>Secure</span></span></Link>
+          <Link to="/" className="brand footer-brand"><span className="brand-mark"><img src="/images/logo.png" alt="Mekdela Amba University logo" /></span><span>Campus<span>Secure</span></span></Link>
           <p className="footer-intro">A calmer, faster way to coordinate safety across the places where campus life happens.</p>
         </div>
         <div><h3>Explore</h3><Link to="/about">About us</Link><Link to="/features">Features</Link><Link to="/contact">Contact</Link></div>
@@ -89,15 +101,19 @@ function PublicFooter() {
 function HomePage() {
   return <>
     <section className="hero-section">
-      <div className="hero-copy">
+      <div className="hero-title-block">
         <p className="eyebrow"><span className="status-dot" /> Campus safety, connected</p>
-        <h1>Smart security for <em>every</em> campus moment.</h1>
+        <h1 className="hero-title">Mekdela Amba University Security and Emergency Response System</h1>
+      </div>
+      <div className="hero-copy">
         <p className="hero-subtitle">A unified emergency response system that helps students, faculty, staff, and security teams report incidents quickly and act with confidence.</p>
         <div className="hero-actions"><Link className="button button-primary" to="/login">Report an incident <ArrowRight size={18} /></Link><Link className="button button-quiet" to="/about">Learn more <ChevronRight size={17} /></Link></div>
         <div className="hero-proof"><div><strong>24/7</strong><span>response ready</span></div><div><strong>01</strong><span>shared safety view</span></div><div><strong>100%</strong><span>role-aware access</span></div></div>
       </div>
       <div className="hero-visual" aria-label="Campus security operations visual">
-        <div className="visual-image" />
+        {heroSlides.map((src) => (
+          <div key={src} className="visual-slide" style={{ backgroundImage: `url(${src})` }} />
+        ))}
         <div className="visual-overlay" />
         <div className="visual-panel panel-alert"><span className="panel-icon"><Siren size={17} /></span><span><strong>Response team notified</strong><small>North quad · 2 min ago</small></span><CheckCircle2 size={18} /></div>
         <div className="visual-panel panel-status"><span className="radar-icon"><Radar size={22} /></span><span><strong>Campus watch</strong><small>All systems operational</small></span><span className="live-label">LIVE</span></div>
@@ -162,5 +178,5 @@ export function AuthPage({ mode, onLogin }) {
       } else { setSuccess('Account created. Redirecting you to sign in...'); setTimeout(() => navigate('/login'), 1200); }
     } catch (err) { setError(err.response?.data?.message || err.message || 'Something went wrong. Please try again.'); } finally { setLoading(false); }
   };
-  return <div className="auth-page"><div className="auth-aside"><Link to="/" className="brand"><span className="brand-mark"><ShieldCheck size={22} /></span><span>Campus<span>Secure</span></span></Link><div className="auth-aside-copy"><p className="eyebrow">{isLogin ? 'Welcome back' : 'Join the response network'}</p><h1>{isLogin ? <>Keep your campus<br /><em>within reach.</em></> : <>Better safety begins<br /><em>with a signal.</em></>}</h1><p>{isLogin ? 'Sign in to report an incident, follow updates, or support your campus response team.' : 'Create a role-aware account for faster reporting and a more connected campus community.'}</p></div><div className="auth-aside-foot"><LockKeyhole size={16} /> Secure access for authorized campus members</div></div><div className="auth-content"><Link className="back-home" to="/">← Back to CampusSecure</Link><div className="auth-form-wrap"><p className="eyebrow">{isLogin ? 'Secure sign in' : 'Create your account'}</p><h2>{isLogin ? 'Welcome back.' : 'Join CampusSecure.'}</h2><p className="auth-description">{isLogin ? 'Use your campus account to continue.' : 'Public registration is available for students, faculty, and staff.'}</p>{error && <div className="form-error">{error}</div>}{success && <div className="form-success"><CheckCircle2 size={16} /> {success}</div>}<form className="auth-form" onSubmit={submit}>{!isLogin && <label>Full name<input name="name" required value={form.name} onChange={update} placeholder="Your full name" /></label>}<label>Campus email<input name="email" required type="email" value={form.email} onChange={update} placeholder="you@university.edu" /></label><label>Password<input name="password" required type="password" value={form.password} onChange={update} placeholder="At least 8 characters" /></label>{!isLogin && <><label>Confirm password<input name="confirmPassword" required type="password" value={form.confirmPassword} onChange={update} placeholder="Repeat your password" /></label><label>Your role<select name="role" value={form.role} onChange={update}><option value="student">Student</option><option value="faculty">Faculty</option><option value="staff">Staff</option></select></label></>}<button className="button button-primary auth-submit" disabled={loading}>{loading ? 'Please wait...' : isLogin ? 'Sign in to dashboard' : 'Create account'} <ArrowRight size={17} /></button></form><p className="auth-switch">{isLogin ? 'New to CampusSecure?' : 'Already have an account?'} <Link to={isLogin ? '/register' : '/login'}>{isLogin ? 'Create an account' : 'Sign in'}</Link></p></div></div></div>;
+  return <div className="auth-page"><div className="auth-aside"><Link to="/" className="brand"><span className="brand-mark"><img src="/images/logo.png" alt="Mekdela Amba University logo" /></span><span>Campus<span>Secure</span></span></Link><div className="auth-aside-copy"><p className="eyebrow">{isLogin ? 'Welcome back' : 'Join the response network'}</p><h1>{isLogin ? <>Keep your campus<br /><em>within reach.</em></> : <>Better safety begins<br /><em>with a signal.</em></>}</h1><p>{isLogin ? 'Sign in to report an incident, follow updates, or support your campus response team.' : 'Create a role-aware account for faster reporting and a more connected campus community.'}</p></div><div className="auth-aside-foot"><LockKeyhole size={16} /> Secure access for authorized campus members</div></div><div className="auth-content"><Link className="back-home" to="/">← Back to CampusSecure</Link><div className="auth-form-wrap"><p className="eyebrow">{isLogin ? 'Secure sign in' : 'Create your account'}</p><h2>{isLogin ? 'Welcome back.' : 'Join CampusSecure.'}</h2><p className="auth-description">{isLogin ? 'Use your campus account to continue.' : 'Public registration is available for students, faculty, and staff.'}</p>{error && <div className="form-error">{error}</div>}{success && <div className="form-success"><CheckCircle2 size={16} /> {success}</div>}<form className="auth-form" onSubmit={submit}>{!isLogin && <label>Full name<input name="name" required value={form.name} onChange={update} placeholder="Your full name" /></label>}<label>Campus email<input name="email" required type="email" value={form.email} onChange={update} placeholder="you@university.edu" /></label><label>Password<input name="password" required type="password" value={form.password} onChange={update} placeholder="At least 8 characters" /></label>{!isLogin && <><label>Confirm password<input name="confirmPassword" required type="password" value={form.confirmPassword} onChange={update} placeholder="Repeat your password" /></label><label>Your role<select name="role" value={form.role} onChange={update}><option value="student">Student</option><option value="faculty">Faculty</option><option value="staff">Staff</option></select></label></>}<button className="button button-primary auth-submit" disabled={loading}>{loading ? 'Please wait...' : isLogin ? 'Sign in to dashboard' : 'Create account'} <ArrowRight size={17} /></button></form><p className="auth-switch">{isLogin ? 'New to CampusSecure?' : 'Already have an account?'} <Link to={isLogin ? '/register' : '/login'}>{isLogin ? 'Create an account' : 'Sign in'}</Link></p></div></div></div>;
 }

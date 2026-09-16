@@ -8,6 +8,8 @@
     "test": "node --test tests/*.test.js",
     "db:validate": "node src/scripts/validateDatabase.js",
     "db:migrate": "node src/scripts/migrateDatabase.js",
+    "db:migrate:profile-photo": "node src/scripts/migrateProfilePhoto.js",
+    "db:migrate:sms": "node src/scripts/migrateSmsBroadcast.js",
     "db:migrate:announcements": "node src/scripts/migrateAnnouncements.js"
   },
   "dependencies": {

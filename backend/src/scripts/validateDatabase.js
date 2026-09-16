@@ -36,7 +36,7 @@ async function validateDatabase() {
   if (!validateEnvironment()) return;
 
   const sequelize = require('../config/database');
-  const tables = ['users', 'incidents', 'alerts', 'responses', 'zones'];
+  const tables = ['users', 'incidents', 'alerts', 'responses', 'zones', 'campus_locations'];
 
   try {
     await sequelize.authenticate();

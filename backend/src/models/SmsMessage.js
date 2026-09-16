@@ -15,6 +15,14 @@ const SmsMessage = sequelize.define('SmsMessage', {
     type: DataTypes.UUID,
     allowNull: false,
   },
+  broadcast_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
+  idempotency_key: {
+    type: DataTypes.STRING(128),
+    allowNull: true,
+  },
   recipient_phone: {
     type: DataTypes.STRING(32),
     allowNull: false,
@@ -53,6 +61,10 @@ const SmsMessage = sequelize.define('SmsMessage', {
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
+  indexes: [
+    { fields: ['broadcast_id'] },
+    { fields: ['idempotency_key'] },
+  ],
 });
 
 module.exports = SmsMessage;

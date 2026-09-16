@@ -2,7 +2,8 @@
 const { User, SmsMessage } = require('../models');
 const { logger } = require('../utils/logger');
 const { validatePhoneNumber, normalizePhoneNumber, sanitizeSmsMessage, toE164 } = require('../utils/smsValidation');
-const { lomisendApiKey, lomisendSenderId, lomisendTimeoutMs } = require('../config/auth');
+const { lomisendApiKey, lomisendProjectId, lomisendSenderId, lomisendTimeoutMs } = require('../config/auth');
+const { sendGsmSms } = require('./smsProviders/gsmProvider');
 
 let testLomisendClient = null;
 
@@ -14,30 +15,55 @@ const __resetLomisendClientForTests = () => {
   testLomisendClient = null;
 };
 
-const getSmsProviderMode = () => 'lomisend';
+const getSmsProviderMode = () => String(process.env.SMS_PROVIDER || 'lomisend').trim().toLowerCase();
+
+const getSmsProvider = () => {
+  const provider = getSmsProviderMode();
+  if (provider === 'lomisend') return { name: provider, send: sendLomisendSms };
+  if (provider === 'gsm') return { name: provider, send: sendGsmSms };
+  throw new Error(`Unsupported SMS provider: ${provider}`);
+};
 
 const getLomisendConfig = () => ({
   apiKey: process.env.LOMISEND_API_KEY || lomisendApiKey || '',
+  projectId: process.env.LOMISEND_PROJECT_ID || lomisendProjectId || '',
   senderId: process.env.LOMISEND_SENDER_ID || lomisendSenderId || '',
   timeoutMs: Number(process.env.LOMISEND_TIMEOUT_MS || lomisendTimeoutMs || 20000),
 });
 
-const getLomisendRequestBody = ({ to, message, from = lomisendSenderId }) => {
+const getLomisendRequestBody = ({ to, message, projectId, from }) => {
   const body = {
+    id: projectId,
     to: toE164(to),
     body: String(message).trim(),
   };
 
-  if (from) {
+  if (from && String(from).trim().toUpperCase() !== 'YOUR_SENDER_ID') {
     body.sender_id = from;
   }
 
-  const projectId = process.env.LOMISEND_PROJECT_ID;
-  if (projectId) {
-    body.id = projectId;
-  }
-
   return body;
+};
+
+const getProviderMessage = (error) => error?.response?.data?.detail
+  || error?.response?.data?.message
+  || error?.response?.data?.error
+  || error?.response?.data?.errorMessage
+  || error?.message
+  || 'SMS provider request failed.';
+
+const createLomisendError = (statusCode, providerMessage) => {
+  const messages = {
+    401: 'Lomisend API authentication error',
+    402: 'Insufficient Lomisend balance or credits',
+    403: 'Lomisend subscription, permission, project, or sender restriction',
+    422: 'Invalid Lomisend request, sender, or project configuration',
+  };
+  const prefix = messages[statusCode] || `Lomisend request failed with status ${statusCode}`;
+  const error = new Error(`${prefix}: ${providerMessage}`);
+  error.statusCode = statusCode;
+  error.providerMessage = providerMessage;
+  return error;
 };
 
 const sendLomisendSms = async ({ to, message, from } = {}) => {
@@ -51,14 +77,26 @@ const sendLomisendSms = async ({ to, message, from } = {}) => {
     throw new Error('SMS text cannot be empty.');
   }
 
-  const { apiKey, senderId, timeoutMs } = getLomisendConfig();
-  const effectiveFrom = from || senderId;
+  const { apiKey, projectId, senderId, timeoutMs } = getLomisendConfig();
+  const configuredSenderId = from || senderId;
+  const effectiveFrom = configuredSenderId && String(configuredSenderId).trim().toUpperCase() !== 'YOUR_SENDER_ID'
+    ? String(configuredSenderId).trim()
+    : '';
 
   if (!apiKey) {
     throw new Error('LOMISEND_API_KEY is not configured in the backend environment.');
   }
 
-  const requestBody = getLomisendRequestBody({ to: recipientNumber, message: text, from: effectiveFrom });
+  if (!projectId) {
+    throw new Error('LOMISEND_PROJECT_ID is not configured in the backend environment.');
+  }
+
+  const requestBody = getLomisendRequestBody({
+    to: recipientNumber,
+    message: text,
+    projectId,
+    from: effectiveFrom,
+  });
 
   try {
     const client = testLomisendClient || axios;
@@ -77,7 +115,7 @@ const sendLomisendSms = async ({ to, message, from } = {}) => {
     const acceptedStatuses = new Set(['accepted', 'pending', 'queued', 'sent', 'delivered']);
 
     if (response.status !== 200 && response.status !== 202) {
-      throw new Error(providerData.message || providerData.error || 'Lomisend rejected the SMS request.');
+      throw createLomisendError(response.status, getProviderMessage({ response }));
     }
 
     if (!acceptedStatuses.has(providerStatus)) {
@@ -92,41 +130,28 @@ const sendLomisendSms = async ({ to, message, from } = {}) => {
       rawResponse: providerData,
     };
   } catch (error) {
-    const providerError = error?.response?.data?.detail
-      || error?.response?.data?.message
-      || error?.response?.data?.error
-      || error?.response?.data?.errorMessage
-      || error?.message
-      || 'SMS provider request failed.';
+    const providerError = getProviderMessage(error);
+    const statusCode = error?.response?.status || error?.statusCode;
 
-    const normalized = String(providerError).toLowerCase();
-
-    if (normalized.includes('unauthorized') || normalized.includes('authentication') || normalized.includes('api key') || normalized.includes('forbidden')) {
-      throw new Error('SMS provider authentication failed. Verify the Lomisend API key and credentials.');
-    }
-
-    if (normalized.includes('invalid phone') || normalized.includes('invalid number') || normalized.includes('validation-failed')) {
-      throw new Error('Recipient phone number is invalid for SMS delivery.');
-    }
-
-    if (normalized.includes('balance') || normalized.includes('credit') || normalized.includes('insufficient') || normalized.includes('no quota')) {
-      throw new Error('SMS provider rejected the request because the account balance or credits are insufficient.');
-    }
-
-    if (normalized.includes('timeout')) {
-      throw new Error('SMS provider request timed out while sending the message.');
+    if (statusCode) {
+      const mappedError = createLomisendError(statusCode, providerError);
+      logger.error('Lomisend SMS delivery failed', {
+        status: statusCode,
+        message: providerError,
+      });
+      throw mappedError;
     }
 
     logger.error('Lomisend SMS delivery failed', {
-      status: error?.response?.status,
+      status: undefined,
       message: providerError,
     });
 
-    throw new Error(providerError);
+    throw error;
   }
 };
 
-const sendSmsMessage = async ({ senderUserId, recipientUserId, recipientPhone, message }) => {
+const sendSmsMessage = async ({ senderUserId, recipientUserId, recipientPhone, message, broadcastId = null, idempotencyKey = null }) => {
   if (!senderUserId) {
     throw new Error('A sender user is required to send SMS messages.');
   }
@@ -147,23 +172,26 @@ const sendSmsMessage = async ({ senderUserId, recipientUserId, recipientPhone, m
     throw new Error('SMS message cannot be empty.');
   }
 
+  const provider = getSmsProvider();
   const smsRecord = await SmsMessage.create({
     sender_user_id: senderUserId,
     recipient_user_id: recipientUserId,
     recipient_phone: normalizedPhone,
     message: safeMessage,
     status: 'queued',
-    provider: 'lomisend',
+    provider: provider.name,
+    broadcast_id: broadcastId,
+    idempotency_key: idempotencyKey,
   });
 
   try {
-    const result = await sendLomisendSms({ to: normalizedPhone, message: safeMessage });
+    const result = await provider.send({ to: normalizedPhone, message: safeMessage });
 
     const appStatus = result.status === 'delivered' ? 'delivered' : ['accepted', 'pending', 'queued', 'sent', 'delivered'].includes(result.status) ? 'sent' : 'failed';
 
     await smsRecord.update({
       status: appStatus,
-      provider: result.provider,
+      provider: result.provider || provider.name,
       provider_message_id: result.messageId,
       provider_response: JSON.stringify(result.rawResponse || {}),
       sent_at: appStatus === 'failed' ? null : new Date(),
@@ -185,7 +213,7 @@ const sendSmsMessage = async ({ senderUserId, recipientUserId, recipientPhone, m
     const errorText = error.message || 'SMS delivery failed.';
     await smsRecord.update({
       status: 'failed',
-      provider: 'lomisend',
+      provider: provider.name,
       provider_response: JSON.stringify({ error: errorText }),
       error_message: errorText.slice(0, 500),
     });
@@ -196,8 +224,10 @@ const sendSmsMessage = async ({ senderUserId, recipientUserId, recipientPhone, m
 
 module.exports = {
   getSmsProviderMode,
+  getSmsProvider,
   sendSmsMessage,
   sendLomisendSms,
+  getLomisendRequestBody,
   __setLomisendClientForTests,
   __resetLomisendClientForTests,
 };

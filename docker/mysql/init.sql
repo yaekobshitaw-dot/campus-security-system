@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     location_updated_at DATETIME NULL,
     availability_status ENUM('available', 'responding', 'busy', 'offline') NOT NULL DEFAULT 'offline',
     phone VARCHAR(32) NULL,
+    profile_photo_url VARCHAR(500) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -53,4 +54,16 @@ CREATE TABLE IF NOT EXISTS incidents (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE IF NOT EXISTS campus_locations (
+    location_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    name VARCHAR(150) NOT NULL UNIQUE,
+    type ENUM('university', 'administration', 'classroom', 'seminar', 'building/block', 'gate', 'security_post', 'dormitory', 'library', 'clinic', 'cafeteria', 'parking', 'sports', 'emergency_point', 'other') NOT NULL DEFAULT 'other',
+    description TEXT NULL,
+    latitude DECIMAL(10,7) NULL,
+    longitude DECIMAL(11,7) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

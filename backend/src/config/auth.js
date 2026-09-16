@@ -15,6 +15,7 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
   lomisendApiKey: process.env.LOMISEND_API_KEY || '',
+  lomisendProjectId: process.env.LOMISEND_PROJECT_ID || '',
   lomisendSenderId: process.env.LOMISEND_SENDER_ID || '',
   lomisendTimeoutMs: Number(process.env.LOMISEND_TIMEOUT_MS || 20000),
 };

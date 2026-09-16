@@ -49,11 +49,15 @@ const navigationItems = [
   { label: 'Responses', path: '/responses', icon: SmsOutlined },
   { label: 'Alerts and zones', path: '/alerts', icon: WarningAmberOutlined },
   { label: 'Announcements', path: '/announcements', icon: CampaignOutlined },
+  { label: 'SMS Broadcast', path: '/sms', icon: SmsOutlined },
   { label: 'Zones', path: '/zones', icon: MapOutlined },
+  { label: 'Campus locations', path: '/locations', icon: MapOutlined },
 ];
 
 function canAccessNavigation(path, role) {
   if (path === '/users') return role === 'admin';
+  if (path === '/sms') return role === 'admin';
+  if (path === '/locations') return role === 'admin';
   if (path === '/officers') return ['security', 'admin'].includes(role);
   if (['/analytics', '/responses'].includes(path)) return ['security', 'admin'].includes(role);
   return true;
@@ -113,7 +117,7 @@ export function DashboardLayout({
           <header className="dashboard-header relative sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-sm">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6 sm:py-3 lg:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                   <ShieldOutlined className="text-[20px]" />
                 </div>
 
@@ -131,7 +135,7 @@ export function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen((open) => !open)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 lg:hidden"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 lg:hidden"
                   aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
                   aria-expanded={mobileMenuOpen}
                 >
@@ -141,7 +145,7 @@ export function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => { setNotificationsOpen((open) => !open); onNotificationsRead(); }}
-                  className="dashboard-icon-button relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+                  className="dashboard-icon-button relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   aria-label="Notifications"
                   aria-expanded={notificationsOpen}
                 >
@@ -151,30 +155,28 @@ export function DashboardLayout({
 
                 {notificationsOpen && <div className="absolute right-4 top-[4.5rem] z-30 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-100 px-2 pb-2"><strong className="text-sm text-[#0b1f3a]">Live notifications</strong><span className="text-xs font-bold text-slate-400">{unreadCount} unread</span></div>
-                  {notifications.length ? <div className="max-h-72 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} type="button" onClick={() => { setNotificationsOpen(false); onNavigate(notification.incident_id ? `/incidents/${notification.incident_id}` : '/incidents/active'); }} className={cn('block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-cyan-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} · ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` · ${notification.location_name}` : ''} · {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}</div> : <p className="px-2 py-5 text-center text-xs text-slate-500">No new notifications</p>}
+                  {notifications.length ? <div className="max-h-72 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} type="button" onClick={() => { setNotificationsOpen(false); onNavigate(notification.incident_id ? `/incidents/${notification.incident_id}` : '/incidents/active'); }} className={cn('block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-emerald-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} · ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` · ${notification.location_name}` : ''} · {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}</div> : <p className="px-2 py-5 text-center text-xs text-slate-500">No new notifications</p>}
                 </div>}
 
                 <button
                   type="button"
                   onClick={onClearHistory}
                   disabled={clearHistoryLoading}
-                  className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+                  className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
                 >
                   {clearHistoryLoading ? 'Clearing...' : 'Clear history'}
                 </button>
 
                 <button
                   type="button"
-                  className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 md:inline-flex"
+                  className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:inline-flex"
                 >
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
                   Live feed
                 </button>
 
                 <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0b1f3a] text-xs font-black text-white ring-4 ring-slate-100">
-                    {initials}
-                  </div>
+                  <UserAvatar user={user} size="h-9 w-9" />
                   <div className="hidden sm:block">
                     <p className="text-sm font-bold text-[#0b1f3a]">{user?.name || 'Campus User'}</p>
                       <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
@@ -206,13 +208,13 @@ export function DashboardLayout({
                         type="button"
                         onClick={() => { setMobileMenuOpen(false); onNavigate(path); }}
                         className={cn(
-                          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2',
+                          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2',
                           isActive ? 'bg-[#0b1f3a] text-white shadow-sm' : 'text-slate-700 hover:bg-white hover:text-[#0b1f3a] hover:shadow-sm',
                         )}
                       >
                         <Icon className="text-[18px]" />
                         <span className="flex-1 text-sm font-bold">{label}</span>
-                        {badge && <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-black', isActive ? 'bg-cyan-400 text-[#08213d]' : 'bg-[#0b1f3a] text-white')}>{label.includes('Active') ? 9 : label === 'Emergency center' ? 4 : 5}</span>}
+                        {badge && <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-black', isActive ? 'bg-emerald-400 text-[#08213d]' : 'bg-[#0b1f3a] text-white')}>{label.includes('Active') ? 9 : label === 'Emergency center' ? 4 : 5}</span>}
                       </button>
                     );
                   })}
@@ -233,13 +235,13 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
   return (
     <aside className="dashboard-sidebar hidden w-[280px] shrink-0 bg-[#081d35] text-white lg:flex lg:flex-col">
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400 text-[#08213d] shadow-[0_8px_24px_rgba(34,211,238,0.2)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-[#08213d] shadow-[0_8px_24px_rgba(52,211,153,0.2)]">
           <ShieldOutlined className="text-[24px]" />
         </div>
 
         <div>
           <div className="text-xl font-black tracking-tight text-white">
-            Campus<span className="text-cyan-300">Secure</span>
+            Campus<span className="text-emerald-300">Secure</span>
           </div>
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Security Operations Center
@@ -263,8 +265,8 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
                 type="button"
                 onClick={() => onNavigate(path)}
                 className={cn(
-                  'dashboard-nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#081d35]',
-                  isActive ? 'bg-cyan-400 text-[#08213d] shadow-[0_8px_20px_rgba(34,211,238,0.16)]' : 'text-slate-300 hover:bg-white/10 hover:text-white',
+                  'dashboard-nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#081d35]',
+                  isActive ? 'bg-emerald-400 text-[#08213d] shadow-[0_8px_20px_rgba(52,211,153,0.16)]' : 'text-slate-300 hover:bg-white/10 hover:text-white',
                 )}
               >
                 <span
@@ -282,7 +284,7 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
                   <span
                     className={cn(
                       'rounded-full px-1.5 py-0.5 text-[10px] font-black',
-                      isActive ? 'bg-[#08213d]/15 text-[#08213d]' : 'bg-cyan-400 text-[#08213d]',
+                      isActive ? 'bg-[#08213d]/15 text-[#08213d]' : 'bg-emerald-400 text-[#08213d]',
                     )}
                   >
                     {label.includes('Active') ? 9 : label === 'Emergency center' ? 4 : 5}
@@ -295,8 +297,8 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
       </div>
 
       <div className="mt-6 px-4">
-        <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-300/15 text-cyan-200">
+        <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-300/15 text-emerald-200">
             <TaskAltOutlined className="text-[18px]" />
           </div>
 
@@ -309,7 +311,7 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
 
       <div className="mt-auto border-t border-white/10 px-4 py-4">
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400 text-xs font-black text-[#08213d]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400 text-xs font-black text-[#08213d]">
             {initials}
           </div>
 
@@ -355,7 +357,7 @@ export function IncidentTable({
   if (!visibleIncidents.length) {
     return (
       <div className="flex min-h-[240px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
           <ReportProblemOutlined className="text-[24px]" />
         </div>
         <h3 className="text-xl font-black text-[#0b1f3a]">No incidents found</h3>
@@ -409,11 +411,11 @@ export function IncidentTable({
               return (
                 <tr
                   key={incident.incident_id ?? incident.id ?? `${incident.type}-${incident.created_at}`}
-                  className="transition hover:bg-cyan-50/30"
+                  className="transition hover:bg-emerald-50/30"
                 >
                   <td className="incident-cell px-4 py-3.5 align-top">
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+                      <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                         <WarningAmberOutlined className="text-[18px]" />
                       </div>
 
@@ -474,7 +476,7 @@ export function IncidentTable({
                       <button
                         type="button"
                         onClick={() => onView(incident)}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                       >
                         View
                       </button>
@@ -483,7 +485,7 @@ export function IncidentTable({
                         <select
                           value={incident.status || 'reported'}
                           onChange={(event) => onStatusChange(incident, event.target.value)}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                           aria-label={`Change status for ${incident.type}`}
                         >
                           {Object.keys(statusClasses).map((status) => (
@@ -499,7 +501,7 @@ export function IncidentTable({
                           value={assignedOfficerId}
                           onChange={(event) => onAssign(incident, event.target.value)}
                           disabled={Boolean(assignedOfficerId) || isAssignmentLoading}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                           aria-label={`Assign officer for ${incident.type}`}
                         >
                           <option value="">{isAssignmentLoading ? 'Assigning...' : 'Assign officer'}</option>
@@ -580,7 +582,7 @@ export default function DashboardLayoutDemo() {
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-sky-700">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">
                 Security queue
               </p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900">
@@ -606,4 +608,18 @@ export default function DashboardLayoutDemo() {
       </div>
     </DashboardLayout>
   );
+}
+
+export function UserAvatar({ user, size = 'h-10 w-10' }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = (user?.name || 'Campus User')
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  return user?.profile_photo_url && !imageFailed
+    ? <img className={`${size} rounded-lg object-cover ring-4 ring-slate-100`} src={user.profile_photo_url} alt={`${user.name || 'User'} profile`} onError={() => setImageFailed(true)} />
+    : <div className={`flex ${size} items-center justify-center rounded-lg bg-[#0b1f3a] text-xs font-black text-white ring-4 ring-slate-100`}>{initials}</div>;
 }

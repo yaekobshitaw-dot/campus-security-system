@@ -32,6 +32,9 @@ async function ensureIncidentSchema() {
   if (!userColumns.some((column) => column.Field === 'availability_status')) {
     await sequelize.query("ALTER TABLE users ADD COLUMN availability_status ENUM('available','responding','busy','offline') NOT NULL DEFAULT 'offline'");
   }
+  if (!userColumns.some((column) => column.Field === 'profile_photo_url')) {
+    await sequelize.query('ALTER TABLE users ADD COLUMN profile_photo_url VARCHAR(500) NULL');
+  }
 
   const columns = await sequelize.query('SHOW COLUMNS FROM incidents', { type: QueryTypes.SELECT });
   const existingColumns = new Set(columns.map((column) => column.Field));

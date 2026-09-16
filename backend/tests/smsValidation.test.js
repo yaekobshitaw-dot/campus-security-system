@@ -10,6 +10,8 @@ const {
 } = require('../src/utils/smsValidation');
 const {
   sendSmsMessage,
+  sendLomisendSms,
+  getLomisendRequestBody,
   getSmsProviderMode,
   __setLomisendClientForTests,
   __resetLomisendClientForTests,
@@ -49,8 +51,10 @@ test('lomisend mode is the active provider', () => {
 test('sendSmsMessage accepts a valid Lomisend response', async () => {
   const previousApiKey = process.env.LOMISEND_API_KEY;
   const previousSenderId = process.env.LOMISEND_SENDER_ID;
+  const previousProjectId = process.env.LOMISEND_PROJECT_ID;
   process.env.LOMISEND_API_KEY = 'test-api-key';
-  process.env.LOMISEND_SENDER_ID = 'CampusSafe';
+  process.env.LOMISEND_SENDER_ID = '';
+  process.env.LOMISEND_PROJECT_ID = '01a060f7-6e88-7263-a4f8-da75c3466a70';
 
   __setLomisendClientForTests({
     post: async (url, payload, config) => ({
@@ -60,7 +64,6 @@ test('sendSmsMessage accepts a valid Lomisend response', async () => {
           status: 'accepted',
           id: 'LMS-123',
           to: payload.to,
-          sender_id: payload.sender_id,
           body: payload.body,
         },
       },
@@ -110,6 +113,85 @@ test('sendSmsMessage accepts a valid Lomisend response', async () => {
       delete process.env.LOMISEND_SENDER_ID;
     } else {
       process.env.LOMISEND_SENDER_ID = previousSenderId;
+    }
+
+    if (previousProjectId === undefined) {
+      delete process.env.LOMISEND_PROJECT_ID;
+    } else {
+      process.env.LOMISEND_PROJECT_ID = previousProjectId;
+    }
+  }
+});
+
+test('Lomisend request includes the project ID and omits pending sender IDs', () => {
+  const request = getLomisendRequestBody({
+    projectId: '01a060f7-6e88-7263-a4f8-da75c3466a70',
+    to: '0976296127',
+    message: 'Test message',
+  });
+
+  assert.deepEqual(request, {
+    id: '01a060f7-6e88-7263-a4f8-da75c3466a70',
+    to: '+251976296127',
+    body: 'Test message',
+  });
+});
+
+test('Lomisend request never sends YOUR_SENDER_ID', () => {
+  const request = getLomisendRequestBody({
+    projectId: '01a060f7-6e88-7263-a4f8-da75c3466a70',
+    to: '0976296127',
+    message: 'Test message',
+    from: 'YOUR_SENDER_ID',
+  });
+
+  assert.equal(Object.hasOwn(request, 'sender_id'), false);
+});
+
+test('Lomisend HTTP errors preserve status and provider messages', async () => {
+  const previousApiKey = process.env.LOMISEND_API_KEY;
+  const previousProjectId = process.env.LOMISEND_PROJECT_ID;
+  process.env.LOMISEND_API_KEY = 'test-api-key';
+  process.env.LOMISEND_PROJECT_ID = '01a060f7-6e88-7263-a4f8-da75c3466a70';
+
+  try {
+    for (const [status, expected] of [
+      [401, 'Lomisend API authentication error'],
+      [402, 'Insufficient Lomisend balance or credits'],
+      [403, 'Lomisend subscription, permission, project, or sender restriction'],
+      [422, 'Invalid Lomisend request, sender, or project configuration'],
+    ]) {
+      __setLomisendClientForTests({
+        post: async () => {
+          const error = new Error('provider detail');
+          error.response = { status, data: { message: 'provider detail' } };
+          throw error;
+        },
+      });
+
+      await assert.rejects(
+        () => sendLomisendSms({ to: '0976296127', message: 'Test message' }),
+        (error) => {
+          assert.equal(error.statusCode, status);
+          assert.match(error.message, new RegExp(expected));
+          assert.match(error.message, /provider detail/);
+          return true;
+        },
+      );
+    }
+  } finally {
+    __resetLomisendClientForTests();
+
+    if (previousApiKey === undefined) {
+      delete process.env.LOMISEND_API_KEY;
+    } else {
+      process.env.LOMISEND_API_KEY = previousApiKey;
+    }
+
+    if (previousProjectId === undefined) {
+      delete process.env.LOMISEND_PROJECT_ID;
+    } else {
+      process.env.LOMISEND_PROJECT_ID = previousProjectId;
     }
   }
 });

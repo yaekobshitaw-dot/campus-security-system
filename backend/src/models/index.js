@@ -8,6 +8,7 @@ const Zone = require('./Zone');
 const Announcement = require('./Announcement');
 const AnnouncementAudience = require('./AnnouncementAudience');
 const AnnouncementRead = require('./AnnouncementRead');
+const CampusLocation = require('./CampusLocation');
 
 User.hasMany(Incident, { foreignKey: 'user_id', as: 'reportedIncidents' });
 Incident.belongsTo(User, { foreignKey: 'user_id', as: 'reporter' });
@@ -35,5 +36,6 @@ module.exports = {
 	Zone,
 	Announcement,
 	AnnouncementAudience,
-	AnnouncementRead
+	AnnouncementRead,
+	CampusLocation
 };

@@ -349,3 +349,120 @@ body {
 .floating-icon4 {
   animation: float 9s ease-in-out infinite reverse;
 }
+
+.campus-map-marker {
+  background: transparent;
+  border: 0;
+}
+
+.campus-map-marker span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 28%);
+}
+
+.campus-map-control,
+.campus-map-toolbar,
+.campus-map-legend,
+.campus-map-notice {
+  position: absolute;
+  z-index: 1000;
+  border: 1px solid #d6dde8;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 14%);
+}
+
+.campus-map-control {
+  right: 12px;
+  top: 12px;
+  padding: 8px 11px;
+  color: #0b5c65;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.campus-map-toolbar {
+  left: 12px;
+  top: 12px;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+
+.campus-map-toolbar label {
+  display: grid;
+  gap: 3px;
+  color: #53636a;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.campus-map-toolbar input,
+.campus-map-toolbar select {
+  min-width: 120px;
+  border: 1px solid #d6dde8;
+  border-radius: 6px;
+  padding: 5px 7px;
+  color: #0b1f3a;
+  font-size: 12px;
+}
+
+.campus-map-legend {
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 5px;
+  padding: 9px 11px;
+  color: #34454c;
+  font-size: 11px;
+}
+
+.campus-map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.legend-dot.place { background: #0e7c86; }
+.legend-dot.officer { background: #2d8a61; }
+.legend-dot.incident { background: #d9534f; }
+.legend-dot.sos { background: #991b1b; }
+.legend-dot.zone { background: #2563eb; }
+
+.campus-map-notice {
+  left: 50%;
+  top: 50%;
+  max-width: 320px;
+  padding: 12px;
+  color: #6b3f08;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 640px) {
+  .campus-map-toolbar {
+    right: 12px;
+    flex-direction: column;
+  }
+
+  .campus-map-toolbar input,
+  .campus-map-toolbar select {
+    width: 150px;
+  }
+}
