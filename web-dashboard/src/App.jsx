@@ -5,6 +5,10 @@ import Dashboard from './components/Dashboard';
 import PublicSite, { AuthPage } from './components/PublicSite';
 import api from './services/api';
 
+function ProtectedRoute({ user, children }) {
+  return user ? children : <Navigate to="/login" replace />;
+}
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,19 +34,30 @@ function App() {
 
     const restoreSession = async () => {
       if (!token || !savedUser) {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
         return;
       }
 
       try {
-        setUser(JSON.parse(savedUser));
         const response = await api.get('/users/profile');
         if (!cancelled) {
           setUser(response.data.data);
           localStorage.setItem('user', JSON.stringify(response.data.data));
         }
       } catch (error) {
-        if (error.response?.status !== 401 && !cancelled) setLoading(false);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          if (!cancelled) setUser(null);
+        } else if (!cancelled) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -75,24 +90,11 @@ function App() {
       <Route path="/reset-password" element={<ResetPasswordScreen />} />
       <Route
         path="/dashboard"
-        element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
+        element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} /></ProtectedRoute>}
       />
-      <Route path="/incidents/active" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/incidents/history" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/incidents/:incidentId" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/map" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/sos" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/emergency" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/evidence" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/officers" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/users" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/analytics" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/responses" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/alerts" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/announcements" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/sms" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/zones" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
-      <Route path="/locations" element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />} />
+      {['/incidents/active', '/incidents/history', '/incidents/:incidentId', '/map', '/sos', '/emergency', '/evidence', '/officers', '/users', '/analytics', '/responses', '/alerts', '/announcements', '/sms', '/zones', '/locations'].map((path) => (
+        <Route key={path} path={path} element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+      ))}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

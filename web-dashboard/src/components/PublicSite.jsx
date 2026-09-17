@@ -81,7 +81,7 @@ function PublicNav({ user, onLogout }) {
   );
 }
 
-function PublicFooter() {
+export function PublicFooter() {
   return (
     <footer className="public-footer">
       <div className="footer-grid">

@@ -153,6 +153,7 @@ function AnnouncementForm({ initialValue, onCancel, onSubmit, saving, error }) {
                   type="button"
                   onClick={() => toggleRole(role)}
                   aria-pressed={active}
+                  aria-label={titleCase(role)}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition ${active ? roleChipClasses.active : roleChipClasses.inactive}`}
                 >
                   <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${active ? 'border-white/70 bg-white/20' : 'border-slate-300'}`}>

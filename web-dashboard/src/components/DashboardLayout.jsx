@@ -18,6 +18,8 @@ import {
 } from '@mui/icons-material';
 import { useMemo, useState } from 'react';
 import SafetyChatbot from './Chatbot/SafetyChatbot';
+import { PublicFooter } from './PublicSite';
+import '../dashboard.css';
 
 const statusClasses = {
   reported: 'border-slate-200 bg-slate-100 text-slate-700',
@@ -102,7 +104,7 @@ export function DashboardLayout({
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="dashboard-app min-h-screen bg-slate-100 text-slate-900">
       <div className="flex min-h-screen">
         <Sidebar
           user={user}
@@ -113,29 +115,40 @@ export function DashboardLayout({
           initials={initials}
         />
 
-        <main className="flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
-          <header className="dashboard-header relative sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6 sm:py-3 lg:px-8">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-                  <ShieldOutlined className="text-[20px]" />
+        <main className="dashboard-main flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
+          <header className="dashboard-header relative sticky top-0 z-20 border-b backdrop-blur-sm">
+            <div className="dashboard-header-inner flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+              <div className="dashboard-header-leading flex min-w-0 items-center gap-3">
+                <div className="dashboard-header-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+                  <ShieldOutlined className="text-[22px]" />
                 </div>
 
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    CAMPUS SECURITY / {activeSection.toUpperCase()}
+                <div className="dashboard-header-brand min-w-0">
+                  <p className="dashboard-header-name truncate text-lg font-black tracking-tight">
+                    Campus<span>Secure</span>
                   </p>
-                  <h1 className="mt-0.5 text-lg font-black tracking-tight text-[#0b1f3a]">
+                  <p className="dashboard-header-subtitle truncate text-[10px] font-black uppercase tracking-[0.16em]">
+                    Security Operations Center
+                  </p>
+                </div>
+
+                <span className="dashboard-header-divider hidden h-8 w-px sm:block" />
+
+                <div className="dashboard-header-context min-w-0">
+                  <p className="truncate text-[10px] font-black uppercase tracking-[0.16em]">
+                    Campus security / {activeSection}
+                  </p>
+                  <h1 className="mt-0.5 truncate text-base font-black tracking-tight sm:text-lg">
                     {toTitleCase(activeSection)}
                   </h1>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="dashboard-header-actions flex shrink-0 items-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen((open) => !open)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 lg:hidden"
+                  className="dashboard-header-control flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1d35] lg:hidden"
                   aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
                   aria-expanded={mobileMenuOpen}
                 >
@@ -145,12 +158,12 @@ export function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => { setNotificationsOpen((open) => !open); onNotificationsRead(); }}
-                  className="dashboard-icon-button relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                  className="dashboard-header-control relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1d35]"
                   aria-label="Notifications"
                   aria-expanded={notificationsOpen}
                 >
                   <NotificationsOutlined className="text-[18px]" />
-                  {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1 py-0.5 text-center text-[9px] font-black text-white">{unreadCount}</span>}
+                  {unreadCount > 0 && <span className="dashboard-notification-badge absolute -right-1.5 -top-1.5 min-w-5 rounded-full px-1.5 py-0.5 text-center text-[9px] font-black">{unreadCount}</span>}
                 </button>
 
                 {notificationsOpen && <div className="absolute right-4 top-[4.5rem] z-30 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
@@ -188,7 +201,7 @@ export function DashboardLayout({
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="dashboard-icon-button flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+                  className="dashboard-header-control dashboard-header-logout flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1d35]"
                   aria-label="Log out"
                 >
                   <Logout className="text-[18px]" />
@@ -207,6 +220,7 @@ export function DashboardLayout({
                         key={path}
                         type="button"
                         onClick={() => { setMobileMenuOpen(false); onNavigate(path); }}
+                        aria-current={isActive ? 'page' : undefined}
                         className={cn(
                           'flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2',
                           isActive ? 'bg-[#0b1f3a] text-white shadow-sm' : 'text-slate-700 hover:bg-white hover:text-[#0b1f3a] hover:shadow-sm',
@@ -223,7 +237,8 @@ export function DashboardLayout({
             )}
           </header>
 
-          <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">{children}</div>
+          <div className={cn('dashboard-content flex-1 px-4 py-5 sm:px-6 lg:px-8', activeSection === 'overview' && 'dashboard-overview-content')}>{children}</div>
+          <PublicFooter />
         </main>
       </div>
       <SafetyChatbot user={user} />
@@ -233,24 +248,24 @@ export function DashboardLayout({
 
 function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogout, initials }) {
   return (
-    <aside className="dashboard-sidebar hidden w-[280px] shrink-0 bg-[#081d35] text-white lg:flex lg:flex-col">
+    <aside className="dashboard-sidebar hidden w-[280px] shrink-0 text-white lg:flex lg:flex-col">
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-[#08213d] shadow-[0_8px_24px_rgba(52,211,153,0.2)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary-blue-accent)] text-[var(--primary-blue-deep)] shadow-[0_8px_24px_rgba(15,71,120,0.18)]">
           <ShieldOutlined className="text-[24px]" />
         </div>
 
         <div>
           <div className="text-xl font-black tracking-tight text-white">
-            Campus<span className="text-emerald-300">Secure</span>
+            Campus<span className="text-[var(--primary-blue-accent)]">Secure</span>
           </div>
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-100/70">
             Security Operations Center
           </div>
         </div>
       </div>
 
       <div className="px-4 pt-4">
-        <p className="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+        <p className="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-100/70">
           Workspace
         </p>
 
@@ -264,15 +279,16 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
                 key={path}
                 type="button"
                 onClick={() => onNavigate(path)}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'dashboard-nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#081d35]',
-                  isActive ? 'bg-emerald-400 text-[#08213d] shadow-[0_8px_20px_rgba(52,211,153,0.16)]' : 'text-slate-300 hover:bg-white/10 hover:text-white',
+                  'dashboard-nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-blue-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--primary-blue)]',
+                  isActive ? 'bg-[var(--primary-blue-hover)] text-white shadow-[0_8px_20px_rgba(15,71,120,0.18)]' : 'text-blue-100 hover:bg-[var(--primary-blue-hover)] hover:text-white',
                 )}
               >
                 <span
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg',
-                    isActive ? 'bg-white/25 text-[#08213d]' : 'bg-white/10 text-slate-300',
+                    isActive ? 'bg-white/20 text-white' : 'bg-white/10 text-blue-100',
                   )}
                 >
                   <Icon className="text-[18px]" />
@@ -284,7 +300,7 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
                   <span
                     className={cn(
                       'rounded-full px-1.5 py-0.5 text-[10px] font-black',
-                      isActive ? 'bg-[#08213d]/15 text-[#08213d]' : 'bg-emerald-400 text-[#08213d]',
+                      isActive ? 'bg-white/20 text-white' : 'bg-[var(--primary-blue-accent)] text-[var(--primary-blue-deep)]',
                     )}
                   >
                     {label.includes('Active') ? 9 : label === 'Emergency center' ? 4 : 5}
@@ -297,13 +313,13 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
       </div>
 
       <div className="mt-6 px-4">
-        <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-300/15 text-emerald-200">
+        <div className="rounded-2xl border border-[var(--primary-blue-accent)]/25 bg-white/10 p-4">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[var(--primary-blue-accent)]">
             <TaskAltOutlined className="text-[18px]" />
           </div>
 
           <p className="text-sm font-black text-white">Response readiness</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">
+          <p className="mt-1 text-xs leading-5 text-blue-100/75">
             Critical incidents and officer assignments are monitored in real time.
           </p>
         </div>
@@ -311,19 +327,19 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
 
       <div className="mt-auto border-t border-white/10 px-4 py-4">
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400 text-xs font-black text-[#08213d]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-blue-accent)] text-xs font-black text-[var(--primary-blue-deep)]">
             {initials}
           </div>
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black text-white">CampusSecure...</p>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-blue-100/70">
               {user?.role || 'Security'}
             </p>
           </div>
 
-          <span className="flex items-center gap-1.5 rounded-full bg-slate-900 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white">
-            <i className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ADMIN
+          <span className="flex items-center gap-1.5 rounded-full bg-[var(--primary-blue-deep)] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white">
+            <i className="h-1.5 w-1.5 rounded-full bg-[var(--primary-blue-accent)]" /> ADMIN
           </span>
         </div>
       </div>

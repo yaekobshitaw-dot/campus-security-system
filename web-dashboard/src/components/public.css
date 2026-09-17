@@ -54,7 +54,8 @@ textarea:focus-visible {
   z-index: 5;
   top: 0;
   width: 100%;
-  background: linear-gradient(rgba(13, 26, 43, .92) 0%, rgba(13, 26, 43, .78) 55%, rgba(13, 26, 43, 0) 100%);
+  background: var(--primary-blue);
+  border-bottom: 1px solid var(--primary-blue-border);
   padding-bottom: 20px;
 }
 
@@ -80,7 +81,7 @@ textarea:focus-visible {
 }
 
 .brand > span:last-child > span {
-  color: var(--accent);
+  color: var(--primary-blue-accent);
 }
 
 .brand-mark {
@@ -121,7 +122,7 @@ textarea:focus-visible {
 
 .nav-login,
 .nav-logout {
-  border: 1px solid rgba(255, 255, 255, .32);
+  border: 1px solid var(--primary-blue-border);
   border-radius: var(--radius-sm);
   padding: 10px 15px;
   background: transparent;
@@ -139,14 +140,14 @@ textarea:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 11px 16px;
-  background: var(--alert);
+  background: var(--primary-blue-accent);
   border-radius: var(--radius-sm);
-  color: #fff !important;
+  color: var(--primary-blue-deep) !important;
   transition: background .2s ease;
 }
 
 .nav-register:hover {
-  background: var(--alert-dark);
+  background: #c7edf5;
 }
 
 /* ---------- Forms (shared) ---------- */
