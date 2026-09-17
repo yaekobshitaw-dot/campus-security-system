@@ -77,7 +77,7 @@ function AnnouncementForm({ initialValue, onCancel, onSubmit, saving, error }) {
   return (
     <form
       onSubmit={submit}
-      className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.09)]"
+      className="announcement-form overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.09)]"
       aria-label={isEditing ? 'Edit announcement form' : 'Create announcement form'}
     >
       <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-emerald-50/80 to-white px-6 py-5">
@@ -199,7 +199,7 @@ function AnnouncementForm({ initialValue, onCancel, onSubmit, saving, error }) {
 }
 
 const AnnouncementCard = ({ announcement, admin, onOpen, onEdit, onPublish, onUnpublish, onDelete }) => (
-  <article className={`dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] ${!announcement.is_read ? 'ring-2 ring-emerald-100' : ''}`}>
+  <article className={`announcement-card dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] ${!announcement.is_read ? 'ring-2 ring-emerald-100' : ''}`}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-base font-black text-[#0b1f3a]">{announcement.title}</h3>{!announcement.is_read && <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">Unread</span>}</div><div className="mt-2 flex flex-wrap items-center gap-2"><PriorityBadge priority={announcement.priority} /><span className="text-xs text-slate-500">{announcement.status === 'published' ? `Published ${formatDate(announcement.published_at)}` : titleCase(announcement.status)}</span></div></div>
       <button type="button" className="table-action" onClick={() => onOpen(announcement)}>{announcement.is_read ? 'Open' : 'Open and mark read'}</button>

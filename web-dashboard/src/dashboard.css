@@ -196,7 +196,7 @@
 }
 
 .dashboard-main {
-  background: #091e32 !important;
+  background: #eef4f8 !important;
 }
 
 .dashboard-content {
@@ -270,7 +270,7 @@
 .dashboard-app .dashboard-header {
   min-height: 76px;
   border-color: rgb(150 207 226 / 0.16) !important;
-  background: #071a2d !important;
+  background: #0b5ed7 !important;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.18) !important;
 }
 
@@ -323,10 +323,56 @@
 .dashboard-app .dashboard-notification-badge {
   background: #e76868;
   color: #ffffff;
-  box-shadow: 0 0 0 3px #071a2d;
+  box-shadow: 0 0 0 3px #0b5ed7;
 }
 
-.dashboard-app .dashboard-heading h2,
+.dashboard-app .dashboard-content > .mx-auto > .space-y-8 > .grid > section:first-child > h3 {
+  color: #0b243b;
+}
+
+.dashboard-app .dashboard-content > .mx-auto > .space-y-8 > .dashboard-heading h2 {
+  color: #0b243b;
+}
+
+.dashboard-app .dashboard-content > .mx-auto > .space-y-8 > .dashboard-heading > div > span:not(.dashboard-eyebrow) {
+  color: #1f2937;
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > .dashboard-heading h2 {
+  color: var(--dashboard-text);
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > .dashboard-heading > div > span:not(.dashboard-eyebrow) {
+  color: var(--dashboard-muted);
+}
+
+.dashboard-app .announcement-card {
+  border-color: var(--dashboard-line) !important;
+  background: var(--dashboard-surface) !important;
+}
+
+.dashboard-app .announcement-card :is(.text-slate-500, .text-slate-600, .text-slate-700),
+.dashboard-app .announcement-card [class~="text-[#0b1f3a]"],
+.dashboard-app .announcement-card h3 {
+  color: var(--dashboard-text);
+}
+
+.dashboard-app .announcement-form,
+.dashboard-app .announcement-detail {
+  color: #10233d;
+}
+
+.dashboard-app .announcement-form :is(h3, label, legend),
+.dashboard-app .announcement-detail h3 {
+  color: #0b1f3a;
+}
+
+.dashboard-app .announcement-form :is(input, select, textarea),
+.dashboard-app .announcement-detail p,
+.dashboard-app .announcement-detail span {
+  color: #334155;
+}
+
 .dashboard-app .dashboard-panel h2,
 .dashboard-app .dashboard-panel h3,
 .dashboard-app .dashboard-panel h4,
@@ -334,9 +380,6 @@
   color: var(--dashboard-text) !important;
 }
 
-.dashboard-app .dashboard-heading,
-.dashboard-app .dashboard-heading .dashboard-eyebrow,
-.dashboard-app .dashboard-heading span,
 .dashboard-app .dashboard-panel .text-slate-500,
 .dashboard-app .dashboard-panel .text-slate-600 {
   color: var(--dashboard-muted) !important;
@@ -453,11 +496,6 @@
 .dashboard-app .evidence-card :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.dashboard-button):not(.table-action),
 .dashboard-app .officer-card :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
   color: #e9f8fc;
-}
-
-.dashboard-app .dashboard-content > .mx-auto > :not(.fixed) [class~="text-[#0b1f3a]"],
-.dashboard-app .dashboard-content > .mx-auto > :not(.fixed) :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
-  color: var(--dashboard-text);
 }
 
 .dashboard-app .dashboard-panel [class~="text-[#0b1f3a]"],
@@ -596,6 +634,44 @@
   .campus-map-toolbar { right: 12px; flex-direction: column; }
   .campus-map-toolbar input,
   .campus-map-toolbar select { width: 150px; }
+}
+.dashboard-app .dashboard-table tbody td {
+  color: #d9edf3;
+}
+
+.dashboard-app .dashboard-table tbody td button:not(.dashboard-button):not(.table-action) {
+  color: #e9f8fc;
+}
+
+.dashboard-app .incident-action-cell button,
+.dashboard-app .incident-action-cell select {
+  border-color: rgb(150 207 226 / 0.28);
+  background: #163a58;
+  color: #e9f8fc;
+}
+
+.dashboard-app .incident-action-cell button:hover,
+.dashboard-app .incident-action-cell select:hover {
+  border-color: #55c7e5;
+  background: #1b5275;
+  color: #ffffff;
+}
+
+.dashboard-app .incident-action-cell select:focus-visible {
+  outline: 3px solid rgb(22 185 212 / 0.45);
+  outline-offset: 2px;
+}
+
+.dashboard-app .incident-action-cell select option {
+  background: #ffffff;
+  color: #0b1f3a;
+}
+
+.dashboard-app .incident-action-cell button:disabled,
+.dashboard-app .incident-action-cell select:disabled {
+  border-color: rgb(150 207 226 / 0.16);
+  background: #102f4b;
+  color: #91a9bb;
 }
 
 .dashboard-app .incident-table-shell {
