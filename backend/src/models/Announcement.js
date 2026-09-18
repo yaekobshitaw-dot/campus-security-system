@@ -26,6 +26,7 @@ const Announcement = sequelize.define('Announcement', {
     allowNull: false,
     defaultValue: 'draft'
   },
+  is_public: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   created_by: {
     type: DataTypes.UUID,
     allowNull: false

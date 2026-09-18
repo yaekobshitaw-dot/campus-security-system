@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { divIcon } from 'leaflet';
+import { UserAvatar } from './DashboardLayout';
 
 const CAMPUS_CENTER = [10.9854535, 39.2631819];
 const locationTypes = ['all', 'university', 'administration', 'classroom', 'seminar', 'building/block', 'gate', 'security_post', 'dormitory', 'library', 'clinic', 'cafeteria', 'parking', 'sports', 'emergency_point', 'other'];
@@ -177,7 +178,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             <Popup>
               <strong>{incident.is_sos ? 'SOS' : 'Incident'}</strong>
               <br />Type: {incident.type}
-              {incident.is_sos && <><br />Reporter: {incident.reporter?.name || 'Campus member'}</>}
+              {incident.is_sos && <><br />Reporter: {incident.reporter ? <span className="inline-flex items-center gap-1"><UserAvatar user={incident.reporter} size="h-6 w-6" /><span>{incident.reporter.name || 'Campus member'}</span></span> : 'Campus member'}</>}
               <br />Time: {incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unknown'}
               <br />Coordinates: {position[0].toFixed(7)}, {position[1].toFixed(7)}
               {!incident.is_sos && <><br />{assigned ? `Assigned: ${assigned.name}` : 'Unassigned'}</>}
@@ -193,7 +194,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
         return (
           <Marker key={`officer-${officer.user_id}`} position={position} icon={icons.officer}>
             <Popup>
-              <strong>{officer.name}</strong>
+              <span className="inline-flex items-center gap-2"><UserAvatar user={officer} size="h-7 w-7" /><strong>{officer.name}</strong></span>
               <br />Status: {officer.availability_status || 'unavailable'}
               <br />Assignment: {assignment?.type || 'None'}
               {incidentPosition && <><br />Distance: {formatDistance(distanceMeters(position, incidentPosition))}</>}

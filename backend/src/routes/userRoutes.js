@@ -4,6 +4,8 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { Incident, Response, User } = require('../models');
 const { uploadProfilePhoto } = require('../middleware/profilePhotoUpload');
 const profilePhotoController = require('../controllers/profilePhotoController');
+const { recordAudit } = require('../services/auditService');
+const { notifyUsers } = require('../services/notificationPersistence');
 
 const LOCATION_STALE_AFTER_MS = 2 * 60 * 1000;
 const isValidCoordinate = (value, minimum, maximum) => value !== null && value !== undefined && value !== ''
@@ -127,6 +129,26 @@ router.get('/all', authorize('admin'), async (req, res) => {
   }
 });
 
+router.patch('/:userId', authorize('admin'), async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const allowedFields = ['name', 'email', 'phone', 'role'];
+    const updates = Object.fromEntries(allowedFields.filter((field) => req.body?.[field] !== undefined).map((field) => [field, req.body[field]]));
+    const roles = ['student', 'faculty', 'staff', 'security', 'admin'];
+    if (updates.role !== undefined && !roles.includes(updates.role)) return res.status(400).json({ success: false, message: 'Invalid role' });
+    if (updates.email !== undefined && !/^\S+@\S+\.\S+$/.test(String(updates.email))) return res.status(400).json({ success: false, message: 'Email is invalid' });
+    if (!Object.keys(updates).length) return res.status(400).json({ success: false, message: 'At least one user field is required' });
+    const previousRole = user.role;
+    await user.update(updates);
+    await recordAudit(req, { action: updates.role && updates.role !== previousRole ? 'user_role_changed' : 'user_updated', resourceType: 'user', resourceId: user.user_id, details: updates.role && updates.role !== previousRole ? `Role changed from ${previousRole} to ${updates.role}.` : null });
+    await notifyUsers(req, { type: 'user_admin_event', title: 'User account updated', message: `${user.name}'s account was updated.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-updated:${user.user_id}:${user.updated_at}` });
+    return res.json({ success: true, data: user.toJSON() });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+});
+
 router.patch('/:userId/status', authorize('admin'), async (req, res) => {
   try {
     const { userId } = req.params;
@@ -142,6 +164,8 @@ router.patch('/:userId/status', authorize('admin'), async (req, res) => {
     }
 
     await user.update({ is_active });
+    await recordAudit(req, { action: is_active ? 'user_activated' : 'user_deactivated', resourceType: 'user', resourceId: user.user_id });
+    await notifyUsers(req, { type: 'user_admin_event', title: 'User account updated', message: `${user.name} was ${is_active ? 'activated' : 'deactivated'}.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-status:${user.user_id}:${is_active}:${user.updated_at}` });
 
     return res.status(200).json({
       success: true,

@@ -1,4 +1,5 @@
 import {
+  AdminPanelSettingsOutlined,
   DashboardOutlined,
   DescriptionOutlined,
   EventNoteOutlined,
@@ -9,14 +10,18 @@ import {
   Menu,
   MapOutlined,
   PeopleAltOutlined,
+  PersonOutline,
   ReportProblemOutlined,
+  SchoolOutlined,
   NotificationsOutlined,
   SmsOutlined,
   ShieldOutlined,
   TaskAltOutlined,
   WarningAmberOutlined,
+  SettingsOutlined,
+  HistoryOutlined,
 } from '@mui/icons-material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import SafetyChatbot from './Chatbot/SafetyChatbot';
 import { PublicFooter } from './PublicSite';
 import '../dashboard.css';
@@ -41,25 +46,21 @@ const navigationItems = [
   { label: 'Overview', path: '/dashboard', icon: DashboardOutlined },
   { label: 'Active incidents', path: '/incidents/active', icon: ReportProblemOutlined, badge: true },
   { label: 'Incident history', path: '/incidents/history', icon: EventNoteOutlined },
-  { label: 'Emergency center', path: '/emergency', icon: WarningAmberOutlined, badge: true },
-  { label: 'Live map', path: '/map', icon: MapOutlined },
   { label: 'SOS / Emergency', path: '/sos', icon: WarningAmberOutlined, badge: true },
+  { label: 'Live map', path: '/map', icon: MapOutlined },
   { label: 'Evidence', path: '/evidence', icon: DescriptionOutlined },
   { label: 'Security officers', path: '/officers', icon: PeopleAltOutlined },
   { label: 'User management', path: '/users', icon: PeopleAltOutlined },
-  { label: 'Analytics', path: '/analytics', icon: InsightsOutlined },
-  { label: 'Responses', path: '/responses', icon: SmsOutlined },
-  { label: 'Alerts and zones', path: '/alerts', icon: WarningAmberOutlined },
-  { label: 'Announcements', path: '/announcements', icon: CampaignOutlined },
-  { label: 'SMS Broadcast', path: '/sms', icon: SmsOutlined },
-  { label: 'Zones', path: '/zones', icon: MapOutlined },
-  { label: 'Campus locations', path: '/locations', icon: MapOutlined },
+  { label: 'SMS notifications', path: '/sms', icon: SmsOutlined },
+  { label: 'Reports / Analytics', path: '/analytics', icon: InsightsOutlined },
+  { label: 'Notifications', path: '/notifications', icon: NotificationsOutlined },
+  { label: 'Audit logs', path: '/audit-logs', icon: HistoryOutlined },
+  { label: 'Content management', path: '/content', icon: CampaignOutlined },
+  { label: 'System settings', path: '/settings', icon: SettingsOutlined },
 ];
 
 function canAccessNavigation(path, role) {
-  if (path === '/users') return role === 'admin';
-  if (path === '/sms') return role === 'admin';
-  if (path === '/locations') return role === 'admin';
+  if (['/users', '/sms', '/notifications', '/audit-logs', '/content', '/settings'].includes(path)) return role === 'admin';
   if (path === '/officers') return ['security', 'admin'].includes(role);
   if (['/analytics', '/responses'].includes(path)) return ['security', 'admin'].includes(role);
   return true;
@@ -327,9 +328,7 @@ function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogou
 
       <div className="mt-auto border-t border-white/10 px-4 py-4">
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-blue-accent)] text-xs font-black text-[var(--primary-blue-deep)]">
-            {initials}
-          </div>
+          <UserAvatar user={user} size="h-10 w-10" />
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black text-white">CampusSecure...</p>
@@ -476,11 +475,11 @@ export function IncidentTable({
                   </td>
 
                   <td className="incident-cell px-4 py-3.5 align-top text-sm font-semibold text-slate-700">
-                    {incident.reporter?.name || (incident.is_anonymous ? 'Anonymous' : 'Campus member')}
+                    {incident.is_anonymous ? <span>Anonymous</span> : incident.reporter ? <div className="flex items-center gap-2"><UserAvatar user={incident.reporter} size="h-8 w-8" /><span>{incident.reporter.name || 'Campus member'}</span></div> : <span>Campus member</span>}
                   </td>
 
                   <td className="incident-cell px-4 py-3.5 align-top text-sm font-semibold text-slate-700">
-                    {typeof responder === 'string' ? responder : responder?.name || 'Unassigned'}
+                    {typeof responder === 'string' ? responder : responder ? <div className="flex items-center gap-2"><UserAvatar user={responder} size="h-8 w-8" /><span>{responder.name || 'Security officer'}</span></div> : 'Unassigned'}
                   </td>
 
                   <td className="incident-cell px-4 py-3.5 align-top text-sm text-slate-600">
@@ -628,14 +627,25 @@ export default function DashboardLayoutDemo() {
 
 export function UserAvatar({ user, size = 'h-10 w-10' }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const initials = (user?.name || 'Campus User')
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const normalizedRole = String(user?.role || '').toLowerCase().replace(/[-\s]+/g, '_');
+  const roleProfile = {
+    student: { label: 'Student', icon: SchoolOutlined, className: 'bg-sky-100 text-sky-800' },
+    security: { label: 'Security officer', icon: ShieldOutlined, className: 'bg-emerald-100 text-emerald-800' },
+    admin: { label: 'Administrator', icon: AdminPanelSettingsOutlined, className: 'bg-amber-100 text-amber-800' },
+    unknown: { label: 'User', icon: PersonOutline, className: 'bg-slate-200 text-slate-700' },
+  };
+  const profile = roleProfile[normalizedRole] || roleProfile.unknown;
+  const Icon = profile.icon;
+  const displayName = user?.name || profile.label;
+  const alt = `${displayName} ${profile.label.toLowerCase()} profile`;
 
-  return user?.profile_photo_url && !imageFailed
-    ? <img className={`${size} rounded-lg object-cover ring-4 ring-slate-100`} src={user.profile_photo_url} alt={`${user.name || 'User'} profile`} onError={() => setImageFailed(true)} />
-    : <div className={`flex ${size} items-center justify-center rounded-lg bg-[#0b1f3a] text-xs font-black text-white ring-4 ring-slate-100`}>{initials}</div>;
+  useEffect(() => {
+    setImageFailed(false);
+  }, [user?.profile_photo_url, user?.user_id]);
+
+  if (user?.profile_photo_url && !imageFailed) {
+    return <img className={`${size} rounded-lg object-cover ring-4 ring-slate-100`} src={user.profile_photo_url} alt={alt} onError={() => setImageFailed(true)} />;
+  }
+
+  return <div className={`flex ${size} items-center justify-center rounded-lg ${profile.className} ring-4 ring-slate-100`} role="img" aria-label={alt}><Icon className="text-[60%]" aria-hidden="true" /></div>;
 }

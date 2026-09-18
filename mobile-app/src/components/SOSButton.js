@@ -81,6 +81,8 @@ export const SOSButton = ({ onPress, disabled = false }) => {
           onPress={onPress}
           disabled={disabled}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Send SOS emergency alert"
         >
           <View style={styles.iconContainer}>
             <Icon name="emergency" size={40} color="#FFFFFF" />
@@ -119,7 +121,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: '#FFFFFF',
   },
   sosButton: {
     flex: 1,

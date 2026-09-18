@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sendEmail } = require('../services/emailService');
+const { recordAudit } = require('../services/auditService');
+const { notifyUsers } = require('../services/notificationPersistence');
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -136,6 +138,8 @@ exports.createUserByAdmin = async (req, res) => {
       phone: normalizedPhone || null,
       role: requestedRole
     });
+    await recordAudit(req, { action: 'user_created', resourceType: 'user', resourceId: user.user_id, details: `Created ${requestedRole} account.` });
+    await notifyUsers(req, { type: 'user_admin_event', title: 'User account created', message: `A ${requestedRole} account was created.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-created:${user.user_id}` });
 
     return res.status(201).json({
       success: true,
@@ -227,6 +231,10 @@ exports.login = async (req, res) => {
     }
 
     const token = generateToken(user);
+    if (user.role === 'admin') {
+      req.user = user;
+      await recordAudit(req, { action: 'admin_login', resourceType: 'user', resourceId: user.user_id });
+    }
 
     return res.status(200).json({
       success: true,

@@ -5,10 +5,11 @@ const { Server } = require('socket.io');
 dotenv.config();
 
 const app = require('./src/app');
-const { sequelize, CampusLocation } = require('./src/models');
+const { sequelize, CampusLocation, Notification, AuditLog, SystemSetting, PublicContent } = require('./src/models');
 const { initSocket } = require('./src/config/socket');
 const { corsOrigin } = require('./src/config/cors');
 const { verifyEmailTransporter } = require('./src/services/emailService');
+const { ensureDefaultSettings } = require('./src/services/settingsService');
 
 const PORT = Number(process.env.PORT) || 5002;
 
@@ -17,6 +18,11 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('✅ MySQL connected');
     await CampusLocation.sync();
+    await Notification.sync();
+    await AuditLog.sync();
+    await SystemSetting.sync();
+    await PublicContent.sync();
+    await ensureDefaultSettings();
     const emailReady = await verifyEmailTransporter().catch((error) => {
       console.warn('Password reset email transporter verification failed:', error.message);
       return false;

@@ -3,6 +3,9 @@ const { Op } = require('sequelize');
 const { processIncidentPhotos } = require('../services/uploadService');
 const { sendPushNotification } = require('../services/notificationService');
 const { sendSmsMessage } = require('../services/smsService');
+const { recordAudit } = require('../services/auditService');
+const { notifyUsers } = require('../services/notificationPersistence');
+const { getSetting } = require('../services/settingsService');
 const {
   canAccessIncidentEvidence,
   evidenceExists,
@@ -159,8 +162,9 @@ exports.createSOS = async (req, res) => {
   const userId = req.user.user_id;
   const now = Date.now();
   const previousRequest = recentSOSRequests.get(userId);
+  const sosCooldownSeconds = await getSetting('emergency.sos_cooldown_seconds') || 30;
 
-  if (previousRequest && now - previousRequest < 30 * 1000) {
+  if (previousRequest && now - previousRequest < sosCooldownSeconds * 1000) {
     return res.status(429).json({ success: false, message: 'Please wait before sending another SOS alert' });
   }
   recentSOSRequests.set(userId, now);
@@ -199,6 +203,8 @@ exports.createSOS = async (req, res) => {
       channel: 'dashboard',
       sent_at: new Date()
     });
+    await recordAudit(req, { action: 'sos_created', resourceType: 'incident', resourceId: incident.incident_id });
+    await notifyUsers(req, { type: 'sos_alert', title: 'SOS emergency reported', message: 'A critical SOS emergency alert was reported.', resourceType: 'incident', resourceId: incident.incident_id, link: `/incidents/${incident.incident_id}`, dedupeKey: `sos:${incident.incident_id}` });
 
     const reporter = { user_id: req.user.user_id, name: req.user.name, role: req.user.role };
     const sosPayload = {
@@ -272,6 +278,8 @@ exports.assignIncident = async (req, res) => {
       ? haversineDistanceMeters(Number(incident.latitude), Number(incident.longitude), Number(officer.latitude), Number(officer.longitude))
       : null;
     const response = await assignIncidentToOfficer(incident, officer, req.user.user_id);
+    await recordAudit(req, { action: 'officer_assigned', resourceType: 'incident', resourceId: incidentId, details: `Assigned officer ${officer.user_id}.` });
+    await notifyUsers(req, { type: 'officer_assignment', title: 'Security officer assigned', message: `${officer.name} has been assigned to an incident.`, resourceType: 'incident', resourceId: incidentId, link: `/incidents/${incidentId}`, dedupeKey: `assignment:${incidentId}:${officer.user_id}` });
     const payload = assignmentPayload(incident, officer, distanceMeters || 0, req.user.user_id);
     payload.response_id = response.response_id;
     const updatedIncident = {
@@ -327,6 +335,8 @@ exports.updateResponseStatus = async (req, res) => {
     const incidentStatus = status === 'responding' ? 'on_scene' : status;
     await response.update({ status });
     await incident.update({ status: incidentStatus });
+    await recordAudit(req, { action: 'response_status_changed', resourceType: 'incident', resourceId: incidentId, details: `Response status changed to ${status}.` });
+    await notifyUsers(req, { type: 'incident_status_changed', title: 'Incident status updated', message: `An incident is now ${incidentStatus}.`, resourceType: 'incident', resourceId: incidentId, link: `/incidents/${incidentId}`, dedupeKey: `status:${incidentId}:${incidentStatus}` });
     if (status === 'resolved' || status === 'closed') {
       await User.update({ availability_status: 'available' }, { where: { user_id: response.responder_id } });
     }
@@ -497,6 +507,7 @@ exports.serveEvidence = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Evidence not found' });
     }
 
+    await recordAudit(req, { action: 'evidence_accessed', resourceType: 'incident_evidence', resourceId: req.params.incident_id, details: filename });
     return res.sendFile(evidencePath);
   } catch (error) {
     return res.status(404).json({ success: false, message: 'Evidence not found' });
@@ -532,6 +543,8 @@ exports.updateStatus = async (req, res) => {
     }
 
     await incident.update({ status });
+    await recordAudit(req, { action: 'incident_status_changed', resourceType: 'incident', resourceId: incident_id, details: `Incident status changed to ${status}.` });
+    await notifyUsers(req, { type: 'incident_status_changed', title: 'Incident status updated', message: `An incident is now ${status}.`, resourceType: 'incident', resourceId: incident_id, link: `/incidents/${incident_id}`, dedupeKey: `status-direct:${incident_id}:${status}` });
     const assignedResponse = await Response.findOne({ where: { incident_id } });
     if (assignedResponse) {
       const responseStatus = status === 'on_scene' ? 'responding' : status === 'dispatched' ? 'assigned' : status;
@@ -551,6 +564,8 @@ exports.updateStatus = async (req, res) => {
       channel: 'dashboard',
       sent_at: new Date()
     });
+    await recordAudit(req, { action: 'incident_created', resourceType: 'incident', resourceId: incident.incident_id, details: incident.photos?.length ? 'Incident created with evidence.' : null });
+    await notifyUsers(req, { type: incident.is_sos ? 'sos_alert' : 'incident_reported', title: incident.is_sos ? 'SOS emergency reported' : 'New incident reported', message: `${incident.type} incident reported${incident.location_name ? ` at ${incident.location_name}` : ''}`, resourceType: 'incident', resourceId: incident.incident_id, link: `/incidents/${incident.incident_id}`, dedupeKey: `incident:${incident.incident_id}` });
 
     const io = req.app.get('io');
     if (io) {

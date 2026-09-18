@@ -58,7 +58,7 @@ const HomeScreen = () => {
       // Show notification for critical incidents
       if (incident.severity === 'critical' || incident.severity === 'high') {
         Alert.alert(
-          '🚨 Emergency Alert',
+          'Emergency Alert',
           `${incident.type.toUpperCase()} incident reported in ${incident.location_name || 'campus'}`,
           [
             { text: 'View', onPress: () => navigation.navigate('IncidentDetail', { id: incident.incident_id }) },
@@ -90,8 +90,8 @@ const HomeScreen = () => {
 
   const handleSOSPress = () => {
     Alert.alert(
-      '🚨 SOS Emergency',
-      'This will immediately send an emergency alert to campus security with your current location.\n\n⚠️ Only use in genuine emergencies!',
+      'SOS Emergency',
+      'This will immediately send an emergency alert to campus security with your current location.\n\nOnly use in genuine emergencies.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -129,8 +129,11 @@ const HomeScreen = () => {
           <TouchableOpacity
             onPress={() => navigation.navigate('Profile')}
             style={styles.profileButton}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
           >
-            <Icon name="account-circle" size={42} color={colors.teal} />
+            <Icon name="account-circle" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -140,13 +143,19 @@ const HomeScreen = () => {
             <View style={[styles.statusDot, styles.activeDot]} />
             <Text style={styles.statusText}>Campus Safety Connected</Text>
           </View>
-          <TouchableOpacity onPress={navigateToAlerts} style={styles.alertBadge}>
+          <TouchableOpacity
+            onPress={navigateToAlerts}
+            style={styles.alertBadge}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel={unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'}
+          >
             {unreadCount > 0 && (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadText}>{unreadCount}</Text>
               </View>
             )}
-            <Icon name="notifications" size={28} color="#666" />
+            <Icon name="notifications" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -158,19 +167,25 @@ const HomeScreen = () => {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={navigateToReport}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Report incident"
           >
             <View style={[styles.actionIcon, styles.reportIcon]}>
-              <Icon name="add-alert" size={27} color={colors.blue} />
+              <Icon name="add-alert" size={25} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionText}>Report</Text>
+            <Text style={styles.actionText}>Report Incident</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
             onPress={navigateToAlerts}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="View alerts"
           >
             <View style={[styles.actionIcon, styles.alertIcon]}>
-              <Icon name="notifications-active" size={27} color={colors.teal} />
+              <Icon name="notifications-active" size={25} color="#FFFFFF" />
             </View>
             <Text style={styles.actionText}>Alerts</Text>
           </TouchableOpacity>
@@ -178,21 +193,27 @@ const HomeScreen = () => {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('SafetyResources')}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Open safety resources"
           >
             <View style={[styles.actionIcon, styles.resourceIcon]}>
-              <Icon name="health-and-safety" size={27} color={colors.teal} />
+              <Icon name="health-and-safety" size={25} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionText}>Safety Info</Text>
+            <Text style={styles.actionText}>Safety Resources</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('EmergencyContacts')}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Open emergency contacts"
           >
             <View style={[styles.actionIcon, styles.contactIcon]}>
-              <Icon name="contacts" size={27} color={colors.teal} />
+              <Icon name="contacts" size={25} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionText}>Contacts</Text>
+            <Text style={styles.actionText}>Emergency Contacts</Text>
           </TouchableOpacity>
         </View>
 
@@ -253,7 +274,10 @@ const HomeScreen = () => {
 
         {/* Emergency Contacts Quick Access */}
         <View style={styles.emergencySection}>
-          <Text style={styles.emergencyTitle}>📞 Emergency Contacts</Text>
+          <View style={styles.emergencyHeading}>
+            <Icon name="phone-in-talk" size={20} color={colors.teal} />
+            <Text style={styles.emergencyTitle}>Emergency Contacts</Text>
+          </View>
           <View style={styles.contactRow}>
             <TouchableOpacity style={styles.contactItem}>
               <View style={[styles.contactIconCircle, styles.securityIcon]}>
@@ -313,7 +337,19 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
   profileButton: {
-    padding: 4
+    alignItems: 'center',
+    backgroundColor: '#4355B8',
+    borderColor: '#FFFFFF',
+    borderRadius: 26,
+    borderWidth: 3,
+    elevation: 3,
+    height: 52,
+    justifyContent: 'center',
+    shadowColor: '#24343A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 4,
+    width: 52
   },
   statusCard: {
     flexDirection: 'row',
@@ -351,11 +387,20 @@ const styles = StyleSheet.create({
     color: '#333'
   },
   alertBadge: {
-    position: 'relative',
     alignItems: 'center',
+    backgroundColor: '#7C4DFF',
+    borderColor: '#FFFFFF',
+    borderRadius: 26,
+    borderWidth: 3,
+    elevation: 3,
+    height: 52,
     justifyContent: 'center',
-    minWidth: 48,
-    minHeight: 48
+    position: 'relative',
+    shadowColor: '#24343A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 4,
+    width: 52
   },
   unreadBadge: {
     position: 'absolute',
@@ -384,6 +429,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.line,
+    paddingHorizontal: 4,
     paddingVertical: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -392,36 +438,45 @@ const styles = StyleSheet.create({
     elevation: 3
   },
   actionButton: {
+    flex: 1,
     alignItems: 'center',
-    minWidth: 62,
-    minHeight: 76,
-    paddingHorizontal: 8,
+    minHeight: 82,
+    paddingHorizontal: 4,
     justifyContent: 'center'
   },
   actionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6
+    borderColor: '#FFFFFF',
+    borderRadius: 27,
+    borderWidth: 3,
+    elevation: 3,
+    height: 54,
+    justifyContent: 'center',
+    marginBottom: 8,
+    shadowColor: '#24343A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 4,
+    width: 54
   },
   reportIcon: {
-    backgroundColor: '#E3F2FD'
+    backgroundColor: '#2D6CDF'
   },
   alertIcon: {
-    backgroundColor: '#FBE9E7'
+    backgroundColor: '#7C4DFF'
   },
   resourceIcon: {
-    backgroundColor: '#E8F5E9'
+    backgroundColor: '#16806A'
   },
   contactIcon: {
-    backgroundColor: '#F3E5F5'
+    backgroundColor: '#D95D8A'
   },
   actionText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500'
+    color: '#42545A',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 14,
+    textAlign: 'center'
   },
   section: {
     marginHorizontal: 16,
@@ -486,9 +541,14 @@ const styles = StyleSheet.create({
     elevation: 3
   },
   emergencyTitle: {
+    color: '#333',
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+  },
+  emergencyHeading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 12
   },
   contactRow: {

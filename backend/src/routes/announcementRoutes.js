@@ -3,6 +3,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const announcementController = require('../controllers/announcementController');
 
 const router = express.Router();
+router.get('/public', announcementController.publicList);
 router.use(authenticate);
 
 router.get('/', announcementController.list);

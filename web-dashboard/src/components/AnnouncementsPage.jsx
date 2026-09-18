@@ -32,7 +32,7 @@ const roleChipClasses = {
   inactive: 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700',
 };
 
-const emptyForm = { title: '', content: '', priority: 'medium', target_roles: [], expires_at: '' };
+const emptyForm = { title: '', content: '', priority: 'medium', target_roles: [], expires_at: '', is_public: false };
 const titleCase = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const formatDate = (value) => (value ? new Date(value).toLocaleString() : 'Not set');
 const isExpired = (announcement) => Boolean(announcement.expires_at && new Date(announcement.expires_at) <= new Date());
@@ -166,6 +166,8 @@ function AnnouncementForm({ initialValue, onCancel, onSubmit, saving, error }) {
           </div>
           <p className="mt-2.5 text-xs font-medium text-slate-400">Choose at least one role before publishing.</p>
         </fieldset>
+
+        <label className="flex items-center gap-3 text-sm font-bold text-slate-700 lg:col-span-2"><input type="checkbox" checked={Boolean(form.is_public)} onChange={(event) => setField('is_public', event.target.checked)} /> Publish this announcement to the public website</label>
 
         <label className="block text-sm font-bold text-slate-700">
           Optional expiry

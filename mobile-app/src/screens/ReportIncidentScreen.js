@@ -117,7 +117,7 @@ const ReportIncidentScreen = () => {
       dispatch(addIncident(incident));
 
       Alert.alert(
-        '✅ Success',
+        'Incident reported',
         'Incident reported successfully. Security has been notified.',
         [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
       );

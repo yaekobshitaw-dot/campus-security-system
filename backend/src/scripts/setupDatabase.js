@@ -15,6 +15,10 @@ async function setupDatabase() {
     // Sync all models
     await sequelize.sync({ alter: true });
     await ensureIncidentSchema();
+    const { Notification, AuditLog, SystemSetting, PublicContent } = require('../models');
+    await Promise.all([Notification.sync(), AuditLog.sync(), SystemSetting.sync(), PublicContent.sync()]);
+    const { ensureDefaultSettings } = require('../services/settingsService');
+    await ensureDefaultSettings();
     logger.info('✅ All tables synced successfully');
 
     // Create indexes for better performance

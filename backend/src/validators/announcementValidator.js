@@ -56,6 +56,10 @@ const validateAnnouncementPayload = (payload = {}, { partial = false, requireAud
     if (!ANNOUNCEMENT_STATUSES.includes(payload.status)) throw new AnnouncementValidationError('status is invalid');
     values.status = payload.status;
   }
+  if (payload.is_public !== undefined) {
+    if (typeof payload.is_public !== 'boolean') throw new AnnouncementValidationError('is_public must be a boolean');
+    values.is_public = payload.is_public;
+  }
 
   if (!partial || payload.target_roles !== undefined || requireAudience) {
     values.target_roles = normalizeAudience(payload.target_roles, requireAudience);

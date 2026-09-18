@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { DashboardLayout } from './DashboardLayout';
+import { DashboardLayout, UserAvatar } from './DashboardLayout';
 import AnnouncementsPage from './AnnouncementsPage';
 
 const announcement = {
@@ -53,6 +53,27 @@ afterEach(() => {
 });
 
 describe('AnnouncementsPage', () => {
+  it('renders stable role-based avatars with accessible labels', () => {
+    const { rerender } = render(<UserAvatar user={{ name: 'Ada Student', role: 'student' }} />);
+    expect(screen.getByRole('img', { name: 'Ada Student student profile' })).toBeInTheDocument();
+
+    rerender(<UserAvatar user={{ name: 'Sam Officer', role: 'security' }} />);
+    expect(screen.getByRole('img', { name: 'Sam Officer security officer profile' })).toBeInTheDocument();
+    rerender(<UserAvatar user={{ name: 'Aria Admin', role: 'admin' }} />);
+    expect(screen.getByRole('img', { name: 'Aria Admin administrator profile' })).toBeInTheDocument();
+    rerender(<UserAvatar user={{ name: 'Unknown User', role: 'visitor' }} />);
+    expect(screen.getByRole('img', { name: 'Unknown User user profile' })).toBeInTheDocument();
+  });
+
+  it('keeps uploaded photos and falls back when the photo is broken', () => {
+    render(<UserAvatar user={{ user_id: 'photo-user', name: 'Photo User', role: 'student', profile_photo_url: '/uploads/photo.jpg' }} />);
+    const image = screen.getByAltText('Photo User student profile');
+    expect(image).toHaveAttribute('src', '/uploads/photo.jpg');
+    fireEvent.error(image);
+    expect(screen.getByRole('img', { name: 'Photo User student profile' })).toBeInTheDocument();
+    expect(screen.queryByAltText('Photo User student profile')).not.toBeInTheDocument();
+  });
+
   it('shows the Announcements navigation item for an admin', () => {
     render(<MemoryRouter><DashboardLayout user={{ role: 'admin', name: 'Admin' }} /></MemoryRouter>);
     expect(screen.getAllByText('Announcements').length).toBeGreaterThan(0);

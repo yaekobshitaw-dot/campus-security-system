@@ -286,12 +286,12 @@
 }
 
 .dashboard-app .dashboard-header-name span {
-  color: #55c7e5;
+  color: #b8eef7;
 }
 
 .dashboard-app .dashboard-header-subtitle,
 .dashboard-app .dashboard-header-context p {
-  color: rgb(203 213 225 / 0.68);
+  color: #c9edf5;
 }
 
 .dashboard-app .dashboard-header-context h1 {
@@ -321,7 +321,7 @@
 }
 
 .dashboard-app .dashboard-notification-badge {
-  background: #e76868;
+  background: #b42318;
   color: #ffffff;
   box-shadow: 0 0 0 3px #0b5ed7;
 }
@@ -503,6 +503,53 @@
 .dashboard-app .evidence-card [class~="text-[#0b1f3a]"],
 .dashboard-app .officer-card [class~="text-[#0b1f3a]"] {
   color: var(--dashboard-text);
+}
+
+/* Nested light utility surfaces keep their intended dark text inside navy panels. */
+.dashboard-app .dashboard-panel :is(
+  [class*="bg-white"],
+  [class*="bg-slate-50"],
+  [class*="bg-slate-100"],
+  [class*="bg-cyan-50"],
+  [class*="bg-emerald-50"],
+  [class*="bg-amber-50"],
+  [class*="bg-red-50"]
+) :is(.text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900, [class~="text-[#0b1f3a]"]) {
+  color: #334155 !important;
+}
+
+.dashboard-app .dashboard-panel :is(
+  [class*="bg-white"],
+  [class*="bg-slate-50"],
+  [class*="bg-slate-100"],
+  [class*="bg-cyan-50"],
+  [class*="bg-emerald-50"],
+  [class*="bg-amber-50"],
+  [class*="bg-red-50"]
+) > :is(h2, h3, h4, .text-slate-900, .text-slate-800, .text-slate-700, [class~="text-[#0b1f3a]"]) {
+  color: #0b1f3a !important;
+}
+
+.dashboard-app .dashboard-panel :is(
+  [class*="bg-white"],
+  [class*="bg-slate-50"],
+  [class*="bg-slate-100"],
+  [class*="bg-cyan-50"],
+  [class*="bg-emerald-50"],
+  [class*="bg-amber-50"],
+  [class*="bg-red-50"]
+):is(.text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900, [class~="text-[#0b1f3a]"]) {
+  color: #334155 !important;
+}
+
+.dashboard-app .dashboard-panel :is(input, select, textarea) {
+  background: #f8fbfd;
+  color: #1f2937 !important;
+}
+
+.dashboard-app .dashboard-panel :is(input, select, textarea)::placeholder {
+  color: #64748b;
+  opacity: 1;
 }
 
 .dashboard-app .incident-table td .text-slate-600,

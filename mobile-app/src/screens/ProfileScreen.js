@@ -1,10 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout, removeProfilePhoto, updateProfilePhoto } from '../store/authSlice';
+
+const MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024;
+const ALLOWED_PROFILE_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const requestGalleryPermission = async () => {
   if (Platform.OS !== 'android') return true;
@@ -39,12 +42,26 @@ const normalizePhoto = (asset) => {
   return { uri: asset.uri, fileName, mimeType: mimeType?.startsWith('image/') ? mimeType : fallbackTypes[extension] || 'image/jpeg' };
 };
 
+const getRoleProfile = (role) => {
+  const normalizedRole = String(role || '').toLowerCase().replace(/[-\s]+/g, '_');
+  if (normalizedRole === 'student') return { label: 'Student', icon: 'school', color: '#1769AA', background: '#E3F2FD' };
+  if (normalizedRole === 'security') return { label: 'Security officer', icon: 'security', color: '#16734A', background: '#E7F5ED' };
+  if (normalizedRole === 'admin') return { label: 'Administrator', icon: 'admin-panel-settings', color: '#9A6700', background: '#FFF4D6' };
+  return { label: 'User', icon: 'person-outline', color: '#52606D', background: '#EEF1F4' };
+};
+
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const roleProfile = getRoleProfile(user?.role);
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [user?.profile_photo_url, user?.user_id]);
 
   const handleLogout = () => {
     Alert.alert('Sign out?', 'You will need to sign in again to access campus security tools.', [
@@ -68,7 +85,18 @@ const ProfileScreen = () => {
         Alert.alert('Photo selection failed', result.errorMessage || 'The device could not open the photo source.');
         return;
       }
-      if (result.assets?.[0]?.uri) setSelectedPhoto(normalizePhoto(result.assets[0]));
+      const asset = result.assets?.[0];
+      const normalizedPhoto = asset && normalizePhoto(asset);
+      if (!normalizedPhoto?.uri) return;
+      if (!ALLOWED_PROFILE_PHOTO_TYPES.includes(normalizedPhoto.mimeType)) {
+        Alert.alert('Invalid profile photo', 'Choose a JPEG, PNG, WebP, or GIF image.');
+        return;
+      }
+      if (asset.fileSize > MAX_PROFILE_PHOTO_SIZE) {
+        Alert.alert('Profile photo is too large', 'Choose an image that is 5 MB or smaller.');
+        return;
+      }
+      setSelectedPhoto(normalizedPhoto);
     } catch (error) {
       Alert.alert('Photo selection failed', error.message || 'The device could not open the photo source.');
     }
@@ -106,7 +134,7 @@ const ProfileScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}><Text style={styles.title}>Profile</Text></View>
-      <View style={styles.profileCard}><View style={styles.avatar}>{selectedPhoto?.uri || user?.profile_photo_url ? <Image source={{ uri: selectedPhoto?.uri || user.profile_photo_url }} style={styles.avatarImage} /> : <Text style={styles.avatarText}>{(user?.name || 'U').charAt(0).toUpperCase()}</Text>}</View><Text style={styles.name}>{user?.name || 'Campus member'}</Text><Text style={styles.email}>{user?.email || ''}</Text><View style={styles.role}><Text style={styles.roleText}>{user?.role || 'student'}</Text></View><View style={styles.photoActions}><TouchableOpacity style={styles.photoAction} onPress={() => choosePhoto('camera')} disabled={photoLoading}><Icon name="photo-camera" size={18} color="#A8DFC3" /><Text style={styles.photoActionText}>Camera</Text></TouchableOpacity><TouchableOpacity style={styles.photoAction} onPress={() => choosePhoto('gallery')} disabled={photoLoading}><Icon name="photo-library" size={18} color="#A8DFC3" /><Text style={styles.photoActionText}>Gallery</Text></TouchableOpacity>{user?.profile_photo_url && <TouchableOpacity style={styles.photoAction} onPress={removePhoto} disabled={photoLoading}><Icon name="delete-outline" size={18} color="#FFD0C5" /><Text style={styles.removeActionText}>Remove</Text></TouchableOpacity>}</View>{selectedPhoto && <TouchableOpacity style={styles.uploadButton} onPress={uploadPhoto} disabled={photoLoading}>{photoLoading ? <ActivityIndicator color="#0A4A42" /> : <><Icon name="cloud-upload" size={18} color="#0A4A42" /><Text style={styles.uploadButtonText}>Upload photo</Text></>}</TouchableOpacity>}</View>
+      <View style={styles.profileCard}><View style={[styles.avatar, { backgroundColor: roleProfile.background }]}>{selectedPhoto?.uri || (user?.profile_photo_url && !photoFailed) ? <Image source={{ uri: selectedPhoto?.uri || user.profile_photo_url }} style={styles.avatarImage} onError={() => setPhotoFailed(true)} /> : <Icon name={roleProfile.icon} size={34} color={roleProfile.color} accessibilityLabel={`${user?.name || roleProfile.label} ${roleProfile.label.toLowerCase()} profile`} />}</View><Text style={styles.name}>{user?.name || 'Campus member'}</Text><Text style={styles.email}>{user?.email || ''}</Text><View style={styles.role}><Text style={styles.roleText}>{user?.role || 'User'}</Text></View><View style={styles.photoActions}><TouchableOpacity style={styles.photoAction} onPress={() => choosePhoto('camera')} disabled={photoLoading}><Icon name="photo-camera" size={18} color="#A8DFC3" /><Text style={styles.photoActionText}>Camera</Text></TouchableOpacity><TouchableOpacity style={styles.photoAction} onPress={() => choosePhoto('gallery')} disabled={photoLoading}><Icon name="photo-library" size={18} color="#A8DFC3" /><Text style={styles.photoActionText}>Gallery</Text></TouchableOpacity>{user?.profile_photo_url && <TouchableOpacity style={styles.photoAction} onPress={removePhoto} disabled={photoLoading}><Icon name="delete-outline" size={18} color="#FFD0C5" /><Text style={styles.removeActionText}>Remove</Text></TouchableOpacity>}</View>{selectedPhoto && <TouchableOpacity style={styles.uploadButton} onPress={uploadPhoto} disabled={photoLoading}>{photoLoading ? <ActivityIndicator color="#0A4A42" /> : <><Icon name="cloud-upload" size={18} color="#0A4A42" /><Text style={styles.uploadButtonText}>Upload photo</Text></>}</TouchableOpacity>}</View>
       <View style={styles.menu}>
         <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('EmergencyContacts')}><Icon name="contacts" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>Emergency contacts</Text><Text style={styles.menuSub}>Manage people you can call quickly</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('Incidents')}><Icon name="assignment" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>My incidents</Text><Text style={styles.menuSub}>Review submitted reports and statuses</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>

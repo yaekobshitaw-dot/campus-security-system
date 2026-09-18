@@ -1328,3 +1328,13 @@ em {
     transition-duration: .01ms !important;
   }
 }
+
+.public-information { background: var(--paper); }
+.public-info-block { margin-top: 28px; }
+.public-info-block h3 { margin-bottom: 12px; color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; }
+.public-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.public-info-item { padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--muted); }
+.public-info-item strong { color: var(--ink); }
+.public-info-item p { margin: 8px 0 0; line-height: 1.6; }
+.public-info-item a { display: inline-block; margin-top: 9px; color: var(--teal); font-weight: 700; }
+.public-info-item summary { cursor: pointer; color: var(--ink); font-weight: 700; }

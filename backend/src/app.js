@@ -15,6 +15,8 @@ const smsRoutes = require('./routes/smsRoutes');
 const assistantRoutes = require('./routes/assistantRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const campusLocationRoutes = require('./routes/campusLocationRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const contentRoutes = require('./routes/contentRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter, assistantLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { corsOrigin } = require('./config/cors');
@@ -48,6 +50,8 @@ app.use('/api/sms', smsRoutes);
 app.use('/api/assistant', assistantLimiter, assistantRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/campus-locations', campusLocationRoutes);
+app.use('/api', contentRoutes);
+app.use('/api', adminRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });

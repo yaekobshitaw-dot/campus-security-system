@@ -9,6 +9,11 @@ function ProtectedRoute({ user, children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
+function AdminRoute({ user, children }) {
+  if (!user) return <Navigate to="/login" replace />;
+  return user.role === 'admin' ? children : <Navigate to="/dashboard" replace />;
+}
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,10 +95,14 @@ function App() {
       <Route path="/reset-password" element={<ResetPasswordScreen />} />
       <Route
         path="/dashboard"
-        element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} /></ProtectedRoute>}
+        element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>}
       />
-      {['/incidents/active', '/incidents/history', '/incidents/:incidentId', '/map', '/sos', '/emergency', '/evidence', '/officers', '/users', '/analytics', '/responses', '/alerts', '/announcements', '/sms', '/zones', '/locations'].map((path) => (
-        <Route key={path} path={path} element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>} />
+      {['/incidents/active', '/incidents/history', '/incidents/:incidentId', '/map', '/sos', '/emergency', '/evidence', '/officers', '/analytics', '/responses', '/alerts', '/zones'].map((path) => (
+        <Route key={path} path={path} element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>} />
+      ))}
+      {['/users', '/announcements', '/sms', '/locations', '/notifications', '/audit-logs', '/content', '/settings'].map((path) => (
+        <Route key={path} path={path} element={<AdminRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></AdminRoute>} />
       ))}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

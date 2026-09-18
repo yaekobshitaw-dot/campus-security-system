@@ -50,6 +50,7 @@ const toSafeAnnouncement = (announcement) => {
     content: value.content,
     priority: value.priority,
     status: value.status,
+    is_public: Boolean(value.is_public),
     target_roles: audiences,
     created_at: value.created_at,
     updated_at: value.updated_at,
@@ -83,6 +84,7 @@ const createAnnouncement = async (user, payload) => {
       content: values.content,
       priority: values.priority,
       status: 'draft',
+      is_public: values.is_public === true,
       created_by: user.user_id,
       updated_by: user.user_id,
       expires_at: values.expires_at || null
@@ -112,7 +114,7 @@ const updateAnnouncement = async (user, announcementId, payload) => {
     if (!announcement) return null;
 
     const updateValues = {
-      ...Object.fromEntries(['title', 'content', 'priority', 'expires_at', 'status'].filter((field) => values[field] !== undefined).map((field) => [field, values[field]])),
+      ...Object.fromEntries(['title', 'content', 'priority', 'expires_at', 'status', 'is_public'].filter((field) => values[field] !== undefined).map((field) => [field, values[field]])),
       updated_by: user.user_id
     };
     if (updateValues.status === 'draft') updateValues.published_at = null;

@@ -14,7 +14,7 @@ import BrainCircuit from '@mui/icons-material/Psychology';
 import Radar from '@mui/icons-material/Radar';
 import Siren from '@mui/icons-material/ReportProblem';
 import ShieldCheck from '@mui/icons-material/Security';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import './public.css';
@@ -153,9 +153,32 @@ function PageFrame({ eyebrow, title, intro, pageClass, children }) {
   return <main className={`inner-page ${pageClass}`}><div className="page-heading"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{intro}</p></div>{children}</main>;
 }
 
+function PublicInformation() {
+  const [content, setContent] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([api.get('/public-content'), api.get('/announcements/public')]).then(([contentResponse, announcementResponse]) => {
+      if (!active) return;
+      setContent(contentResponse.data?.data || []);
+      setAnnouncements(announcementResponse.data?.data || []);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  const resources = content.filter((item) => item.type === 'safety_resource');
+  const contacts = content.filter((item) => item.type === 'emergency_contact');
+  const services = content.filter((item) => item.type === 'service');
+  const faqs = content.filter((item) => item.type === 'faq');
+  if (!content.length && !announcements.length) return null;
+
+  return <section className="section public-information"><div className="section-heading"><div><p className="eyebrow">Campus information</p><h2>Practical guidance, kept current.</h2></div></div>{announcements.length > 0 && <div className="public-info-block"><h3>Latest announcements</h3>{announcements.map((item) => <article className="public-info-item" key={item.announcement_id}><strong>{item.title}</strong><p>{item.content}</p></article>)}</div>}{resources.length > 0 && <div className="public-info-block"><h3>Safety resources</h3><div className="public-info-grid">{resources.map((item) => <article className="public-info-item" key={item.content_id}><strong>{item.title}</strong><p>{item.summary || item.body}</p>{item.url && <a href={item.url} target="_blank" rel="noreferrer">Open resource</a>}</article>)}</div></div>}{contacts.length > 0 && <div className="public-info-block"><h3>Emergency contacts</h3><div className="public-info-grid">{contacts.map((item) => <article className="public-info-item" key={item.content_id}><strong>{item.contact_name || item.title}</strong><p>{item.summary || ''}</p>{item.phone && <a href={`tel:${item.phone}`}>{item.phone}</a>}{item.email && <a href={`mailto:${item.email}`}>{item.email}</a>}</article>)}</div></div>}{services.length > 0 && <div className="public-info-block"><h3>Campus services</h3><div className="public-info-grid">{services.map((item) => <article className="public-info-item" key={item.content_id}><strong>{item.title}</strong><p>{item.summary || item.body}</p>{item.url && <a href={item.url} target="_blank" rel="noreferrer">Learn more</a>}</article>)}</div></div>}{faqs.length > 0 && <div className="public-info-block"><h3>Frequently asked questions</h3>{faqs.map((item) => <details className="public-info-item" key={item.content_id}><summary>{item.title}</summary><p>{item.body || item.summary}</p></details>)}</div>}</section>;
+}
+
 export default function PublicSite({ user, onLogout, page = 'home' }) {
   const content = page === 'about' ? <AboutPage /> : page === 'features' ? <FeaturesPage /> : page === 'contact' ? <ContactPage /> : <HomePage />;
-  return <div className="public-app"><PublicNav user={user} onLogout={onLogout} />{content}<PublicFooter /></div>;
+  return <div className="public-app"><PublicNav user={user} onLogout={onLogout} />{content}<PublicInformation /><PublicFooter /></div>;
 }
 
 export function AuthPage({ mode, onLogin }) {

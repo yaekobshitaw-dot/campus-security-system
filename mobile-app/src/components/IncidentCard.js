@@ -13,11 +13,11 @@ const relativeTime = (value) => {
 export const IncidentCard = ({ incident, onPress }) => {
   const getTypeIcon = (type) => {
     const icons = {
-      fire: 'fire',
+      fire: 'local-fire-department',
       medical: 'local-hospital',
       security_threat: 'security',
       suspicious_package: 'warning',
-      flood: 'water',
+      flood: 'water-drop',
       power_outage: 'power',
       missing_person: 'person',
       natural_disaster: 'nature',

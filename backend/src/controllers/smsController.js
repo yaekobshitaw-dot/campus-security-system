@@ -8,6 +8,8 @@ const {
   normalizePhoneNumber,
   sanitizeSmsMessage,
 } = require('../utils/smsValidation');
+const { recordAudit } = require('../services/auditService');
+const { notifyUsers } = require('../services/notificationPersistence');
 
 const broadcastInFlight = new Map();
 
@@ -142,6 +144,8 @@ const broadcastSms = async (req, res) => {
     broadcastInFlight.set(idempotencyKey, work);
     try {
       const result = await work;
+      await recordAudit(req, { action: 'sms_broadcast_sent', resourceType: 'sms_broadcast', resourceId: result.broadcast_id, details: `Broadcast sent to ${result.total} recipients.` });
+      await notifyUsers(req, { type: 'sms_broadcast_result', title: 'SMS broadcast completed', message: `${result.successful} successful, ${result.failed} failed, ${result.queued} queued.`, resourceType: 'sms_broadcast', resourceId: result.broadcast_id, link: '/sms', dedupeKey: `sms-broadcast:${result.broadcast_id}` });
       return res.status(202).json({ success: true, duplicate: false, data: result });
     } finally {
       broadcastInFlight.delete(idempotencyKey);
