@@ -106,17 +106,7 @@ export function DashboardLayout({
 
   return (
     <div className="dashboard-app min-h-screen bg-slate-100 text-slate-900">
-      <div className="flex min-h-screen">
-        <Sidebar
-          user={user}
-          activeSection={activeSection}
-          activeIncidentCount={activeIncidentCount}
-          onNavigate={onNavigate}
-          onLogout={onLogout}
-          initials={initials}
-        />
-
-        <main className="dashboard-main flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
+      <div className="flex min-h-screen flex-col">
           <header className="dashboard-header relative sticky top-0 z-20 border-b backdrop-blur-sm">
             <div className="dashboard-header-inner flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
               <div className="dashboard-header-leading flex min-w-0 items-center gap-3">
@@ -238,9 +228,21 @@ export function DashboardLayout({
             )}
           </header>
 
-          <div className={cn('dashboard-content flex-1 px-4 py-5 sm:px-6 lg:px-8', activeSection === 'overview' && 'dashboard-overview-content')}>{children}</div>
+          <div className="dashboard-shell flex min-h-0 flex-1">
+            <Sidebar
+              user={user}
+              activeSection={activeSection}
+              activeIncidentCount={activeIncidentCount}
+              onNavigate={onNavigate}
+              onLogout={onLogout}
+              initials={initials}
+            />
+
+            <main className="dashboard-main flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
+              <div className={cn('dashboard-content flex-1 px-4 py-5 sm:px-6 lg:px-8', activeSection === 'overview' && 'dashboard-overview-content')}>{children}</div>
+            </main>
+          </div>
           <PublicFooter />
-        </main>
       </div>
       <SafetyChatbot user={user} />
     </div>
@@ -249,7 +251,7 @@ export function DashboardLayout({
 
 function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogout, initials }) {
   return (
-    <aside className="dashboard-sidebar hidden w-[280px] shrink-0 text-white lg:flex lg:flex-col">
+    <aside className="dashboard-sidebar hidden min-h-0 w-[280px] shrink-0 overflow-y-auto text-white lg:flex lg:flex-col">
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary-blue-accent)] text-[var(--primary-blue-deep)] shadow-[0_8px_24px_rgba(15,71,120,0.18)]">
           <ShieldOutlined className="text-[24px]" />

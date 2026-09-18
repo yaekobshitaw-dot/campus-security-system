@@ -246,9 +246,15 @@
   border-top: 3px solid var(--primary-blue-accent);
 }
 
+.dashboard-shell {
+  padding-block: 28px;
+  background: #ffffff;
+}
+
 .dashboard-sidebar {
   background: #061729 !important;
   border-right: 1px solid rgb(150 207 226 / 0.14);
+  border-radius: 16px;
 }
 
 .dashboard-sidebar .dashboard-nav-item {

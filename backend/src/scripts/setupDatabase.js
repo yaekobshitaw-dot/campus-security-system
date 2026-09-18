@@ -19,6 +19,8 @@ async function setupDatabase() {
     await Promise.all([Notification.sync(), AuditLog.sync(), SystemSetting.sync(), PublicContent.sync()]);
     const { ensureDefaultSettings } = require('../services/settingsService');
     await ensureDefaultSettings();
+    const ensureAdminSchema = require('./ensureAdminSchema');
+    await ensureAdminSchema();
     logger.info('✅ All tables synced successfully');
 
     // Create indexes for better performance

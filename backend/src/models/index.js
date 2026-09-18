@@ -27,8 +27,8 @@ SmsMessage.belongsTo(User, { foreignKey: 'recipient_user_id', as: 'recipient' })
 SmsMessage.belongsTo(User, { foreignKey: 'sender_user_id', as: 'sender' });
 User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-User.hasMany(AuditLog, { foreignKey: 'actor_id', as: 'auditLogs' });
-AuditLog.belongsTo(User, { foreignKey: 'actor_id', as: 'actor' });
+User.hasMany(AuditLog, { foreignKey: 'actor_id', as: 'auditLogs', constraints: false });
+AuditLog.belongsTo(User, { foreignKey: 'actor_id', as: 'actor', constraints: false });
 Announcement.hasMany(AnnouncementAudience, { foreignKey: 'announcement_id', as: 'audiences' });
 AnnouncementAudience.belongsTo(Announcement, { foreignKey: 'announcement_id', as: 'announcement' });
 Announcement.hasMany(AnnouncementRead, { foreignKey: 'announcement_id', as: 'reads' });

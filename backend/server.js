@@ -10,6 +10,7 @@ const { initSocket } = require('./src/config/socket');
 const { corsOrigin } = require('./src/config/cors');
 const { verifyEmailTransporter } = require('./src/services/emailService');
 const { ensureDefaultSettings } = require('./src/services/settingsService');
+const ensureAdminSchema = require('./src/scripts/ensureAdminSchema');
 
 const PORT = Number(process.env.PORT) || 5002;
 
@@ -23,6 +24,7 @@ async function startServer() {
     await SystemSetting.sync();
     await PublicContent.sync();
     await ensureDefaultSettings();
+    await ensureAdminSchema();
     const emailReady = await verifyEmailTransporter().catch((error) => {
       console.warn('Password reset email transporter verification failed:', error.message);
       return false;
