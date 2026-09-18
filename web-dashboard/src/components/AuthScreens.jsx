@@ -1,6 +1,6 @@
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import './public.css';
@@ -52,6 +52,33 @@ const PasswordInput = ({ label, value, onChange, name = 'password', autoComplete
   );
 };
 
+export function OAuthButtons() {
+  const [loadingProvider, setLoadingProvider] = useState('');
+  const [error, setError] = useState('');
+
+  const beginOAuth = async (provider) => {
+    setLoadingProvider(provider);
+    setError('');
+    const baseUrl = String(api.defaults.baseURL || '/api').replace(/\/$/, '');
+    try {
+      await api.get(`/auth/oauth/${provider}/status`);
+      window.location.assign(`${baseUrl}/auth/oauth/${provider}/start`);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || `${provider[0].toUpperCase()}${provider.slice(1)} sign-in is not configured.`);
+      setLoadingProvider('');
+    }
+  };
+
+  return (
+    <div className="oauth-options">
+      <div className="oauth-divider"><span>OR</span></div>
+      <button type="button" className="button oauth-button" disabled={Boolean(loadingProvider)} onClick={() => beginOAuth('google')}>{loadingProvider === 'google' ? 'Connecting...' : 'Continue with Google'}</button>
+      <button type="button" className="button oauth-button" disabled={Boolean(loadingProvider)} onClick={() => beginOAuth('microsoft')}>{loadingProvider === 'microsoft' ? 'Connecting...' : 'Continue with Microsoft'}</button>
+      {error && <div className="form-error" role="alert">{error}</div>}
+    </div>
+  );
+}
+
 export function LoginScreen({ onLogin }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -88,7 +115,50 @@ export function LoginScreen({ onLogin }) {
         <Link className="auth-help-link" to="/forgot-password">Forgot Password?</Link>
         <button className="button button-primary auth-submit" disabled={loading}>{loading ? 'Please wait...' : 'Sign in to dashboard'}</button>
       </form>
+      <OAuthButtons />
       <p className="auth-switch">New to CampusSecure? <Link to="/register">Create an account</Link></p>
+    </AuthShell>
+  );
+}
+
+export function OAuthCallbackScreen({ onLogin }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const ticket = searchParams.get('ticket');
+    const providerError = searchParams.get('error');
+    if (providerError) {
+      setError(providerError);
+      return undefined;
+    }
+    if (!ticket) {
+      setError('The provider sign-in response was incomplete. Please try again.');
+      return undefined;
+    }
+
+    let active = true;
+    api.post('/auth/oauth/exchange', { ticket }).then((response) => {
+      if (!active) return;
+      const { user, accessToken } = response.data.data;
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(user));
+      onLogin(user);
+      navigate('/dashboard', { replace: true });
+    }).catch((requestError) => {
+      if (active) setError(requestError.response?.data?.message || 'Unable to complete provider sign-in. Please try again.');
+    });
+
+    return () => { active = false; };
+  }, [navigate, onLogin, searchParams]);
+
+  return (
+    <AuthShell eyebrow="Secure sign in" title={<>Connecting your<br /><em>campus account.</em></>}>
+      <p className="eyebrow">Provider sign in</p>
+      <h2>{error ? 'Sign-in could not be completed.' : 'Completing sign-in...'}</h2>
+      {error && <div className="form-error" role="alert">{error}</div>}
+      {error && <p className="auth-switch"><Link to="/login">Return to sign in</Link></p>}
     </AuthShell>
   );
 }

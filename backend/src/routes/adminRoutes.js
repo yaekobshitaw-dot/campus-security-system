@@ -5,9 +5,18 @@ const { AuditLog, Notification, User } = require('../models');
 const { listSettings, updateSettings } = require('../services/settingsService');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
+const { getEmailTransportDiagnostic } = require('../services/emailService');
 
 const router = express.Router();
 router.use(authenticate, authorize('admin'));
+
+router.get('/email/diagnostic', async (req, res) => {
+  try {
+    return res.json({ success: true, data: await getEmailTransportDiagnostic() });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Unable to run SMTP diagnostic' });
+  }
+});
 
 router.get('/notifications', async (req, res) => {
   try {

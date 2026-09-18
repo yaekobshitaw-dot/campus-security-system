@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { ForgotPasswordScreen, LoginScreen, ResetPasswordScreen } from './components/AuthScreens';
+import { ForgotPasswordScreen, LoginScreen, OAuthCallbackScreen, ResetPasswordScreen } from './components/AuthScreens';
 import Dashboard from './components/Dashboard';
 import PublicSite, { AuthPage } from './components/PublicSite';
 import api from './services/api';
@@ -93,6 +93,7 @@ function App() {
       <Route path="/register" element={<AuthPage mode="register" onLogin={setUser} />} />
       <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
       <Route path="/reset-password" element={<ResetPasswordScreen />} />
+      <Route path="/oauth/callback" element={<OAuthCallbackScreen onLogin={setUser} />} />
       <Route
         path="/dashboard"
         element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>}

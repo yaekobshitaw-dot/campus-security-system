@@ -1055,6 +1055,44 @@ em {
   margin-top: 6px;
 }
 
+.oauth-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+}
+
+.oauth-button {
+  width: 100%;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.oauth-button:hover,
+.oauth-button:focus-visible {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 .auth-switch {
   margin-top: 22px;
   color: var(--muted);

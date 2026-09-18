@@ -3,9 +3,11 @@ const { User } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { sendEmail } = require('../services/emailService');
+const { Op } = require('sequelize');
+const { sendEmail, getEmailServiceConfig, formatEmailError } = require('../services/emailService');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
+const { exchangeLoginTicket } = require('../services/oauthService');
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -260,6 +262,13 @@ exports.forgotPassword = async (req, res) => {
     const normalizedEmail = normalizeEmail(req.body.email);
     if (!normalizedEmail) return res.status(200).json(genericResponse);
 
+    if (!getEmailServiceConfig().configured) {
+      return res.status(503).json({
+        success: false,
+        message: 'Password reset email service is not configured. Please contact support.'
+      });
+    }
+
     const user = await User.findOne({ where: { email: normalizedEmail, is_active: true } });
     if (!user) return res.status(200).json(genericResponse);
 
@@ -268,8 +277,8 @@ exports.forgotPassword = async (req, res) => {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     await user.update({ reset_token_hash: resetTokenHash, reset_token_expires_at: expiresAt });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5175';
-    const resetUrl = `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl.replace(/\/$/, '')}/reset-password/?token=${resetToken}`;
     await sendEmail(
       user.email,
       'Campus Security password reset',
@@ -278,8 +287,11 @@ exports.forgotPassword = async (req, res) => {
 
     return res.status(200).json(genericResponse);
   } catch (error) {
-    console.error('Password reset request failed:', error.message);
-    return res.status(200).json(genericResponse);
+    console.error('Password reset request failed:', formatEmailError(error));
+    return res.status(503).json({
+      success: false,
+      message: 'Password reset email service is temporarily unavailable. Please try again later.'
+    });
   }
 };
 
@@ -291,17 +303,24 @@ exports.resetPassword = async (req, res) => {
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({ where: { reset_token_hash: tokenHash } });
-    if (!user || !user.reset_token_expires_at || new Date(user.reset_token_expires_at) <= new Date()) {
+    const passwordHash = await bcrypt.hash(password, await bcrypt.genSalt(10));
+    const [updatedCount] = await User.update(
+      {
+        password_hash: passwordHash,
+        reset_token_hash: null,
+        reset_token_expires_at: null
+      },
+      {
+        where: {
+          reset_token_hash: tokenHash,
+          reset_token_expires_at: { [Op.gt]: new Date() }
+        }
+      }
+    );
+
+    if (updatedCount !== 1) {
       return res.status(400).json({ success: false, message: 'This reset link is invalid or expired' });
     }
-
-    const passwordHash = await bcrypt.hash(password, await bcrypt.genSalt(10));
-    await user.update({
-      password_hash: passwordHash,
-      reset_token_hash: null,
-      reset_token_expires_at: null
-    });
 
     return res.status(200).json({ success: true, message: 'Password reset successful' });
   } catch (error) {
@@ -315,3 +334,19 @@ exports.logout = async (req, res) => {
     message: 'Logout successful'
   });
 };
+
+exports.oauthExchange = async (req, res) => {
+  try {
+    const user = await exchangeLoginTicket(req.body.ticket);
+    const token = generateToken(user);
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: { user: user.toJSON(), accessToken: token }
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Unable to complete provider sign-in' });
+  }
+};
+
+exports.generateToken = generateToken;

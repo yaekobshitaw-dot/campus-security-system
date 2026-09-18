@@ -18,6 +18,7 @@ vi.mock('./components/Dashboard', () => ({
 vi.mock('./components/AuthScreens', () => ({
   ForgotPasswordScreen: () => <div>Forgot password</div>,
   LoginScreen: () => <div>Login screen</div>,
+  OAuthCallbackScreen: () => <div>OAuth callback</div>,
   ResetPasswordScreen: () => <div>Reset password</div>,
 }));
 

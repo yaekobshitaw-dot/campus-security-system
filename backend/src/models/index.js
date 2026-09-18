@@ -1,5 +1,7 @@
 ﻿const sequelize = require('../config/database');
 const User = require('./User');
+const UserIdentity = require('./UserIdentity');
+const OAuthLoginTicket = require('./OAuthLoginTicket');
 const Incident = require('./Incident');
 const Alert = require('./Alert');
 const Response = require('./Response');
@@ -16,6 +18,10 @@ const { PublicContent, CONTENT_TYPES } = require('./PublicContent');
 
 User.hasMany(Incident, { foreignKey: 'user_id', as: 'reportedIncidents' });
 Incident.belongsTo(User, { foreignKey: 'user_id', as: 'reporter' });
+User.hasMany(UserIdentity, { foreignKey: 'user_id', as: 'identities' });
+UserIdentity.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+User.hasMany(OAuthLoginTicket, { foreignKey: 'user_id', as: 'oauthLoginTickets' });
+OAuthLoginTicket.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Incident.hasMany(Alert, { foreignKey: 'incident_id', as: 'alerts' });
 Alert.belongsTo(Incident, { foreignKey: 'incident_id', as: 'incident' });
 Incident.hasMany(Response, { foreignKey: 'incident_id', as: 'responses' });
@@ -37,6 +43,8 @@ AnnouncementRead.belongsTo(Announcement, { foreignKey: 'announcement_id', as: 'a
 module.exports = {
 	sequelize,
 	User,
+	UserIdentity,
+	OAuthLoginTicket,
 	Incident,
 	Alert,
 	Response,

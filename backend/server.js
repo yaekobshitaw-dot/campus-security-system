@@ -8,9 +8,10 @@ const app = require('./src/app');
 const { sequelize, CampusLocation, Notification, AuditLog, SystemSetting, PublicContent } = require('./src/models');
 const { initSocket } = require('./src/config/socket');
 const { corsOrigin } = require('./src/config/cors');
-const { verifyEmailTransporter } = require('./src/services/emailService');
+const { verifyEmailTransporter, formatEmailError } = require('./src/services/emailService');
 const { ensureDefaultSettings } = require('./src/services/settingsService');
 const ensureAdminSchema = require('./src/scripts/ensureAdminSchema');
+const ensureAuthSchema = require('./src/scripts/ensureAuthSchema');
 
 const PORT = Number(process.env.PORT) || 5002;
 
@@ -25,8 +26,9 @@ async function startServer() {
     await PublicContent.sync();
     await ensureDefaultSettings();
     await ensureAdminSchema();
+    await ensureAuthSchema();
     const emailReady = await verifyEmailTransporter().catch((error) => {
-      console.warn('Password reset email transporter verification failed:', error.message);
+      console.warn('Password reset email transporter verification failed:', formatEmailError(error));
       return false;
     });
     if (emailReady) console.log('✅ Password reset email transporter verified');
