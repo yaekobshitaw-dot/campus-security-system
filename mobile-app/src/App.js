@@ -1,5 +1,5 @@
 ﻿import { NavigationContainer } from '@react-navigation/native';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, View } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AppNavigator from './navigation/AppNavigator';
@@ -8,6 +8,9 @@ import { startOfficerLocationUpdates } from './services/officerLocation';
 import { getPendingSms, sendSmsResult } from './services/smsService';
 import { store } from './store';
 import { hydrateAuth, sessionExpired } from './store/authSlice';
+import { socketService } from './services/socket';
+import NotificationBanner from './components/NotificationBanner';
+import { addRealtimeNotification } from './store/notificationSlice';
 
 function AppContent() {
   const dispatch = useDispatch();
@@ -20,6 +23,24 @@ function AppContent() {
   }, [dispatch]);
 
   useEffect(() => setAuthInvalidationHandler(() => dispatch(sessionExpired())), [dispatch]);
+
+  const [banner, setBanner] = useState(null);
+
+  useEffect(() => {
+    // listen for realtime notifications and show a banner + add to store
+    const handleNotification = (payload) => {
+      try {
+        dispatch(addRealtimeNotification(payload));
+        setBanner({ title: payload.title || 'Notification', message: payload.message || (payload.data && payload.data.message) || '' });
+        setTimeout(() => setBanner(null), 5000);
+      } catch (err) {
+        console.warn('Failed to handle realtime notification', err);
+      }
+    };
+
+    socketService.on('notification-created', handleNotification);
+    return () => socketService.off('notification-created', handleNotification);
+  }, [dispatch]);
 
   useEffect(() => {
     if (userRole !== 'security') return undefined;
@@ -68,6 +89,7 @@ function AppContent() {
   return (
     <NavigationContainer>
       <StatusBar barStyle="dark-content" />
+      {banner && <NotificationBanner title={banner.title} message={banner.message} onClose={() => setBanner(null)} />}
       <AppNavigator />
     </NavigationContainer>
   );

@@ -16,6 +16,7 @@ const {
 
 const SUPPORTED_STATUSES = ['reported', 'investigating', 'resolved', 'dispatched', 'on_scene', 'closed'];
 const RESPONSE_STATUSES = ['responding', 'resolved', 'closed'];
+const ACTIVE_ASSIGNMENT_STATUSES = ['reported', 'investigating', 'dispatched', 'on_scene'];
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const recentSOSRequests = new Map();
 const asBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
@@ -134,15 +135,15 @@ const notifySecurityBySms = async (senderUserId, recipients, message) => {
   return results;
 };
 
-const assignIncidentToOfficer = async (incident, officer, assignedBy) => {
+const assignIncidentToOfficer = async (incident, officer, assignedBy, transaction = null) => {
   const response = await Response.create({
     incident_id: incident.incident_id,
     responder_id: officer.user_id,
     assigned_by: assignedBy || null,
     status: 'assigned'
-  });
-  await incident.update({ status: 'dispatched' });
-  await officer.update({ availability_status: 'responding' });
+  }, transaction ? { transaction } : undefined);
+  await incident.update({ status: 'dispatched' }, transaction ? { transaction } : undefined);
+  await officer.update({ availability_status: 'responding' }, transaction ? { transaction } : undefined);
   return response;
 };
 
@@ -254,19 +255,43 @@ exports.assignIncident = async (req, res) => {
     return res.status(400).json({ success: false, message: 'incident_id and officer_id must be valid UUIDs' });
   }
 
+  const transaction = await sequelize.transaction();
   try {
-    const incident = await Incident.findByPk(incidentId);
-    if (!incident) return res.status(404).json({ success: false, message: 'Incident not found' });
+    const incident = await Incident.findByPk(incidentId, { transaction });
+    if (!incident) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Incident not found' });
+    }
+    if (!ACTIVE_ASSIGNMENT_STATUSES.includes(incident.status)) {
+      await transaction.rollback();
+      return res.status(409).json({ success: false, message: 'Incident is not active and cannot be assigned' });
+    }
 
-    const existingResponse = await Response.findOne({ where: { incident_id: incidentId } });
-    if (existingResponse) return res.status(409).json({ success: false, message: 'Incident is already assigned' });
+    const existingResponse = await Response.findOne({ where: { incident_id: incidentId }, transaction });
+    if (existingResponse) {
+      await transaction.rollback();
+      return res.status(409).json({ success: false, message: 'Incident is already assigned' });
+    }
 
     const officer = await User.findOne({
-      where: { user_id: officerId, role: 'security', is_active: true },
-      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
+      where: { user_id: officerId, is_active: true },
+      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status', 'is_active'],
+      transaction
     });
-    if (!officer) return res.status(404).json({ success: false, message: 'Security officer not found' });
+    if (!officer) {
+      await transaction.rollback();
+      const existingUser = await User.findByPk(officerId, { transaction });
+      if (existingUser && existingUser.role !== 'security') {
+        return res.status(400).json({ success: false, message: 'Selected user is not a security officer' });
+      }
+      return res.status(404).json({ success: false, message: 'Security officer not found' });
+    }
+    if (officer.role !== 'security') {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Selected user is not a security officer' });
+    }
     if (officer.availability_status !== 'available') {
+      await transaction.rollback();
       return res.status(409).json({ success: false, message: 'Security officer is not available' });
     }
     const distanceMeters = isValidCoordinate(incident.latitude, -90, 90)
@@ -277,7 +302,8 @@ exports.assignIncident = async (req, res) => {
       && officer.latitude !== null && officer.longitude !== null
       ? haversineDistanceMeters(Number(incident.latitude), Number(incident.longitude), Number(officer.latitude), Number(officer.longitude))
       : null;
-    const response = await assignIncidentToOfficer(incident, officer, req.user.user_id);
+    const response = await assignIncidentToOfficer(incident, officer, req.user.user_id, transaction);
+    await transaction.commit();
     await recordAudit(req, { action: 'officer_assigned', resourceType: 'incident', resourceId: incidentId, details: `Assigned officer ${officer.user_id}.` });
     await notifyUsers(req, { type: 'officer_assignment', title: 'Security officer assigned', message: `${officer.name} has been assigned to an incident.`, resourceType: 'incident', resourceId: incidentId, link: `/incidents/${incidentId}`, dedupeKey: `assignment:${incidentId}:${officer.user_id}` });
     const payload = assignmentPayload(incident, officer, distanceMeters || 0, req.user.user_id);
@@ -313,6 +339,7 @@ exports.assignIncident = async (req, res) => {
     }
     return res.status(201).json({ success: true, message: 'Incident assigned successfully', data: updatedIncident, assignment: payload });
   } catch (error) {
+    await transaction.rollback();
     return res.status(500).json({ success: false, message: 'Failed to assign incident' });
   }
 };

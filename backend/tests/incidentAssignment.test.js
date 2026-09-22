@@ -59,6 +59,22 @@ test('assigns an active available security officer and returns the responder', a
   assert.equal(officer.availability_status, 'responding');
 });
 
+test('allows assigning an active incident to a connected web officer without GPS coordinates', async () => {
+  const incident = makeIncident();
+  const officer = { user_id: officerId, name: 'Web Officer', role: 'security', availability_status: 'available', latitude: null, longitude: null, async update(values) { Object.assign(this, values); } };
+  Incident.findByPk = async () => incident;
+  Response.findOne = async () => null;
+  User.findOne = async () => officer;
+  Response.create = async () => ({ response_id: 'response-2', responder_id: officer.user_id, toJSON() { return { response_id: this.response_id, responder_id: this.responder_id, status: 'assigned' }; } });
+
+  const response = makeResponse();
+  await incidentController.assignIncident({ params: { incident_id: incident.incident_id }, body: { officer_id: officer.user_id }, user: { user_id: '33333333-3333-4333-8333-333333333333', role: 'admin' }, app: { get: () => null } }, response);
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.payload.assignment.responder.user_id, officer.user_id);
+  assert.equal(officer.availability_status, 'responding');
+});
+
 test('rejects an invalid, inactive, or non-security officer', async () => {
   const incident = makeIncident();
   Incident.findByPk = async () => incident;
@@ -70,6 +86,18 @@ test('rejects an invalid, inactive, or non-security officer', async () => {
 
   assert.equal(response.statusCode, 404);
   assert.match(response.payload.message, /security officer not found/i);
+});
+
+test('rejects assignment for an inactive incident', async () => {
+  const incident = makeIncident();
+  incident.status = 'resolved';
+  Incident.findByPk = async () => incident;
+
+  const response = makeResponse();
+  await incidentController.assignIncident({ params: { incident_id: incident.incident_id }, body: { officer_id: officerId }, user: { user_id: '33333333-3333-4333-8333-333333333333', role: 'admin' }, app: { get: () => null } }, response);
+
+  assert.equal(response.statusCode, 409);
+  assert.match(response.payload.message, /not active/i);
 });
 
 test('rejects an already assigned incident', async () => {

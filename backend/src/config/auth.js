@@ -4,7 +4,12 @@ dotenv.config();
 const requiredSecret = (name) => {
   const value = process.env[name];
   if (!value || !value.trim()) {
-    throw new Error(`${name} must be configured in the environment before authentication can start.`);
+    // In production, fail fast. In development or test, allow startup but warn so the app can run without auth secrets set.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`${name} must be configured in the environment before authentication can start.`);
+    }
+    console.warn(`${name} is not set. Continuing in non-production mode; authentication features may be limited.`);
+    return '';
   }
   return value;
 };

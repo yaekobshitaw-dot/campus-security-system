@@ -2,6 +2,10 @@
 const { User } = require('../models');
 
 function initSocket(io) {
+  // Simple in-memory presence map: user_id -> { count, lastSeen }
+  // Note: in-memory only; survives process lifetime. Avoids creating a second persistent presence store.
+  io.presence = new Map();
+
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -19,6 +23,62 @@ function initSocket(io) {
   io.on('connection', (socket) => {
     socket.join(`role:${socket.user.role}`);
     socket.join(`user:${socket.user.user_id}`);
+
+    try {
+      const presence = io.presence || new Map();
+      const userId = socket.user.user_id;
+      const entry = presence.get(userId) || { count: 0, lastSeen: null };
+      entry.count += 1;
+      entry.lastSeen = Date.now();
+      presence.set(userId, entry);
+      io.presence = presence;
+
+      // Emit an update so dashboards can reflect this user as online/available
+      const isPresentNow = presence.has(userId) || (entry && entry.count > 0);
+      const payload = {
+        user_id: socket.user.user_id,
+        name: socket.user.name,
+        role: socket.user.role,
+        latitude: socket.user.latitude,
+        longitude: socket.user.longitude,
+        availability_status: socket.user.availability_status,
+        location_updated_at: socket.user.location_updated_at,
+        presence: Boolean(isPresentNow)
+      };
+      io.to('role:security').to('role:admin').emit('officer-location-updated', payload);
+    } catch (err) {
+      // non-fatal
+      console.warn('Presence update failed on connect:', err?.message || err);
+    }
+
+    socket.on('disconnect', () => {
+      try {
+        const presence = io.presence || new Map();
+        const userId = socket.user.user_id;
+        const entry = presence.get(userId);
+        if (entry) {
+          entry.count = Math.max(0, entry.count - 1);
+          if (entry.count === 0) presence.delete(userId);
+          else presence.set(userId, entry);
+        }
+        io.presence = presence;
+
+        const isPresentNow = presence.has(userId) || (entry && entry.count > 0);
+        const payload = {
+          user_id: socket.user.user_id,
+          name: socket.user.name,
+          role: socket.user.role,
+          latitude: socket.user.latitude,
+          longitude: socket.user.longitude,
+          availability_status: socket.user.availability_status,
+          location_updated_at: socket.user.location_updated_at,
+          presence: Boolean(isPresentNow)
+        };
+        io.to('role:security').to('role:admin').emit('officer-location-updated', payload);
+      } catch (err) {
+        console.warn('Presence update failed on disconnect:', err?.message || err);
+      }
+    });
   });
 }
 

@@ -51,15 +51,29 @@ test('returns active security officers with live and responding state', async ()
   assert.equal(response.payload.data[0].location_status, 'live');
 });
 
-test('returns offline and unavailable for an officer without valid location', async () => {
+test('returns online and available for a web-connected officer without valid location', async () => {
   User.findAll = async () => [officer({ latitude: null, longitude: null, availability_status: 'available', location_updated_at: null })];
   Response.findAll = async () => [];
   const response = makeResponse();
+  const req = { app: { get: () => ({ presence: new Map([[ 'officer-1', { count: 1, lastSeen: Date.now() } ]]) }) }, user: { role: 'security' } };
 
-  await securityOfficerHandler({ user: { role: 'security' } }, response);
+  await securityOfficerHandler(req, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'offline');
+  assert.equal(response.payload.data[0].availability_status, 'available');
+  assert.equal(response.payload.data[0].presence, true);
   assert.equal(response.payload.data[0].location_status, 'unavailable');
+});
+
+test('keeps an officer online while another authenticated socket for the same user remains connected', async () => {
+  User.findAll = async () => [officer({ availability_status: 'available' })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+  const req = { app: { get: () => ({ presence: new Map([[ 'officer-1', { count: 2, lastSeen: Date.now() } ]]) }) }, user: { role: 'admin' } };
+
+  await securityOfficerHandler(req, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'available');
+  assert.equal(response.payload.data[0].presence, true);
 });
 
 test('marks stale valid coordinates as last known and makes available officer offline', async () => {

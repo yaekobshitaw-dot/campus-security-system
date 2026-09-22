@@ -1,0 +1,2 @@
+REFRESH_TOKEN_SECRET is not set. Continuing in non-production mode; authentication features may be limited.
+Password reset email service is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, and FRONTEND_URL to enable it.

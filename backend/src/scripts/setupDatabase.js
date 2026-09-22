@@ -12,11 +12,11 @@ async function setupDatabase() {
     await sequelize.query(query);
     logger.info(`✅ Database ${process.env.DB_NAME} created or already exists`);
 
-    // Sync all models
+    // Sync all models and ensure schema drift is corrected before any reads/writes.
     await sequelize.sync({ alter: true });
     await ensureIncidentSchema();
-      const ensureAuthSchema = require('./ensureAuthSchema');
-      await ensureAuthSchema();
+    const ensureAuthSchema = require('./ensureAuthSchema');
+    await ensureAuthSchema();
     const { Notification, AuditLog, SystemSetting, PublicContent } = require('../models');
     await Promise.all([Notification.sync(), AuditLog.sync(), SystemSetting.sync(), PublicContent.sync()]);
     const { ensureDefaultSettings } = require('../services/settingsService');

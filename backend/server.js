@@ -19,7 +19,10 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     console.log('✅ MySQL connected');
-    await CampusLocation.sync();
+    // Ensure schema drift is corrected for CampusLocation records and zone assignments.
+    // Without alter: true, the live table can drift from the model and SELECTs fail with
+    // "Unknown column 'zone_id' in 'field list'" even though CampusLocation declares it.
+    await CampusLocation.sync({ alter: true });
     await Notification.sync();
     await AuditLog.sync();
     await SystemSetting.sync();

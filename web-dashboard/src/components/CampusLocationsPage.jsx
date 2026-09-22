@@ -14,6 +14,7 @@ export default function CampusLocationsPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [zones, setZones] = useState([]);
   const selected = locations.find((location) => location.location_id === selectedId);
 
   const loadLocations = async () => {
@@ -31,10 +32,24 @@ export default function CampusLocationsPage({ user }) {
     }
   };
 
-  useEffect(() => { loadLocations(); }, []);
+  const loadZones = async () => {
+    try {
+      const response = await api.get('/zones');
+      setZones(response.data?.data || []);
+    } catch (e) {
+      // non-fatal: zones may not exist yet
+      setZones([]);
+    }
+  };
+
+  useEffect(() => { loadLocations(); loadZones(); }, []);
 
   const updateCoordinates = (latitude, longitude) => {
     setLocations((current) => current.map((location) => location.location_id === selectedId ? { ...location, latitude, longitude } : location));
+  };
+
+  const updateSelectedZone = (zoneId) => {
+    setLocations((current) => current.map((location) => location.location_id === selectedId ? { ...location, zone_id: zoneId } : location));
   };
 
   const saveSelected = async () => {
@@ -42,7 +57,9 @@ export default function CampusLocationsPage({ user }) {
     setSaving(true);
     setError('');
     try {
-      const response = await api.patch(`/campus-locations/${selected.location_id}`, { latitude: selected.latitude, longitude: selected.longitude });
+      const payload = { latitude: selected.latitude, longitude: selected.longitude };
+      if (selected.zone_id !== undefined) payload.zone_id = selected.zone_id;
+      const response = await api.patch(`/campus-locations/${selected.location_id}`, payload);
       setLocations((current) => current.map((location) => location.location_id === selected.location_id ? response.data.data : location));
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to save campus location.');
@@ -68,7 +85,18 @@ export default function CampusLocationsPage({ user }) {
         <div className="mt-4 space-y-2">
           {loading ? <p className="text-sm text-slate-500">Loading locations...</p> : locations.map((location) => <button key={location.location_id} type="button" onClick={() => setSelectedId(location.location_id)} className={`w-full rounded-xl border p-3 text-left transition ${selectedId === location.location_id ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200 bg-slate-50 hover:border-cyan-200'}`}><span className="flex items-center justify-between gap-2"><strong className="text-sm text-[#0b1f3a]">{location.name}</strong><span className={`h-2.5 w-2.5 rounded-full ${hasCoordinates(location) ? 'bg-emerald-500' : 'bg-amber-400'}`} title={hasCoordinates(location) ? 'Placed' : 'Needs placement'} /></span><span className="mt-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{titleCase(location.type)}</span></button>)}
         </div>
-        {selected && <div className="mt-5 border-t border-slate-200 pt-4"><p className="text-xs font-black uppercase tracking-wide text-slate-500">Selected location</p><p className="mt-1 font-black text-[#0b1f3a]">{selected.name}</p><p className="mt-2 text-xs text-slate-500">{hasCoordinates(selected) ? `${Number(selected.latitude).toFixed(7)}, ${Number(selected.longitude).toFixed(7)}` : 'Click its exact position on the map.'}</p><button type="button" className="dashboard-button primary mt-4 w-full" onClick={saveSelected} disabled={!hasCoordinates(selected) || saving}>{saving ? 'Saving...' : 'Save coordinates'}</button></div>}
+        {selected && <div className="mt-5 border-t border-slate-200 pt-4"><p className="text-xs font-black uppercase tracking-wide text-slate-500">Selected location</p><p className="mt-1 font-black text-[#0b1f3a]">{selected.name}</p>
+          <p className="mt-1 text-xs text-slate-500">Type: <span className="font-bold">{(selected.type || 'Campus place')}</span></p>
+          <p className="mt-2 text-xs text-slate-500">Status: <span className={`font-bold ${hasCoordinates(selected) ? 'text-emerald-600' : 'text-amber-500'}`}>{hasCoordinates(selected) ? 'Placed' : 'Location needs placement'}</span></p>
+          <p className="mt-2 text-xs text-slate-500">{hasCoordinates(selected) ? `${Number(selected.latitude).toFixed(7)}, ${Number(selected.longitude).toFixed(7)}` : 'Click the exact building location on the map.'}</p>
+          <div className="mt-3">
+            <label className="text-xs font-bold text-slate-500">Assign to zone</label>
+            <select className="mt-1 block w-full rounded-md border p-2" value={selected.zone_id || ''} onChange={(e) => updateSelectedZone(e.target.value || null)}>
+              <option value="">(No zone)</option>
+              {zones.map((z) => <option key={z.zone_id} value={z.zone_id}>{z.name}</option>)}
+            </select>
+          </div>
+          <button type="button" className="dashboard-button primary mt-4 w-full" onClick={saveSelected} disabled={!hasCoordinates(selected) || saving}>{saving ? 'Saving...' : 'Save coordinates'}</button></div>}
         <p className="mt-4 text-xs leading-5 text-slate-500">Categories: {locationTypes.length}. Amber markers need an administrator to place them.</p>
       </aside>
     </div>

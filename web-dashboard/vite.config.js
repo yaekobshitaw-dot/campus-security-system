@@ -22,6 +22,12 @@ export default defineConfig(({ mode }) => {
           secure: false
         }
       }
-    }
+    },
+    // Vitest test settings: use jsdom environment so Leaflet and DOM-dependent imports have a window
+    test: {
+      environment: 'jsdom',
+          globals: true,
+          setupFiles: './src/setupTests.js'
+        }
   };
 });

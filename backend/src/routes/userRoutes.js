@@ -41,6 +41,9 @@ router.get('/security-officers', authorize('security', 'admin'), async (req, res
     });
     const respondingOfficerIds = new Set(activeResponses.map((response) => response.responder_id));
     const now = Date.now();
+    const io = (req && req.app && typeof req.app.get === 'function') ? req.app.get('io') : null;
+    const presence = io && io.presence ? io.presence : new Map();
+
     const data = officers.map((officer) => {
       const hasValidLocation = isValidCoordinate(officer.latitude, -90, 90)
         && isValidCoordinate(officer.longitude, -180, 180);
@@ -48,18 +51,30 @@ router.get('/security-officers', authorize('security', 'admin'), async (req, res
       const hasFreshLocation = hasValidLocation && Number.isFinite(locationUpdatedAt)
         && locationUpdatedAt <= now && now - locationUpdatedAt <= LOCATION_STALE_AFTER_MS;
       const isResponding = respondingOfficerIds.has(officer.user_id);
-      const availabilityStatus = isResponding
+      const hasRespondingStatus = officer.availability_status === 'responding';
+      const presenceEntry = presence.get(officer.user_id);
+      const isPresent = Boolean(presenceEntry && Number(presenceEntry.count) > 0);
+
+      // Responding status always wins. Otherwise, a connected authenticated socket counts
+      // as online regardless of GPS freshness, and intentional offline remains offline.
+      const availabilityStatus = isResponding || hasRespondingStatus
         ? 'responding'
-        : hasFreshLocation && ['available', 'busy'].includes(officer.availability_status)
-          ? officer.availability_status
-          : 'offline';
+        : officer.availability_status === 'offline'
+          ? 'offline'
+          : (isPresent && ['available', 'busy', 'responding'].includes(officer.availability_status))
+            ? officer.availability_status
+            : (hasFreshLocation && ['available', 'busy'].includes(officer.availability_status))
+              ? officer.availability_status
+              : 'offline';
+
       const isLiveLocation = hasFreshLocation && availabilityStatus !== 'offline';
 
       return {
         ...officer.toJSON(),
         availability_status: availabilityStatus,
         location_status: !hasValidLocation ? 'unavailable' : isLiveLocation ? 'live' : 'last_known',
-        location_is_stale: hasValidLocation && !isLiveLocation
+        location_is_stale: hasValidLocation && !isLiveLocation,
+        presence: isPresent
       };
     });
     return res.status(200).json({ success: true, data });

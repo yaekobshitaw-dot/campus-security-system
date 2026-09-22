@@ -594,9 +594,22 @@
 .incident-column-action,
 .incident-action-cell { min-width: 170px; }
 
-.campus-map-marker { background: transparent; border: 0; }
+.campus-map-wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
 
-.campus-map-marker span {
+.campus-map-marker {
+  background: transparent;
+  border: 0;
+  pointer-events: auto;
+}
+
+.campus-map-marker .campus-map-marker-inner {
   display: grid;
   width: 30px;
   height: 30px;
@@ -607,11 +620,32 @@
   font-size: 9px;
   font-weight: 900;
   box-shadow: 0 2px 8px rgb(15 23 42 / 28%);
+  pointer-events: auto;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #dfeaf2;
+}
+
+.leaflet-marker-icon,
+.leaflet-div-icon,
+.leaflet-interactive {
+  pointer-events: auto;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #ffffff;
+  color: #0b1f3a;
+}
+
+.leaflet-popup-content {
+  color: #0b1f3a;
 }
 
 .campus-map-control,
-.campus-map-toolbar,
-.campus-map-legend,
 .campus-map-notice {
   position: absolute;
   z-index: 1000;
@@ -621,20 +655,211 @@
   box-shadow: 0 2px 10px rgb(15 23 42 / 14%);
 }
 
+/* Controls that sit outside the map (top toolbar card) */
+.dashboard-app .campus-map-controls {
+  position: relative;
+  z-index: 10;
+  display: block;
+  width: 100%;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  border-color: #cbd5e1 !important;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 22px rgb(2 6 23 / 8%);
+}
+
+.dashboard-app .campus-map-controls * {
+  box-sizing: border-box;
+}
+
+.dashboard-app .campus-map-controls .campus-map-toolbar,
+.dashboard-app .campus-map-controls .layer-toggles,
+.dashboard-app .campus-map-controls .incident-filters,
+.dashboard-app .campus-map-controls .officer-filter,
+.dashboard-app .campus-map-controls .search-results,
+.dashboard-app .campus-map-controls .campus-map-legend {
+  color: #334155;
+}
+
+.dashboard-app .campus-map-controls .campus-map-toolbar {
+  display: flex;
+  gap: 12px;
+  padding: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.dashboard-app .campus-map-controls .campus-map-toolbar label,
+.dashboard-app .campus-map-controls .layer-toggles label,
+.dashboard-app .campus-map-controls .incident-filters label,
+.dashboard-app .campus-map-controls .officer-filter label {
+  display: grid;
+  gap: 3px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dashboard-app .campus-map-controls input,
+.dashboard-app .campus-map-controls select,
+.dashboard-app .campus-map-controls button,
+.dashboard-app .campus-map-controls textarea,
+.dashboard-app .campus-map-controls .layer-toggles input,
+.dashboard-app .campus-map-controls .incident-filters input,
+.dashboard-app .campus-map-controls .incident-filters select,
+.dashboard-app .campus-map-controls .officer-filter select {
+  color: #0f172a;
+  background: #ffffff;
+  background-color: #ffffff;
+}
+
+.dashboard-app .campus-map-controls input,
+.dashboard-app .campus-map-controls select,
+.dashboard-app .campus-map-controls textarea,
+.dashboard-app .campus-map-controls .incident-filters select,
+.dashboard-app .campus-map-controls .officer-filter select {
+  min-width: 140px;
+  border: 1px solid #cbd5e1;
+  border-color: #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #0f172a;
+  background: #ffffff;
+  background-color: #ffffff;
+  font-size: 13px;
+}
+
+.dashboard-app .campus-map-controls input::placeholder,
+.dashboard-app .campus-map-controls textarea::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.dashboard-app .campus-map-controls select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.dashboard-app .campus-map-controls .campus-map-toolbar button,
+.dashboard-app .campus-map-controls .layer-toggles label,
+.dashboard-app .campus-map-controls .incident-filters label,
+.dashboard-app .campus-map-controls .officer-filter label {
+  border: 0;
+}
+
+.dashboard-app .campus-map-controls .campus-map-toolbar button {
+  border: 1px solid #cbd5e1;
+  border-color: #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #ffffff;
+  background-color: #ffffff;
+}
+
+.dashboard-app .campus-map-controls .layer-toggles,
+.dashboard-app .campus-map-controls .incident-filters,
+.dashboard-app .campus-map-controls .officer-filter,
+.dashboard-app .campus-map-controls .search-results {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: #334155;
+}
+
+.dashboard-app .campus-map-controls .layer-toggles label,
+.dashboard-app .campus-map-controls .incident-filters label,
+.dashboard-app .campus-map-controls .officer-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-app .campus-map-controls .search-results ul {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 4px 0;
+  color: #0f172a;
+}
+
+.dashboard-app .campus-map-controls .search-results li {
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.dashboard-app .campus-map-controls .search-results li:hover {
+  background: #f8fafc;
+}
+
+.dashboard-app .campus-map-controls .search-results li strong,
+.dashboard-app .campus-map-controls .search-results li div,
+.dashboard-app .campus-map-controls .search-no-results,
+.dashboard-app .campus-map-controls .campus-map-legend strong,
+.dashboard-app .campus-map-controls .campus-map-legend span {
+  color: #0f172a;
+}
+
+.dashboard-app .campus-map-controls .search-no-results {
+  color: #475569;
+}
+
+/* Legend stays inside the controls card as a block */
+.dashboard-app .campus-map-controls .campus-map-legend {
+  display: block;
+  color: #334155;
+  font-size: 12px;
+  margin-top: 0.75rem;
+}
+
+.dashboard-app .campus-map-controls .campus-map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+  color: #334155;
+}
+
+.campus-map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+/* Map container: ensure large responsive height and full width */
+.campus-map-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 65vh;
+  height: calc(100vh - 240px);
+  border: 1px solid var(--dashboard-line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgb(2 6 23 / 8%);
+  background: #eaf4f8;
+}
+
+/* Provide default positioning for small notices still rendered over the map */
 .campus-map-control { right: 12px; top: 12px; padding: 8px 11px; color: #0b5c65; font-size: 12px; font-weight: 800; }
-.campus-map-toolbar { left: 12px; top: 12px; display: flex; gap: 8px; padding: 8px; }
-.campus-map-toolbar label { display: grid; gap: 3px; color: #53636a; font-size: 10px; font-weight: 800; }
-.campus-map-toolbar input,
-.campus-map-toolbar select { min-width: 120px; border: 1px solid #d6dde8; border-radius: 6px; padding: 5px 7px; color: #0b1f3a; font-size: 12px; }
-.campus-map-legend { right: 12px; bottom: 12px; display: grid; gap: 5px; padding: 9px 11px; color: #34454c; font-size: 11px; }
-.campus-map-legend span { display: flex; align-items: center; gap: 6px; }
+.campus-map-notice { left: 50%; top: 50%; max-width: 320px; padding: 12px; color: #6b3f08; font-size: 12px; line-height: 1.4; text-align: center; transform: translate(-50%, -50%); }
+
+/* Legend dot colors */
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
 .legend-dot.place { background: #0e7c86; }
 .legend-dot.officer { background: #2d8a61; }
 .legend-dot.incident { background: #d9534f; }
 .legend-dot.sos { background: #991b1b; }
 .legend-dot.zone { background: #2563eb; }
-.campus-map-notice { left: 50%; top: 50%; max-width: 320px; padding: 12px; color: #6b3f08; font-size: 12px; line-height: 1.4; text-align: center; transform: translate(-50%, -50%); }
 
 /* Responsive dashboard layout */
 @media (min-width: 1280px) {
@@ -666,6 +891,10 @@
   .dashboard-app .dashboard-header-actions { gap: 0.35rem; }
   .dashboard-app .dashboard-header-control { height: 2.5rem; width: 2.5rem; }
   .dashboard-app .dashboard-heading { padding-bottom: 0.75rem; }
+
+  .campus-map-toolbar { flex-direction: column; }
+  .campus-map-toolbar input,
+  .campus-map-toolbar select { width: 100%; min-width: 0; }
 }
 
 @media (max-width: 640px) {
@@ -683,10 +912,6 @@
     background: #12476a;
     color: #ffffff;
   }
-
-  .campus-map-toolbar { right: 12px; flex-direction: column; }
-  .campus-map-toolbar input,
-  .campus-map-toolbar select { width: 150px; }
 }
 .dashboard-app .dashboard-table tbody td {
   color: #d9edf3;

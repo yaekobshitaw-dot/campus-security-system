@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { colors } from '../components/ui';
 import AlertDetailScreen from '../screens/AlertDetailScreen';
 import AnnouncementDetailScreen from '../screens/AnnouncementDetailScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import AssistantScreen from '../screens/AssistantScreen';
@@ -40,6 +41,7 @@ const AlertStack = () => {
       <Stack.Screen name="AlertDetail" component={AlertDetailScreen} />
       <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
       <Stack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 };

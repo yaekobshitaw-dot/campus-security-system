@@ -26,6 +26,8 @@ const validateCampusLocationPayload = (payload = {}, { partial = false } = {}) =
   const hasLongitude = values.longitude !== undefined && values.longitude !== null;
   if (hasLatitude !== hasLongitude) throw new Error('latitude and longitude must be provided together');
   if (values.description !== undefined && values.description !== null && typeof values.description !== 'string') throw new Error('description must be a string');
+  if (values.zone_id !== undefined && values.zone_id !== null && typeof values.zone_id !== 'string') throw new Error('zone_id must be a string');
+  // allow nullable zone_id; no strict UUID check here to keep validation simple and avoid coupling
   return values;
 };
 

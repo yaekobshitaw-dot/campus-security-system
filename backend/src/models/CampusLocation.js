@@ -11,8 +11,11 @@ const CampusLocation = sequelize.define('CampusLocation', {
     defaultValue: 'other'
   },
   description: { type: DataTypes.TEXT, allowNull: true },
-  latitude: { type: DataTypes.DECIMAL(10, 7), allowNull: true },
-  longitude: { type: DataTypes.DECIMAL(11, 7), allowNull: true },
+  // Use high precision decimal types to store exact verified coordinates without rounding
+  // Precision: 18 total digits, 15 decimal places to safely store lat/lon with sub-meter precision
+  latitude: { type: DataTypes.DECIMAL(18, 15), allowNull: true },
+  longitude: { type: DataTypes.DECIMAL(18, 15), allowNull: true },
+  zone_id: { type: DataTypes.UUID, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
 }, {
   tableName: 'campus_locations',

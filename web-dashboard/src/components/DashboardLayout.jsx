@@ -51,16 +51,18 @@ const navigationItems = [
   { label: 'Evidence', path: '/evidence', icon: DescriptionOutlined },
   { label: 'Security officers', path: '/officers', icon: PeopleAltOutlined },
   { label: 'User management', path: '/users', icon: PeopleAltOutlined },
+  { label: 'Campus Locations', path: '/locations', icon: SchoolOutlined },
   { label: 'SMS notifications', path: '/sms', icon: SmsOutlined },
   { label: 'Reports / Analytics', path: '/analytics', icon: InsightsOutlined },
   { label: 'Notifications', path: '/notifications', icon: NotificationsOutlined },
   { label: 'Audit logs', path: '/audit-logs', icon: HistoryOutlined },
+  { label: 'Announcements', path: '/announcements', icon: CampaignOutlined },
   { label: 'Content management', path: '/content', icon: CampaignOutlined },
   { label: 'System settings', path: '/settings', icon: SettingsOutlined },
 ];
 
 function canAccessNavigation(path, role) {
-  if (['/users', '/sms', '/notifications', '/audit-logs', '/content', '/settings'].includes(path)) return role === 'admin';
+  if (['/users', '/sms', '/notifications', '/audit-logs', '/content', '/settings', '/locations'].includes(path)) return role === 'admin';
   if (path === '/officers') return ['security', 'admin'].includes(role);
   if (['/analytics', '/responses'].includes(path)) return ['security', 'admin'].includes(role);
   return true;

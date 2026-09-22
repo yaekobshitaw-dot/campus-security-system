@@ -1,6 +1,7 @@
 ﻿// src/components/NotificationSystem.jsx
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { webSocket } from '../services/socket';
 
 const NotificationSystem = () => {
   const [notifications, setNotifications] = useState([]);
@@ -9,8 +10,13 @@ const NotificationSystem = () => {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 10000);
-    return () => clearInterval(interval);
+    // also subscribe for realtime notifications
+    webSocket.on('notification-created', handleRealtimeNotification);
+    const interval = setInterval(loadNotifications, 30000);
+    return () => {
+      webSocket.off('notification-created', handleRealtimeNotification);
+      clearInterval(interval);
+    };
   }, []);
 
   const loadNotifications = async () => {
@@ -18,33 +24,65 @@ const NotificationSystem = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await api.get('/incidents');
-      const incidents = response.data.data || [];
+      const response = await api.get('/notifications');
+      const items = response.data.data || [];
 
-      const newNotifications = incidents.slice(0, 5).map(inc => ({
-        id: inc.incident_id,
-        message: '🚨 ' + inc.type.toUpperCase() + ' incident reported',
-        severity: inc.severity || 'medium',
-        timestamp: new Date(inc.created_at),
-        location: inc.location_name || 'Campus'
+      const mapped = items.map((n) => ({
+        id: n.notification_id,
+        title: n.title,
+        message: n.message,
+        severity: (n.data && n.data.severity) || 'medium',
+        timestamp: n.created_at ? new Date(n.created_at) : new Date(),
+        location: (n.data && n.data.location) || (n.data && n.data.location_name) || 'Campus',
+        is_read: Boolean(n.is_read),
+        raw: n,
       }));
 
-      const oldIds = notifications.map(n => n.id);
-      const newItems = newNotifications.filter(n => !oldIds.includes(n.id));
-
-      if (newItems.length > 0) {
-        const latest = newItems[0];
-        setLatestAlert({
-          message: latest.message + ' at ' + latest.location,
-          severity: latest.severity
-        });
-        setShowAlert(true);
-        setTimeout(() => setShowAlert(false), 5000);
-      }
-
-      setNotifications(newNotifications);
+      setNotifications(mapped);
     } catch (error) {
       console.error('Error loading notifications:', error);
+    }
+  };
+
+  const handleRealtimeNotification = (payload) => {
+    try {
+      const n = payload;
+      const mapped = {
+        id: n.notification_id || n.notificationId || n.id,
+        title: n.title || 'Notification',
+        message: n.message || (n.data && n.data.message) || 'You have a notification',
+        severity: (n.data && n.data.severity) || 'medium',
+        timestamp: n.created_at ? new Date(n.created_at) : new Date(),
+        location: (n.data && n.data.location) || 'Campus',
+        is_read: Boolean(n.is_read),
+        raw: n,
+      };
+
+      // prepend and show transient alert
+      setNotifications((prev) => [mapped, ...prev].slice(0, 100));
+      setLatestAlert({ message: mapped.message + ' at ' + mapped.location, severity: mapped.severity });
+      setShowAlert(true);
+      setTimeout(() => setShowAlert(false), 5000);
+    } catch (err) {
+      console.warn('Failed to process realtime notification', err);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    } catch (error) {
+      console.error('Failed to mark notification read', error);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error('Failed to mark all notifications read', error);
     }
   };
 
@@ -86,21 +124,29 @@ const NotificationSystem = () => {
       <div style={styles.container}>
         <div style={styles.header}>
           <h4>🔔 Notifications</h4>
-          <span style={styles.count}>{notifications.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={markAllRead} style={{ cursor: 'pointer' }}>Mark all read</button>
+            <span style={styles.count}>{notifications.filter((n) => !n.is_read).length}</span>
+          </div>
         </div>
         {notifications.length === 0 ? (
           <p style={styles.noAlerts}>No notifications</p>
         ) : (
           notifications.map((notif) => (
-            <div key={notif.id} style={styles.notifItem}>
+            <div key={notif.id} style={{ ...styles.notifItem, backgroundColor: notif.is_read ? 'white' : '#f9fefb' }}>
               <span style={styles.icon}>{getSeverityIcon(notif.severity)}</span>
               <div style={styles.notifContent}>
-                <span style={styles.notifMessage}>{notif.message}</span>
+                <span style={styles.notifMessage}>{notif.title || notif.message}</span>
                 <span style={styles.notifLocation}>📍 {notif.location}</span>
               </div>
-              <span style={styles.notifTime}>
-                {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <span style={styles.notifTime}>
+                  {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {!notif.is_read && (
+                  <button onClick={() => markAsRead(notif.id)} style={{ cursor: 'pointer', fontSize: 12 }}>Mark read</button>
+                )}
+              </div>
             </div>
           ))
         )}

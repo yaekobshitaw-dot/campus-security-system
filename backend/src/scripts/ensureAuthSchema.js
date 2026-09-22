@@ -4,7 +4,7 @@ async function ensureAuthSchema() {
   await sequelize.query(`
     CREATE TABLE IF NOT EXISTS user_identities (
       identity_id CHAR(36) NOT NULL PRIMARY KEY,
-      user_id CHAR(36) NOT NULL,
+          user_id CHAR(36) NOT NULL COLLATE utf8mb4_bin,
       provider VARCHAR(32) NOT NULL,
       provider_subject VARCHAR(255) NOT NULL,
       provider_email VARCHAR(255) NULL,
@@ -21,7 +21,7 @@ async function ensureAuthSchema() {
     CREATE TABLE IF NOT EXISTS oauth_login_tickets (
       ticket_id CHAR(36) NOT NULL PRIMARY KEY,
       ticket_hash CHAR(64) NOT NULL UNIQUE,
-      user_id CHAR(36) NOT NULL,
+          user_id CHAR(36) NOT NULL COLLATE utf8mb4_bin,
       expires_at DATETIME NOT NULL,
       consumed_at DATETIME NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

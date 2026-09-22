@@ -113,6 +113,10 @@ class SocketService extends LocalEventEmitter {
     this.socket.on('officer_assignment', (data) => {
       this.emit('officer_assignment', data);
     });
+
+    this.socket.on('notification-created', (data) => {
+      this.emit('notification-created', data);
+    });
   }
 
   emitEvent(event, data) {
