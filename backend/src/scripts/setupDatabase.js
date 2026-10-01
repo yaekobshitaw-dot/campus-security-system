@@ -12,8 +12,9 @@ async function setupDatabase() {
     await sequelize.query(query);
     logger.info(`✅ Database ${process.env.DB_NAME} created or already exists`);
 
-    // Sync all models and ensure schema drift is corrected before any reads/writes.
-    await sequelize.sync({ alter: true });
+    // Startup sync may create missing tables, but schema changes belong in explicit migrations.
+    // Sequelize alter-sync can repeatedly add MySQL/MariaDB unique indexes on repeated starts.
+    await sequelize.sync();
     await ensureIncidentSchema();
     const ensureAuthSchema = require('./ensureAuthSchema');
     await ensureAuthSchema();
@@ -21,6 +22,8 @@ async function setupDatabase() {
     await Promise.all([Notification.sync(), AuditLog.sync(), SystemSetting.sync(), PublicContent.sync()]);
     const { ensureDefaultSettings } = require('../services/settingsService');
     await ensureDefaultSettings();
+    const { ensureDefaultPublicContent } = require('../models/PublicContent');
+    await ensureDefaultPublicContent();
     const ensureAdminSchema = require('./ensureAdminSchema');
     await ensureAdminSchema();
     logger.info('✅ All tables synced successfully');

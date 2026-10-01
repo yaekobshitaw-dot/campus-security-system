@@ -28,21 +28,40 @@ const errorResponse = (res, error) => res.status(400).json({ success: false, mes
 
 async function ensureDefaults() {
   for (const location of DEFAULT_LOCATIONS) {
-    // Find or create by name
-    const [loc, created] = await CampusLocation.findOrCreate({ where: { name: location.name }, defaults: location });
+    // Default descriptions identify records whose administrator-edited names or types have changed.
+    let loc = await CampusLocation.findOne({ where: { name: location.name } });
+    let renamed = Boolean(loc && loc.name !== location.name);
+    if (loc && loc.type !== location.type) renamed = true;
+    if (!loc && location.description) {
+      loc = await CampusLocation.findOne({
+        where: { description: location.description, type: location.type }
+      });
+      if (!loc) {
+        loc = await CampusLocation.findOne({
+          where: { description: location.description }
+        });
+      }
+      renamed = Boolean(loc);
+    }
+    let created = false;
+    if (!loc) {
+      [loc, created] = await CampusLocation.findOrCreate({ where: { name: location.name }, defaults: location });
+    }
     try {
       // If existing record found, update coordinates if they differ from the verified values
       if (!created) {
         const updates = {};
-        // Sequelize Decimal fields may come back as strings; compare numerically where possible
-        const existingLat = loc.latitude !== null && loc.latitude !== undefined ? parseFloat(String(loc.latitude)) : null;
-        const existingLng = loc.longitude !== null && loc.longitude !== undefined ? parseFloat(String(loc.longitude)) : null;
-        if (location.latitude !== undefined && (existingLat === null || existingLat !== Number(location.latitude))) updates.latitude = location.latitude;
-        if (location.longitude !== undefined && (existingLng === null || existingLng !== Number(location.longitude))) updates.longitude = location.longitude;
-        // Only set type if the existing record has no meaningful type
-        if ((!loc.type || loc.type === 'other') && location.type) updates.type = location.type;
-        // Update description if missing
-        if ((!loc.description || loc.description.trim() === '') && location.description) updates.description = location.description;
+        if (!renamed) {
+          // Sequelize Decimal fields may come back as strings; compare numerically where possible
+          const existingLat = loc.latitude !== null && loc.latitude !== undefined ? parseFloat(String(loc.latitude)) : null;
+          const existingLng = loc.longitude !== null && loc.longitude !== undefined ? parseFloat(String(loc.longitude)) : null;
+          if (location.latitude !== undefined && (existingLat === null || existingLat !== Number(location.latitude))) updates.latitude = location.latitude;
+          if (location.longitude !== undefined && (existingLng === null || existingLng !== Number(location.longitude))) updates.longitude = location.longitude;
+          // Only set type if the existing record has no meaningful type
+          if ((!loc.type || loc.type === 'other') && location.type) updates.type = location.type;
+          // Update description if missing
+          if ((!loc.description || loc.description.trim() === '') && location.description) updates.description = location.description;
+        }
         if (Object.keys(updates).length > 0) {
           await loc.update(updates);
         }

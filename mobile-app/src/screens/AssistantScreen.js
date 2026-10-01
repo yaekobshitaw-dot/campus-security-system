@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSelector } from 'react-redux';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import api from '../services/api';
 
 const promptsByRole = {

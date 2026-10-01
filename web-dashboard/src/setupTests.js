@@ -12,6 +12,14 @@ if (typeof window.matchMedia === 'undefined') {
   };
 }
 
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 // Prevent leaflet from failing if it examines userAgent or other navigator props
 if (typeof window.navigator === 'undefined') {
   window.navigator = { userAgent: 'node' };

@@ -16,7 +16,7 @@ const answerAssistantMessage = async (user, message) => {
     const answer = await askOllama(buildAssistantPrompt(context), normalizedMessage);
     return { message: answer, source: 'ollama' };
   } catch (error) {
-    logger.warn('Assistant model unavailable; returning safe fallback');
+    logger.warn(`Assistant model unavailable (${error.kind || 'unknown'}); returning safe fallback`);
     return { message: fallbackMessage, source: 'fallback' };
   }
 };

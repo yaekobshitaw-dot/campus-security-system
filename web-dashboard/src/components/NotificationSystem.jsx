@@ -1,7 +1,10 @@
 ﻿// src/components/NotificationSystem.jsx
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { webSocket } from '../services/socket';
+import * as socketService from '../services/socket';
+
+// Support both default and named export shapes so tests that mock the module either way still work.
+const webSocket = socketService.webSocket || socketService.default || socketService;
 
 const NotificationSystem = () => {
   const [notifications, setNotifications] = useState([]);
@@ -11,10 +14,10 @@ const NotificationSystem = () => {
   useEffect(() => {
     loadNotifications();
     // also subscribe for realtime notifications
-    webSocket.on('notification-created', handleRealtimeNotification);
+    if (webSocket && typeof webSocket.on === 'function') webSocket.on('notification-created', handleRealtimeNotification);
     const interval = setInterval(loadNotifications, 30000);
     return () => {
-      webSocket.off('notification-created', handleRealtimeNotification);
+      if (webSocket && typeof webSocket.off === 'function') webSocket.off('notification-created', handleRealtimeNotification);
       clearInterval(interval);
     };
   }, []);

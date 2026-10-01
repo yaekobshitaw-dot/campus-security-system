@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getLocation } from '../services/location';
-import { colors } from './ui';
+import { Icon, colors } from './ui';
 
 const LocationPicker = ({ onLocationSelect }) => {
   const [location, setLocation] = useState(null);

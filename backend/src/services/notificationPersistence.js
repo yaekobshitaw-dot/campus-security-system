@@ -16,7 +16,7 @@ const createNotification = async ({ userId, type, title, message, resourceType =
 const notifyUsers = async (req, payload, users = null) => {
   let recipients = users;
   try {
-    recipients = recipients || await User.findAll({ where: { is_active: true, role: ['admin', 'security'] }, attributes: ['user_id'] });
+    recipients = recipients || await User.findAll({ where: { is_active: true, role: 'admin' }, attributes: ['user_id'] });
   } catch {
     return [];
   }
@@ -32,4 +32,9 @@ const notifyUsers = async (req, payload, users = null) => {
   return created;
 };
 
-module.exports = { createNotification, notifyUsers };
+const getActiveAdmins = async () => User.findAll({
+  where: { is_active: true, role: 'admin' },
+  attributes: ['user_id', 'push_token', 'phone', 'name']
+});
+
+module.exports = { createNotification, notifyUsers, getActiveAdmins };

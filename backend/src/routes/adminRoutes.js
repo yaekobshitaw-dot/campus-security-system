@@ -67,6 +67,13 @@ router.get('/settings', async (req, res) => {
 router.put('/settings', async (req, res) => {
   try {
     const data = await updateSettings(req.body?.settings, req.user.user_id);
+    const systemStatus = req.body.settings.find((setting) => setting.key === 'system.active');
+    if (systemStatus && String(systemStatus.value) === 'false') {
+      const sockets = req.app.get('io')?.sockets?.sockets;
+      for (const socket of sockets?.values() || []) {
+        if (String(socket.user?.role || '').trim().toLowerCase() !== 'admin') socket.disconnect(true);
+      }
+    }
     await recordAudit(req, { action: 'settings_changed', resourceType: 'system_settings', details: `Updated ${req.body.settings.length} settings.` });
     const settingsKey = req.body.settings.map((setting) => `${setting.key}:${setting.value}`).sort().join('|');
     await notifyUsers(req, { type: 'system_settings_changed', title: 'System settings changed', message: 'An administrator updated system settings.', resourceType: 'system_settings', link: '/settings', dedupeKey: `settings:${settingsKey}` });

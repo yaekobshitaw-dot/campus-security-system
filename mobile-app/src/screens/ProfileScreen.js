@@ -2,8 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
+import { Icon } from '../components/ui';
 import { logout, removeProfilePhoto, updateProfilePhoto } from '../store/authSlice';
 
 const MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024;
@@ -139,6 +139,7 @@ const ProfileScreen = () => {
         <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('EmergencyContacts')}><Icon name="contacts" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>Emergency contacts</Text><Text style={styles.menuSub}>Manage people you can call quickly</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('Incidents')}><Icon name="assignment" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>My incidents</Text><Text style={styles.menuSub}>Review submitted reports and statuses</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('SafetyResources')}><Icon name="health-and-safety" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>Safety resources</Text><Text style={styles.menuSub}>Guidance for common campus situations</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => navigation.navigate('Settings')}><Icon name="settings" size={22} color="#116B5F" /><View style={styles.menuCopy}><Text style={styles.menuTitle}>Settings</Text><Text style={styles.menuSub}>Manage app preferences</Text></View><Icon name="chevron-right" size={22} color="#9AA5A7" /></TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.logout} onPress={handleLogout}><Icon name="logout" size={20} color="#C44E3B" /><Text style={styles.logoutText}>Sign out</Text></TouchableOpacity>
     </View>

@@ -12,9 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
 import CampusSecurityBackground from '../assets/images/campus-security-background.svg';
+import { Icon } from '../components/ui';
 import { login } from '../store/authSlice';
 
 const LoginScreen = ({ navigation }) => {
@@ -84,6 +84,7 @@ const LoginScreen = ({ navigation }) => {
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
+              accessibilityRole="button"
               accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             >
               <Icon name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#B8E8D7" />

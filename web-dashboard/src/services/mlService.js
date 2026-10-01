@@ -1,15 +1,47 @@
-﻿// src/services/mlService.js
-import api from './api';
+// Robust ML service client that tries the relative API proxy first, then a local ML service.
 
-// ML Service API URL
-const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:5001';
+let resolvedBase = import.meta.env.VITE_ML_API_URL || null;
+const LOCAL_FALLBACK = 'http://127.0.0.1:5001';
+const RELATIVE_PROXY = '/api/ml';
+
+async function tryRequest(path, options) {
+  const candidates = [];
+  if (resolvedBase) candidates.push(resolvedBase.replace(/\/+$/, ''));
+  // try relative proxy (useful in Vite and Docker/nginx deployments)
+  candidates.push(RELATIVE_PROXY);
+  // finally try localhost where the ML dev server usually runs
+  candidates.push(LOCAL_FALLBACK);
+
+  let lastError = null;
+  for (const base of candidates) {
+    const baseUrl = base.replace(/\/+$/g, '');
+    const url = baseUrl + path;
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        lastError = new Error(`Request failed ${res.status} ${res.statusText} for ${url}`);
+        continue;
+      }
+      const json = await res.json();
+      // cache the working base for subsequent calls
+      resolvedBase = base;
+      return { json, base };
+    } catch (err) {
+      lastError = err;
+      // try next candidate
+    }
+  }
+  throw lastError || new Error('No ML endpoints reachable');
+}
 
 export const mlService = {
+  getResolvedBase: () => resolvedBase,
+
   // Health check
   health: async () => {
     try {
-      const response = await fetch(ML_API_URL + '/health');
-      return response.json();
+      const result = await tryRequest('/health', { method: 'GET' });
+      return { ...result.json, _base: result.base };
     } catch (error) {
       console.error('ML Health check failed:', error);
       return null;
@@ -19,12 +51,12 @@ export const mlService = {
   // Predict risk
   predictRisk: async (incidentData) => {
     try {
-      const response = await fetch(ML_API_URL + '/predict/risk', {
+      const result = await tryRequest('/predict/risk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(incidentData)
       });
-      return response.json();
+      return result.json;
     } catch (error) {
       console.error('Risk prediction failed:', error);
       return null;
@@ -32,13 +64,14 @@ export const mlService = {
   },
 
   // Detect hotzones
-  detectHotzones: async () => {
+  detectHotzones: async (campusLocations = [], incidents = []) => {
     try {
-      const response = await fetch(ML_API_URL + '/detect/hotzones', {
+      const result = await tryRequest('/detect/hotzones', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campus_locations: campusLocations, incidents })
       });
-      return response.json();
+      return result.json;
     } catch (error) {
       console.error('Hotzone detection failed:', error);
       return null;
@@ -48,12 +81,12 @@ export const mlService = {
   // Classify incident
   classifyIncident: async (incidentData) => {
     try {
-      const response = await fetch(ML_API_URL + '/classify/incident', {
+      const result = await tryRequest('/classify/incident', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(incidentData)
       });
-      return response.json();
+      return result.json;
     } catch (error) {
       console.error('Incident classification failed:', error);
       return null;

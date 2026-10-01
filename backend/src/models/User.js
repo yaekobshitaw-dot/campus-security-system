@@ -21,7 +21,7 @@ const User = sequelize.define('User', {
     allowNull: false
   },
   role: {
-    type: DataTypes.ENUM('student', 'faculty', 'staff', 'security', 'admin'),
+    type: DataTypes.ENUM('student', 'faculty', 'staff', 'security', 'security_officer', 'admin'),
     defaultValue: 'student'
   },
   password_hash: {
@@ -76,6 +76,9 @@ const User = sequelize.define('User', {
   updatedAt: 'updated_at',
   hooks: {
     beforeCreate: async (user) => {
+      if (user.role === 'security' && !user.availability_status) {
+        user.availability_status = 'available';
+      }
       if (user.password_hash) {
         const salt = await bcrypt.genSalt(10);
         user.password_hash = await bcrypt.hash(user.password_hash, salt);

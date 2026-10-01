@@ -1,46 +1,66 @@
- # Python
-.venv/
-venv/
-__pycache__/
-*.pyc
-
-# Node.js
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Python environments
+.venv/
+.venv-ml/
+.venv-ml310/
+**/.venv/
+**/.venv-*/
 
 # Environment / secrets
 .env
 .env.*
 !.env.example
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.pem
-*.key
-*.crt
-*.p12
-secrets/
-config/*.local.*
 
-# Build files
-dist/
-build/
-coverage/
-.expo/
-mobile-app/.expo/
-
-# Logs
+# Logs / generated test output
 *.log
+backend-test-latest.txt
+mobile-test-latest.txt
+web-build-latest.txt
+web-test-latest.txt
+git-diff-check-latest.txt
+cleanup_deleted_status.csv
+inventory_candidates.csv
+response_headers.txt
+backend/backend-tests.txt
+web-dashboard/build-summary.txt
+web-dashboard/buildlog.txt
+web-dashboard/dashboard-only.txt
+web-dashboard/frontend-build.txt
+web-dashboard/frontend-suite.txt
+web-dashboard/frontend-tests.txt
+web-dashboard/full-test-output.txt
+web-dashboard/test-summary.txt
+web-dashboard/testlog.txt
+web-dashboard/vitest-full.txt
+web-dashboard/vitest-result.json
 
-# IDE
+# Backups
+*.bak
+
+# OS / editor
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 
-# OS
-.DS_Store
-Thumbs.db   # Vite cache
-.vite/
-# Local secrets and database backups
-backend/tmp-token.txt
-campus_security_backup.sql
+# Build output
+dist/
+build/
+coverage/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Android generated files
+mobile-app/android/.gradle/
+mobile-app/android/app/build/
+mobile-app/android/build/
+
+# Local database / generated payloads
+backend/campus_security_backup.sql
+backend_payload.json

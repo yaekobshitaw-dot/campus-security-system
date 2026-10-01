@@ -13,10 +13,19 @@ vi.mock('../services/api', () => ({
   },
 }));
 
+vi.mock('./ZoneMapPicker', () => ({
+  default: ({ latitude, longitude, onChange }) => (
+    <div>
+      <button type="button" onClick={() => onChange('9.02', '38.75')}>Choose map location</button>
+      <output>{latitude},{longitude}</output>
+    </div>
+  ),
+}));
+
 const refresh = vi.fn().mockResolvedValue(undefined);
 
 function renderZones(role = 'admin', zones = []) {
-  return render(<ZoneManagement zones={zones} loading={false} error="" canManage={['admin', 'security'].includes(role)} onRefresh={refresh} />);
+  return render(<ZoneManagement zones={zones} loading={false} error="" canManage={role === 'admin'} onRefresh={refresh} />);
 }
 
 describe('ZoneManagement', () => {
@@ -27,11 +36,14 @@ describe('ZoneManagement', () => {
     refresh.mockResolvedValue(undefined);
   });
 
-  it('shows write controls to admins and security users only', () => {
+  it('shows zone write controls to admins only', () => {
     const { unmount } = renderZones('admin');
     expect(screen.getByRole('button', { name: 'Create zone' })).toBeInTheDocument();
     unmount();
-    renderZones('student');
+    const { unmount: unmountStudent } = renderZones('student');
+    expect(screen.queryByRole('button', { name: 'Create zone' })).not.toBeInTheDocument();
+    unmountStudent();
+    renderZones('security');
     expect(screen.queryByRole('button', { name: 'Create zone' })).not.toBeInTheDocument();
   });
 
@@ -40,14 +52,21 @@ describe('ZoneManagement', () => {
     expect(screen.getByText('No zones configured yet.')).toBeInTheDocument();
   });
 
+  it('keeps zone details visible to security officers without any write controls', () => {
+    renderZones('security', [{ zone_id: 'zone-1', name: 'North Gate', radius: 500, is_active: true }]);
+
+    expect(screen.getByText('North Gate')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create zone' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
   it('rejects an invalid circle before making a request', () => {
     renderZones('admin');
     fireEvent.click(screen.getByRole('button', { name: 'Create zone' }));
-    const inputs = screen.getAllByRole('spinbutton');
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '   ' } });
-    fireEvent.change(inputs[0], { target: { value: '9.02' } });
-    fireEvent.change(inputs[1], { target: { value: '38.75' } });
-    fireEvent.change(inputs[2], { target: { value: '500' } });
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '500' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Create zone' })[1]);
     expect(screen.getByText('Name is required and must be 100 characters or fewer.')).toBeInTheDocument();
     expect(api.post).not.toHaveBeenCalled();
@@ -55,16 +74,33 @@ describe('ZoneManagement', () => {
 
   it('submits a valid circle and refreshes the shared zone state', async () => {
     api.post.mockResolvedValueOnce({ data: { success: true } });
-    renderZones('security');
+    renderZones('admin');
     fireEvent.click(screen.getByRole('button', { name: 'Create zone' }));
-    const inputs = screen.getAllByRole('spinbutton');
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'North Gate' } });
-    fireEvent.change(inputs[0], { target: { value: '9.02' } });
-    fireEvent.change(inputs[1], { target: { value: '38.75' } });
-    fireEvent.change(inputs[2], { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Choose map location' }));
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '500' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Create zone' })[1]);
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/zones', expect.objectContaining({ name: 'North Gate', coordinates: null, radius: 500 })));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/zones', expect.objectContaining({
+      name: 'North Gate',
+      coordinates: null,
+      center_lat: 9.02,
+      center_lng: 38.75,
+      radius: 500,
+    })));
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it('loads existing circle coordinates into the map picker for editing', () => {
+    renderZones('admin', [{
+      zone_id: 'zone-1',
+      name: 'North Gate',
+      center_lat: 9.02,
+      center_lng: 38.75,
+      radius: 500,
+      is_active: true,
+    }]);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText('9.02,38.75')).toBeInTheDocument();
   });
 
   it('rejects malformed polygon JSON before making a request', () => {

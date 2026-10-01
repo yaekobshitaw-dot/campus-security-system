@@ -1,5 +1,4 @@
 import {
-  AdminPanelSettingsOutlined,
   DashboardOutlined,
   DescriptionOutlined,
   EventNoteOutlined,
@@ -10,30 +9,25 @@ import {
   Menu,
   MapOutlined,
   PeopleAltOutlined,
-  PersonOutline,
   ReportProblemOutlined,
-  SchoolOutlined,
   NotificationsOutlined,
+  SettingsOutlined,
+  AccountCircleOutlined,
   SmsOutlined,
   ShieldOutlined,
-  TaskAltOutlined,
   WarningAmberOutlined,
-  SettingsOutlined,
-  HistoryOutlined,
 } from '@mui/icons-material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import SafetyChatbot from './Chatbot/SafetyChatbot';
+import DashboardBackButton from './DashboardBackButton';
+import ProfilePhotoPreview from './ProfilePhotoPreview';
 import { PublicFooter } from './PublicSite';
+import { translateDashboardText, useLanguage } from '../utils/language';
+import { getUserPreferences, useAppearanceTheme } from '../utils/appearance';
 import '../dashboard.css';
+import '../styles/dashboard-refinements.css';
 
-const statusClasses = {
-  reported: 'border-slate-200 bg-slate-100 text-slate-700',
-  investigating: 'border-slate-200 bg-slate-100 text-slate-700',
-  dispatched: 'border-amber-200 bg-amber-100 text-amber-800',
-  on_scene: 'border-amber-200 bg-amber-100 text-amber-800',
-  resolved: 'border-emerald-200 bg-emerald-100 text-emerald-700',
-  closed: 'border-slate-900 bg-slate-900 text-white',
-};
+const editableIncidentStatuses = ['reported', 'investigating', 'dispatched', 'on_scene', 'resolved', 'closed'];
 
 const severityClasses = {
   low: 'border-emerald-200 bg-emerald-100 text-emerald-700',
@@ -42,37 +36,98 @@ const severityClasses = {
   critical: 'border-red-200 bg-red-100 text-red-700',
 };
 
+const featureIllustrations = {
+  overview: { file: 'overview.svg', alt: 'Overview' },
+  incidents: { file: 'active-incidents.svg', alt: 'Active incidents' },
+  history: { file: 'incident-history.svg', alt: 'Incident history' },
+  emergency: { file: 'sos-emergency.svg', alt: 'SOS emergency' },
+  sos: { file: 'sos-emergency.svg', alt: 'SOS emergency' },
+  map: { file: 'live-map.svg', alt: 'Live map' },
+  officers: { file: 'security-officers.svg', alt: 'Security officers', path: '/officers' },
+  users: { file: 'user-management.svg', alt: 'User management', path: '/users' },
+  analytics: { file: 'reports-analytics.svg', alt: 'Reports & Analytics', path: '/analytics' },
+  notifications: { file: 'notifications.svg', alt: 'Notifications', adminOnly: true },
+  auditLogs: { file: 'audit-logs.svg', alt: 'Audit logs', adminOnly: true },
+  content: { file: 'content-management.svg', alt: 'Content management', adminOnly: true },
+  locations: { file: 'campus-locations.svg', alt: 'Campus locations', path: '/locations' },
+  zones: { file: 'zone-management.svg', alt: 'Zone management' },
+  profile: { file: 'profile.svg', alt: 'Profile' },
+  settings: { file: 'settings.svg', alt: 'Settings' },
+};
+
 const navigationItems = [
   { label: 'Overview', path: '/dashboard', icon: DashboardOutlined },
-  { label: 'Active incidents', path: '/incidents/active', icon: ReportProblemOutlined, badge: true },
-  { label: 'Incident history', path: '/incidents/history', icon: EventNoteOutlined },
-  { label: 'SOS / Emergency', path: '/sos', icon: WarningAmberOutlined, badge: true },
-  { label: 'Live map', path: '/map', icon: MapOutlined },
+  { label: 'Profile', path: '/profile', icon: AccountCircleOutlined },
+  { label: 'Settings', path: '/settings', icon: SettingsOutlined },
+  { label: 'Features', path: '/features', icon: DescriptionOutlined },
+  { label: 'Active incidents', path: '/incidents/active', icon: ReportProblemOutlined },
+  { label: 'Incident History', path: '/incidents/history', icon: EventNoteOutlined },
+  { label: 'Emergency center', path: '/emergency', icon: WarningAmberOutlined },
+  { label: 'Live Map', path: '/map', icon: MapOutlined },
+  { label: 'SOS / Emergency', path: '/sos', icon: WarningAmberOutlined },
   { label: 'Evidence', path: '/evidence', icon: DescriptionOutlined },
-  { label: 'Security officers', path: '/officers', icon: PeopleAltOutlined },
+  { label: 'Security Officers', path: '/officers', icon: PeopleAltOutlined },
   { label: 'User management', path: '/users', icon: PeopleAltOutlined },
-  { label: 'Campus Locations', path: '/locations', icon: SchoolOutlined },
-  { label: 'SMS notifications', path: '/sms', icon: SmsOutlined },
-  { label: 'Reports / Analytics', path: '/analytics', icon: InsightsOutlined },
   { label: 'Notifications', path: '/notifications', icon: NotificationsOutlined },
-  { label: 'Audit logs', path: '/audit-logs', icon: HistoryOutlined },
+  { label: 'SMS Broadcast', path: '/sms', icon: SmsOutlined },
+  { label: 'Reports & Analytics', path: '/analytics', icon: InsightsOutlined },
+  { label: 'ML Insights', path: '/ml', icon: InsightsOutlined },
+  { label: 'Audit Logs', path: '/audit-logs', icon: EventNoteOutlined },
+  { label: 'Content Management', path: '/content', icon: CampaignOutlined },
+  { label: 'Responses', path: '/responses', icon: SmsOutlined },
+  { label: 'Alerts', path: '/alerts', icon: WarningAmberOutlined },
   { label: 'Announcements', path: '/announcements', icon: CampaignOutlined },
-  { label: 'Content management', path: '/content', icon: CampaignOutlined },
-  { label: 'System settings', path: '/settings', icon: SettingsOutlined },
+  { label: 'Zones', path: '/zones', icon: MapOutlined },
+  { label: 'Campus locations', path: '/locations', icon: MapOutlined },
 ];
 
+const navigationGroups = [
+  { id: 'overview', label: 'Overview / Dashboard', icon: DashboardOutlined, paths: ['/dashboard', '/features'] },
+  { id: 'incidents', label: 'Incidents & Emergency', icon: ReportProblemOutlined, paths: ['/incidents/active', '/incidents/history', '/emergency', '/sos', '/evidence'] },
+  { id: 'locations', label: 'Live Map & Location', icon: MapOutlined, paths: ['/map', '/alerts', '/zones', '/locations'] },
+  { id: 'response', label: 'Security Officers / Response', icon: PeopleAltOutlined, paths: ['/officers', '/responses'] },
+  { id: 'communication', label: 'Users & Communication', icon: SmsOutlined, paths: ['/profile', '/users', '/notifications', '/announcements', '/sms'] },
+  { id: 'reports', label: 'Reports & Analytics', icon: InsightsOutlined, paths: ['/analytics', '/ml'] },
+  { id: 'administration', label: 'Administration / System', icon: SettingsOutlined, paths: ['/settings', '/audit-logs', '/content'] },
+];
+
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 function canAccessNavigation(path, role) {
-  if (['/users', '/sms', '/notifications', '/audit-logs', '/content', '/settings', '/locations'].includes(path)) return role === 'admin';
-  if (path === '/officers') return ['security', 'admin'].includes(role);
-  if (['/analytics', '/responses'].includes(path)) return ['security', 'admin'].includes(role);
+  const normalizedRole = normalizeRole(role);
+  if (path === '/map') return ['security', 'security_officer', 'admin'].includes(normalizedRole);
+  if (path === '/users') return normalizedRole === 'admin';
+  if (path === '/locations') return ['faculty', 'staff', 'security', 'security_officer', 'admin'].includes(normalizedRole);
+  if (['/audit-logs', '/content', '/sms'].includes(path)) return normalizedRole === 'admin';
+  if (path === '/officers') return ['security', 'security_officer', 'admin'].includes(normalizedRole);
+  if (path === '/analytics') return ['student', 'security', 'security_officer', 'admin'].includes(normalizedRole);
+  if (path === '/responses') return ['security', 'security_officer', 'admin'].includes(normalizedRole);
   return true;
+}
+
+function navigationItemLabel(label, role) {
+  return label === 'Reports & Analytics' && normalizeRole(role) === 'student' ? 'Analytics' : label;
+}
+
+function navigationGroupLabel(group, role) {
+  if (group.id === 'locations' && !canAccessNavigation('/map', role)) return 'Alerts & Zones';
+  if (group.id === 'administration' && normalizeRole(role) !== 'admin') return 'Account & Settings';
+  return group.label;
 }
 
 const toTitleCase = (value) =>
   String(value ?? 'incident')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-const statusLabel = (value) => value === 'investigating' ? 'In Progress' : toTitleCase(value);
+export const formatIncidentStatus = (value) => toTitleCase(value || 'Unknown');
+
+export function IncidentStatusBadge({ status, children, className = '' }) {
+  const normalizedStatus = String(status || 'unknown').trim().toLowerCase();
+  return (
+    <span className={`status-badge incident-status-badge ${normalizedStatus} whitespace-nowrap break-normal font-bold normal-case tracking-normal ${className}`} data-status={normalizedStatus}>
+      {children || formatIncidentStatus(normalizedStatus)}
+    </span>
+  );
+}
 
 const formatDate = (value) => (value ? new Date(value).toLocaleString() : 'Unknown');
 
@@ -85,35 +140,123 @@ export function DashboardLayout({
   activeSection = 'overview',
   incidents = [],
   notifications = [],
+  notificationsReady = true,
+  notificationsError = '',
   onNotificationsRead = () => { },
+  onNotificationOpen,
   onNavigate = () => { },
   onLogout = () => { },
   onClearHistory = async () => { },
+  onClearNotificationHistory = async () => { },
   clearHistoryLoading = false,
+  featureImageSection = activeSection,
   children,
 }) {
+  const [language, setLanguage] = useLanguage();
+  const theme = useAppearanceTheme(user?.user_id);
+  const [userPreferences, setUserPreferences] = useState(() => getUserPreferences(user?.user_id));
+  const t = (text) => translateDashboardText(text, language);
+  const [selectedNavigationGroup, setSelectedNavigationGroup] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const unreadCount = notifications.filter((notification) => !notification.read).length;
-  const activeIncidentCount = incidents.filter((incident) =>
-    ['reported', 'investigating', 'dispatched', 'on_scene'].includes(incident.status),
-  ).length;
+  const knownNotificationIds = useRef(new Set(notifications.map((notification) => String(notification.id))));
+  const notificationsInitialized = useRef(false);
+  const notificationToastTimeout = useRef(null);
+  const [realtimeNotification, setRealtimeNotification] = useState(null);
 
-  const initials = (user?.name || 'Campus User')
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  useEffect(() => {
+    setUserPreferences(getUserPreferences(user?.user_id));
+    const refreshPreferences = (event) => {
+      if (event.detail?.userId === user?.user_id) setUserPreferences(getUserPreferences(user?.user_id));
+    };
+    window.addEventListener('campussecure:preferences-changed', refreshPreferences);
+    return () => window.removeEventListener('campussecure:preferences-changed', refreshPreferences);
+  }, [user?.user_id]);
+  const dashboardAppRef = useRef(null);
+  const headerRef = useRef(null);
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+  useEffect(() => {
+    if (!notificationsReady) return undefined;
+    const newestNotification = notifications.find((notification) => (
+      !knownNotificationIds.current.has(String(notification.id))
+    ));
+    notifications.forEach((notification) => {
+      knownNotificationIds.current.add(String(notification.id));
+    });
+    if (!notificationsInitialized.current) {
+      notificationsInitialized.current = true;
+      if (!newestNotification?.realtimeOnly) return undefined;
+    }
+    if (!newestNotification || newestNotification.type === 'sos') return undefined;
+
+    setRealtimeNotification(newestNotification);
+    window.clearTimeout(notificationToastTimeout.current);
+    notificationToastTimeout.current = window.setTimeout(() => setRealtimeNotification(null), 5000);
+  }, [notifications, notificationsReady]);
+
+  useEffect(() => () => window.clearTimeout(notificationToastTimeout.current), []);
+
+  useLayoutEffect(() => {
+    const dashboardApp = dashboardAppRef.current;
+    const header = headerRef.current;
+    if (!dashboardApp || !header) return undefined;
+
+    const updateHeaderHeight = () => {
+      const height = header.getBoundingClientRect().height;
+      if (height > 0) dashboardApp.style.setProperty('--dashboard-header-height', `${height}px`);
+    };
+
+    updateHeaderHeight();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateHeaderHeight);
+      observer.observe(header);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => window.removeEventListener('resize', updateHeaderHeight);
+  }, []);
+
+  useEffect(() => {
+    setSelectedNavigationGroup(null);
+  }, [activeSection]);
+
+  const navigateFromLayout = (path) => {
+    setSelectedNavigationGroup(null);
+    onNavigate(path);
+  };
+
+  const sectionNames = {
+    overview: 'Overview', incidents: 'Active incidents', history: 'Incident history',
+    emergency: 'Emergency center', map: 'Live map', sos: 'SOS / Emergency',
+    evidence: 'Evidence', officers: 'Security officers', users: 'User management',
+    analytics: 'Analytics', responses: 'Responses', alerts: 'Alerts and zones',
+    announcements: 'Announcements', zones: 'Zones',
+    locations: 'Campus locations', notifications: 'Notifications', auditLogs: 'Audit logs',
+    content: 'Content management', settings: 'Settings', profile: 'Profile', detail: 'Incident',
+    ml: 'ML Insights'
+  };
+  const sectionLabel = t(sectionNames[activeSection] || activeSection);
+  const featureIllustration = featureIllustrations[featureImageSection];
+  const canShowFeatureIllustration = featureIllustration
+    && (!featureIllustration.path || canAccessNavigation(featureIllustration.path, user?.role))
+    && (!featureIllustration.adminOnly || normalizeRole(user?.role) === 'admin');
 
   return (
-    <div className="dashboard-app min-h-screen bg-slate-100 text-slate-900">
-      <div className="flex min-h-screen flex-col">
-          <header className="dashboard-header relative sticky top-0 z-20 border-b backdrop-blur-sm">
+    <div ref={dashboardAppRef} className="dashboard-app flex min-h-screen flex-col text-slate-900" lang={language} data-theme={theme} data-table-density={userPreferences.tableDensity} data-text-size={userPreferences.textSize} style={{ '--dashboard-header-height': '76px' }}>
+      <main className="dashboard-main flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
+          <header ref={headerRef} className="dashboard-header relative sticky top-0 z-20 shrink-0 border-b backdrop-blur-sm">
             <div className="dashboard-header-inner flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
               <div className="dashboard-header-leading flex min-w-0 items-center gap-3">
                 <div className="dashboard-header-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-                  <ShieldOutlined className="text-[22px]" />
+                  <img
+                    className="h-10 w-10 rounded-lg bg-white p-0.5 object-contain"
+                    src="/images/logo.png"
+                    alt="CampusSecure logo"
+                    width="40"
+                    height="40"
+                  />
                 </div>
 
                 <div className="dashboard-header-brand min-w-0">
@@ -121,7 +264,7 @@ export function DashboardLayout({
                     Campus<span>Secure</span>
                   </p>
                   <p className="dashboard-header-subtitle truncate text-[10px] font-black uppercase tracking-[0.16em]">
-                    Security Operations Center
+                    {t('Security Operations Center')}
                   </p>
                 </div>
 
@@ -129,20 +272,49 @@ export function DashboardLayout({
 
                 <div className="dashboard-header-context min-w-0">
                   <p className="truncate text-[10px] font-black uppercase tracking-[0.16em]">
-                    Campus security / {activeSection}
+                    {t('Campus security')} / {sectionLabel}
                   </p>
-                  <h1 className="mt-0.5 truncate text-base font-black tracking-tight sm:text-lg">
-                    {toTitleCase(activeSection)}
-                  </h1>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {canShowFeatureIllustration && (
+                      <img
+                        className="h-10 w-10 shrink-0 rounded-xl border border-sky-100 bg-sky-50 p-1 object-contain sm:h-12 sm:w-12"
+                        src={`/images/dashboard-features/${featureIllustration.file}`}
+                        alt={featureIllustration.alt}
+                        width="48"
+                        height="48"
+                      />
+                    )}
+                    <h1 className="dashboard-title mt-0.5 min-w-0 break-words text-base font-black tracking-tight sm:text-lg">
+                      {sectionLabel}
+                    </h1>
+                  </div>
                 </div>
               </div>
 
               <div className="dashboard-header-actions flex shrink-0 items-center gap-2 sm:gap-3">
+                <select
+                  aria-label={t('Language')}
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value)}
+                  className="dashboard-language-select h-10 max-w-[96px] rounded-xl border px-2 text-xs font-black shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                >
+                  <option value="en">English</option>
+                  <option value="am">አማርኛ</option>
+                </select>
+                {!notificationsOpen && <button
+                  type="button"
+                  onClick={onClearHistory}
+                  disabled={clearHistoryLoading}
+                  aria-label={t('Clear history')}
+                  className="dashboard-header-control inline-flex h-10 items-center rounded-xl border px-3 text-xs font-bold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {t(clearHistoryLoading ? 'Clearing...' : 'Clear history')}
+                </button>}
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen((open) => !open)}
                   className="dashboard-header-control flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1d35] lg:hidden"
-                  aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
+                  aria-label={t(mobileMenuOpen ? 'Close navigation' : 'Open navigation')}
                   aria-expanded={mobileMenuOpen}
                 >
                   {mobileMenuOpen ? <Close className="text-[18px]" /> : <Menu className="text-[18px]" />}
@@ -150,9 +322,13 @@ export function DashboardLayout({
 
                 <button
                   type="button"
-                  onClick={() => { setNotificationsOpen((open) => !open); onNotificationsRead(); }}
+                  onClick={() => {
+                    const opening = !notificationsOpen;
+                    setNotificationsOpen(opening);
+                    if (opening) onNotificationsRead();
+                  }}
                   className="dashboard-header-control relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1d35]"
-                  aria-label="Notifications"
+                  aria-label={t('Notifications')}
                   aria-expanded={notificationsOpen}
                 >
                   <NotificationsOutlined className="text-[18px]" />
@@ -160,25 +336,46 @@ export function DashboardLayout({
                 </button>
 
                 {notificationsOpen && <div className="absolute right-4 top-[4.5rem] z-30 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-2 pb-2"><strong className="text-sm text-[#0b1f3a]">Live notifications</strong><span className="text-xs font-bold text-slate-400">{unreadCount} unread</span></div>
-                  {notifications.length ? <div className="max-h-72 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} type="button" onClick={() => { setNotificationsOpen(false); onNavigate(notification.incident_id ? `/incidents/${notification.incident_id}` : '/incidents/active'); }} className={cn('block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-emerald-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} · ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` · ${notification.location_name}` : ''} · {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}</div> : <p className="px-2 py-5 text-center text-xs text-slate-500">No new notifications</p>}
+                  <div className="flex items-center justify-between border-b border-slate-100 px-2 pb-2"><strong className="text-sm text-[#0b1f3a]">{t('Live notifications')}</strong><div className="flex items-center gap-2"><span className="text-xs font-bold text-slate-400">{unreadCount} {t('unread')}</span><button type="button" onClick={onClearNotificationHistory} disabled={clearHistoryLoading} aria-label={t('Clear history')} className="text-xs font-bold text-slate-600 hover:text-red-700 disabled:opacity-60">{t(clearHistoryLoading ? 'Clearing...' : 'Clear history')}</button></div></div>
+                  {notifications.length ? <div className="max-h-72 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} type="button" onClick={() => {
+                    setNotificationsOpen(false);
+                    if (onNotificationOpen) onNotificationOpen(notification);
+                    else navigateFromLayout(notification.link || (notification.incident_id ? `/incidents/${notification.incident_id}` : '/alerts'));
+                  }} className={cn('dashboard-notification-action block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-emerald-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} · ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` · ${notification.location_name}` : ''} · {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}                  </div> : <p className="px-2 py-5 text-center text-xs text-slate-500">{notificationsError || (!notificationsReady ? t('Loading notifications...') : t('No new notifications'))}</p>}
+                </div>}
+                {realtimeNotification && <div className="fixed left-1/2 top-[4.5rem] z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-sky-200 bg-white p-4 shadow-xl ring-1 ring-sky-100" role="region" aria-label={t('Realtime notification')} aria-live="polite">
+                  <button type="button" className="block w-full text-left" onClick={() => {
+                    setRealtimeNotification(null);
+                    setNotificationsOpen(false);
+                    if (onNotificationOpen) onNotificationOpen(realtimeNotification);
+                    else navigateFromLayout(realtimeNotification.link || (realtimeNotification.incident_id ? `/incidents/${realtimeNotification.incident_id}` : '/alerts'));
+                  }}>
+                    <span className="block text-sm font-black text-[#0b1f3a]">{realtimeNotification.title}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">{realtimeNotification.message}</span>
+                  </button>
+                  <button type="button" aria-label={t('Dismiss notification')} className="absolute right-2 top-2 rounded p-1 text-slate-500 hover:bg-slate-100" onClick={() => setRealtimeNotification(null)}><Close className="text-[16px]" /></button>
                 </div>}
 
-                <button
+                {activeSection === 'history' && <button
                   type="button"
                   onClick={onClearHistory}
                   disabled={clearHistoryLoading}
-                  className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+                  aria-label={t('Clear incident history')}
+                  className="dashboard-header-clear-history inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-black text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 md:h-auto md:w-auto md:px-3 md:py-2"
                 >
-                  {clearHistoryLoading ? 'Clearing...' : 'Clear history'}
-                </button>
+                  <EventNoteOutlined className="text-[18px] md:hidden" />
+                  <span className="hidden md:inline">{t(clearHistoryLoading ? 'Clearing...' : 'Clear')}</span>
+                </button>}
 
                 <button
                   type="button"
-                  className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:inline-flex"
+                  aria-label={t('Live Feed')}
+                  title={t('Live Feed')}
+                  className="inline-flex h-10 w-auto items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-2.5 py-2 text-xs font-black text-[#155a91] shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 sm:h-auto sm:px-3"
                 >
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
-                  Live feed
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#155a91] ring-4 ring-sky-100" />
+                  <span className="sm:hidden">Live</span>
+                  <span className="hidden sm:inline">{t('Live Feed')}</span>
                 </button>
 
                 <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
@@ -186,7 +383,7 @@ export function DashboardLayout({
                   <div className="hidden sm:block">
                     <p className="text-sm font-bold text-[#0b1f3a]">{user?.name || 'Campus User'}</p>
                       <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
-                      {user?.role || 'Security'}
+                      {t(user?.role || 'Security')}
                     </p>
                   </div>
                 </div>
@@ -195,7 +392,7 @@ export function DashboardLayout({
                   type="button"
                   onClick={onLogout}
                   className="dashboard-header-control dashboard-header-logout flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1d35]"
-                  aria-label="Log out"
+                  aria-label={t('Log out')}
                 >
                   <Logout className="text-[18px]" />
                 </button>
@@ -203,16 +400,16 @@ export function DashboardLayout({
             </div>
 
             {mobileMenuOpen && (
-              <nav className="border-t border-slate-200 bg-[#f7fafd] px-4 py-3 shadow-inner lg:hidden" aria-label="Mobile navigation">
+              <nav className="border-t border-slate-200 bg-[#f7fafd] px-4 py-3 shadow-inner lg:hidden" aria-label={t('Mobile navigation')}>
                 <div className="grid gap-1 sm:grid-cols-2">
-                  {navigationItems.filter(({ path }) => canAccessNavigation(path, user?.role)).map(({ label, path, icon: Icon, badge }) => {
+                  {navigationItems.filter(({ path }) => canAccessNavigation(path, user?.role)).map(({ label, path, icon: Icon }) => {
                     const normalized = path.replace('/', '').split('/')[0] || 'overview';
                     const isActive = activeSection === normalized || (activeSection === 'overview' && path === '/dashboard');
                     return (
                       <button
                         key={path}
                         type="button"
-                        onClick={() => { setMobileMenuOpen(false); onNavigate(path); }}
+                        onClick={() => { setMobileMenuOpen(false); navigateFromLayout(path); }}
                         aria-current={isActive ? 'page' : undefined}
                         className={cn(
                           'flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2',
@@ -220,8 +417,7 @@ export function DashboardLayout({
                         )}
                       >
                         <Icon className="text-[18px]" />
-                        <span className="flex-1 text-sm font-bold">{label}</span>
-                        {badge && <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-black', isActive ? 'bg-emerald-400 text-[#08213d]' : 'bg-[#0b1f3a] text-white')}>{label.includes('Active') ? 9 : label === 'Emergency center' ? 4 : 5}</span>}
+                        <span className="flex-1 text-sm font-bold">{t(navigationItemLabel(label, user?.role))}</span>
                       </button>
                     );
                   })}
@@ -230,123 +426,105 @@ export function DashboardLayout({
             )}
           </header>
 
-          <div className="dashboard-shell flex min-h-0 flex-1">
+          <div className="dashboard-workspace flex">
             <Sidebar
               user={user}
-              activeSection={activeSection}
-              activeIncidentCount={activeIncidentCount}
-              onNavigate={onNavigate}
-              onLogout={onLogout}
-              initials={initials}
+              language={language}
+              selectedGroupId={selectedNavigationGroup}
+              onSelectGroup={setSelectedNavigationGroup}
             />
-
-            <main className="dashboard-main flex min-w-0 flex-1 flex-col bg-[#f7fafd]">
-              <div className={cn('dashboard-content flex-1 px-4 py-5 sm:px-6 lg:px-8', activeSection === 'overview' && 'dashboard-overview-content')}>{children}</div>
-            </main>
+          <div className={cn('dashboard-content min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8', activeSection === 'overview' && !selectedNavigationGroup && 'dashboard-overview-content')}>
+            {(activeSection !== 'overview' && activeSection !== 'detail' || selectedNavigationGroup) && (
+              <div className="dashboard-back-row">
+                <DashboardBackButton onBack={selectedNavigationGroup ? () => setSelectedNavigationGroup(null) : undefined} />
+              </div>
+            )}
+            {selectedNavigationGroup
+              ? <NavigationGroupContent group={navigationGroups.find(({ id }) => id === selectedNavigationGroup)} user={user} language={language} onNavigate={navigateFromLayout} />
+              : children}
           </div>
-          <PublicFooter />
-      </div>
-      <SafetyChatbot user={user} />
+          </div>
+          </main>
+          <PublicFooter dashboard />
+          <SafetyChatbot user={user} />
     </div>
   );
 }
 
-function Sidebar({ user, activeSection, activeIncidentCount, onNavigate, onLogout, initials }) {
+function Sidebar({ user, activeSection, language, selectedGroupId, onSelectGroup }) {
+  const t = (text) => translateDashboardText(text, language);
+  const visibleGroups = navigationGroups.filter(({ paths }) =>
+    paths.some((path) => canAccessNavigation(path, user?.role)),
+  );
   return (
-    <aside className="dashboard-sidebar hidden min-h-0 w-[280px] shrink-0 overflow-y-auto text-white lg:flex lg:flex-col">
-      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary-blue-accent)] text-[var(--primary-blue-deep)] shadow-[0_8px_24px_rgba(15,71,120,0.18)]">
-          <ShieldOutlined className="text-[24px]" />
-        </div>
-
-        <div>
-          <div className="text-xl font-black tracking-tight text-white">
-            Campus<span className="text-[var(--primary-blue-accent)]">Secure</span>
-          </div>
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-100/70">
-            Security Operations Center
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 pt-4">
-        <p className="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-100/70">
-          Workspace
-        </p>
-
-        <nav className="mt-2 space-y-1">
-          {navigationItems.filter(({ path }) => canAccessNavigation(path, user?.role)).map(({ label, path, icon: Icon, badge }) => {
-            const normalized = path.replace('/', '').split('/')[0] || 'overview';
-            const isActive = activeSection === normalized || (activeSection === 'overview' && path === '/dashboard');
-
-            return (
-              <button
-                key={path}
-                type="button"
-                onClick={() => onNavigate(path)}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'dashboard-nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-blue-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--primary-blue)]',
-                  isActive ? 'bg-[var(--primary-blue-hover)] text-white shadow-[0_8px_20px_rgba(15,71,120,0.18)]' : 'text-blue-100 hover:bg-[var(--primary-blue-hover)] hover:text-white',
-                )}
-              >
-                <span
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg',
-                    isActive ? 'bg-white/20 text-white' : 'bg-white/10 text-blue-100',
-                  )}
-                >
-                  <Icon className="text-[18px]" />
-                </span>
-
-                <span className="flex-1 text-sm font-bold">{label}</span>
-
-                {badge && (
-                  <span
-                    className={cn(
-                      'rounded-full px-1.5 py-0.5 text-[10px] font-black',
-                      isActive ? 'bg-white/20 text-white' : 'bg-[var(--primary-blue-accent)] text-[var(--primary-blue-deep)]',
-                    )}
-                  >
-                    {label.includes('Active') ? 9 : label === 'Emergency center' ? 4 : 5}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="mt-6 px-4">
-        <div className="rounded-2xl border border-[var(--primary-blue-accent)]/25 bg-white/10 p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[var(--primary-blue-accent)]">
-            <TaskAltOutlined className="text-[18px]" />
-          </div>
-
-          <p className="text-sm font-black text-white">Response readiness</p>
-          <p className="mt-1 text-xs leading-5 text-blue-100/75">
-            Critical incidents and officer assignments are monitored in real time.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-auto border-t border-white/10 px-4 py-4">
-        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-          <UserAvatar user={user} size="h-10 w-10" />
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black text-white">CampusSecure...</p>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-blue-100/70">
-              {user?.role || 'Security'}
-            </p>
-          </div>
-
-          <span className="flex items-center gap-1.5 rounded-full bg-[var(--primary-blue-deep)] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white">
-            <i className="h-1.5 w-1.5 rounded-full bg-[var(--primary-blue-accent)]" /> ADMIN
-          </span>
-        </div>
+    <aside className="dashboard-sidebar hidden min-h-0 w-[280px] shrink-0 overflow-hidden text-white lg:flex lg:flex-col">
+      <div className="dashboard-sidebar-navigation flex min-h-0 flex-1 flex-col gap-1 px-3 py-4">
+        {visibleGroups.map((group) => {
+          const { id, icon: Icon } = group;
+          const isSelected = selectedGroupId === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onSelectGroup(id)}
+              aria-pressed={isSelected}
+              className={cn(
+                'dashboard-nav-item flex w-full shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-blue-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--primary-blue)]',
+                isSelected ? 'bg-[var(--primary-blue-hover)] text-white shadow-[0_8px_20px_rgba(15,71,120,0.18)]' : 'text-blue-100 hover:bg-[var(--primary-blue-hover)] hover:text-white',
+              )}
+            >
+              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', isSelected ? 'bg-white/20 text-white' : 'bg-white/10 text-blue-100')}>
+                <Icon className="text-[18px]" />
+              </span>
+              <span>{t(navigationGroupLabel(group, user?.role))}</span>
+            </button>
+          );
+        })}
       </div>
     </aside>
+  );
+}
+
+function NavigationGroupContent({ group, user, language, onNavigate }) {
+  const t = (text) => translateDashboardText(text, language);
+  if (!group) return null;
+
+  const groupItems = navigationItems.filter(({ path }) =>
+    group.paths.includes(path) && canAccessNavigation(path, user?.role),
+  );
+  const groupLabel = navigationGroupLabel(group, user?.role);
+
+  return (
+    <section className="mx-auto w-full max-w-[1500px] space-y-6">
+      <div className="min-w-0 flex-1">
+        <p className="dashboard-eyebrow">{t('Workspace Lists')}</p>
+        <h2 className="mt-1 text-2xl font-black text-[#0b1f3a]">{t(groupLabel)}</h2>
+        <p className="mt-2 text-sm text-slate-600">Choose a feature to open its existing workspace.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {groupItems.map(({ label, path, icon: Icon }) => (
+          <button
+            key={path}
+            type="button"
+            onClick={() => onNavigate(path)}
+            className={cn(
+              'dashboard-panel dashboard-navigation-action flex gap-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700',
+              group.id === 'incidents'
+                ? 'min-h-32 flex-col items-center justify-center px-5 py-6 text-center'
+                : 'min-h-24 items-center text-left',
+            )}
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+              <Icon className="text-[22px]" />
+            </span>
+            <span className={cn(
+              'font-black text-[#0b1f3a]',
+              group.id === 'incidents' ? 'w-full break-words text-center' : 'flex-1',
+            )}>{t(navigationItemLabel(label, user?.role))}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -359,7 +537,10 @@ export function IncidentTable({
   onAssign = () => { },
   assignmentLoading = '',
   privileged = true,
+  canAssign = privileged,
 }) {
+  const [language] = useLanguage();
+  const t = (text) => translateDashboardText(text, language);
   const visibleIncidents = useMemo(() => incidents || [], [incidents]);
 
   if (loading) {
@@ -367,7 +548,7 @@ export function IncidentTable({
       <div className="rounded-3xl border border-slate-200/80 bg-white p-8 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
         <div className="flex items-center justify-center gap-3 text-slate-600">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
-          Loading incidents...
+          {t('Loading incidents...')}
         </div>
       </div>
     );
@@ -379,9 +560,9 @@ export function IncidentTable({
         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
           <ReportProblemOutlined className="text-[24px]" />
         </div>
-        <h3 className="text-xl font-black text-[#0b1f3a]">No incidents found</h3>
+        <h3 className="text-xl font-black text-[#0b1f3a]">{t('No incidents found')}</h3>
         <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
-          There are no records matching the current filters or the queue is clear.
+          {t('There are no records matching the current filters or the queue is clear.')}
         </p>
       </div>
     );
@@ -389,42 +570,46 @@ export function IncidentTable({
 
   return (
     <div className="incident-table-shell overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.045)]">
-      <div className="incident-table-scroll overflow-x-auto">
+      <div className="incident-table-scroll dashboard-table-scroll overflow-x-auto">
         <table className="incident-table w-full min-w-[1080px] border-separate border-spacing-0 xl:min-w-0">
           <thead className="bg-[#f4f8fc]">
             <tr>
               <th className="incident-column incident-column-main px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Incident
+                {t('Incident')}
+              </th>
+              <th className="incident-column incident-column-compact status-cell px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                {t('Severity')}
               </th>
               <th className="incident-column incident-column-compact px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Severity
-              </th>
-              <th className="incident-column incident-column-compact px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Status
+                {t('Status')}
               </th>
               <th className="incident-column px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Location
+                {t('Location')}
               </th>
               <th className="incident-column px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Reporter
+                {t('Reporter')}
               </th>
               <th className="incident-column px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Officer
+                {t('Officer')}
               </th>
               <th className="incident-column incident-column-updated px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Updated
+                {t('Updated')}
               </th>
               <th className="incident-column incident-column-action px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                Action
+                {t('Action')}
               </th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-200 bg-white">
             {visibleIncidents.map((incident) => {
+              const incidentStatus = incident.status || 'reported';
               const assignedResponse = incident?.responses?.[0];
-              const responder = assignedResponse?.responder ?? 'Unassigned';
-              const assignedOfficerId = assignedResponse?.responder_id || responder?.user_id || '';
+              const assignmentWasDeclined = ['declined'].includes(
+                String(assignedResponse?.assignment_status || assignedResponse?.status || '').toLowerCase(),
+              );
+              const responder = assignmentWasDeclined ? 'Unassigned' : assignedResponse?.responder ?? 'Unassigned';
+              const assignedOfficerId = assignmentWasDeclined ? '' : assignedResponse?.responder_id || responder?.user_id || '';
               const isAssignmentLoading = assignmentLoading === incident.incident_id;
 
               return (
@@ -432,7 +617,7 @@ export function IncidentTable({
                   key={incident.incident_id ?? incident.id ?? `${incident.type}-${incident.created_at}`}
                   className="transition hover:bg-emerald-50/30"
                 >
-                  <td className="incident-cell px-4 py-3.5 align-top">
+                  <td className="incident-cell incident-description-cell px-4 py-3.5 align-top">
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                         <WarningAmberOutlined className="text-[18px]" />
@@ -441,49 +626,48 @@ export function IncidentTable({
                       <div>
                         <p className="text-base font-black text-[#0b1f3a]">{toTitleCase(incident.type)}</p>
                         <p className="mt-1 max-w-[220px] text-sm leading-5 text-slate-600">
-                          {incident.description || 'No description provided'}
+                          {t(incident.description || 'No description provided')}
                         </p>
                       </div>
                     </div>
                   </td>
 
-                  <td className="incident-cell px-4 py-3.5 align-top">
+                  <td className="incident-cell incident-location-cell px-4 py-3.5 align-top">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]',
+                        'severity-badge inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]',
+                        incident.severity || 'medium',
                         severityClasses[incident.severity] || 'border-slate-200 bg-slate-100 text-slate-700',
                       )}
                     >
-                      {incident.severity || 'medium'}
+                      {t(toTitleCase(incident.severity || 'medium'))}
                     </span>
                   </td>
 
-                  <td className="incident-cell px-4 py-3.5 align-top">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]',
-                        statusClasses[incident.status] || 'border-slate-200 bg-slate-100 text-slate-700',
-                      )}
-                    >
-                      {statusLabel(incident.status)}
-                    </span>
+                  <td className="incident-cell status-cell px-4 py-3.5 align-top">
+                    <div className="flex flex-col items-start gap-1.5">
+                      <IncidentStatusBadge status={incidentStatus}>
+                        {t(formatIncidentStatus(incidentStatus))}
+                      </IncidentStatusBadge>
+                      {assignmentWasDeclined && <IncidentStatusBadge status="declined">{t('Declined')}</IncidentStatusBadge>}
+                    </div>
                   </td>
 
                   <td className="incident-cell px-4 py-3.5 align-top">
                     <div className="text-sm font-bold text-slate-800">
-                      {incident.location_name || incident.building || 'Location unavailable'}
+                      {t(incident.location_name || incident.building || 'Location unavailable')}
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      {incident.room ? `${incident.room}` : 'Campus'}
+                      {incident.room ? `${incident.room}` : t('Campus')}
                     </div>
                   </td>
 
-                  <td className="incident-cell px-4 py-3.5 align-top text-sm font-semibold text-slate-700">
-                    {incident.is_anonymous ? <span>Anonymous</span> : incident.reporter ? <div className="flex items-center gap-2"><UserAvatar user={incident.reporter} size="h-8 w-8" /><span>{incident.reporter.name || 'Campus member'}</span></div> : <span>Campus member</span>}
+                  <td className="incident-cell incident-reporter-cell px-4 py-3.5 align-top text-sm font-semibold text-slate-700">
+                    {incident.reporter?.name || t(incident.is_anonymous ? 'Anonymous' : 'Campus member')}
                   </td>
 
                   <td className="incident-cell px-4 py-3.5 align-top text-sm font-semibold text-slate-700">
-                    {typeof responder === 'string' ? responder : responder ? <div className="flex items-center gap-2"><UserAvatar user={responder} size="h-8 w-8" /><span>{responder.name || 'Security officer'}</span></div> : 'Unassigned'}
+                    {typeof responder === 'string' ? t(responder) : responder?.name || t('Unassigned')}
                   </td>
 
                   <td className="incident-cell px-4 py-3.5 align-top text-sm text-slate-600">
@@ -491,42 +675,49 @@ export function IncidentTable({
                   </td>
 
                   <td className="incident-cell incident-action-cell whitespace-nowrap px-4 py-3.5 align-top">
-                    <div className="flex items-center gap-2">
+                    <div className="action-buttons flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => onView(incident)}
                         className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                       >
-                        View
+                        {t('View')}
                       </button>
 
                       {privileged && (
                         <select
-                          value={incident.status || 'reported'}
+                          value={incidentStatus}
                           onChange={(event) => onStatusChange(incident, event.target.value)}
                           className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                          aria-label={`Change status for ${incident.type}`}
+                          aria-label={`${t('Change status for')} ${incident.type}`}
                         >
-                          {Object.keys(statusClasses).map((status) => (
+                          {!editableIncidentStatuses.includes(incidentStatus) && (
+                            <option value={incidentStatus}>
+                              {t(formatIncidentStatus(incidentStatus))}
+                            </option>
+                          )}
+                          {editableIncidentStatuses.map((status) => (
                             <option key={status} value={status}>
-                              {statusLabel(status)}
+                              {t(formatIncidentStatus(status))}
                             </option>
                           ))}
                         </select>
                       )}
 
-                      {privileged && officers.length > 0 && (
+                      {canAssign && officers.length > 0 && (
                         <select
                           value={assignedOfficerId}
                           onChange={(event) => onAssign(incident, event.target.value)}
                           disabled={Boolean(assignedOfficerId) || isAssignmentLoading}
                           className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          aria-label={`Assign officer for ${incident.type}`}
+                          aria-label={`${t('Assign officer for')} ${incident.type}`}
                         >
-                          <option value="">{isAssignmentLoading ? 'Assigning...' : 'Assign officer'}</option>
-                          {officers.map((officer) => (
-                            <option key={officer.user_id} value={officer.user_id} disabled={officer.availability_status !== 'available'}>
-                              {officer.name}{officer.availability_status !== 'available' ? ` (${toTitleCase(officer.availability_status)})` : ''}
+                          <option value="">{t(isAssignmentLoading ? 'Assigning...' : 'Assign officer')}</option>
+                          {officers
+                            .filter((officer) => officer.assignable !== false && (!officer.availability_status || officer.availability_status === 'available'))
+                            .map((officer) => (
+                            <option key={officer.user_id} value={officer.user_id}>
+                              {officer.name}
                             </option>
                           ))}
                         </select>
@@ -631,25 +822,43 @@ export default function DashboardLayoutDemo() {
 
 export function UserAvatar({ user, size = 'h-10 w-10' }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const normalizedRole = String(user?.role || '').toLowerCase().replace(/[-\s]+/g, '_');
-  const roleProfile = {
-    student: { label: 'Student', icon: SchoolOutlined, className: 'bg-sky-100 text-sky-800' },
-    security: { label: 'Security officer', icon: ShieldOutlined, className: 'bg-emerald-100 text-emerald-800' },
-    admin: { label: 'Administrator', icon: AdminPanelSettingsOutlined, className: 'bg-amber-100 text-amber-800' },
-    unknown: { label: 'User', icon: PersonOutline, className: 'bg-slate-200 text-slate-700' },
-  };
-  const profile = roleProfile[normalizedRole] || roleProfile.unknown;
-  const Icon = profile.icon;
-  const displayName = user?.name || profile.label;
-  const alt = `${displayName} ${profile.label.toLowerCase()} profile`;
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [user?.profile_photo_url, user?.user_id]);
+  const safeName = String(user?.name || 'User').trim() || 'User';
+  const normalizedRole = String(user?.role || 'user').trim().toLowerCase().replace(/[_-]+/g, ' ');
+  const roleLabel = normalizedRole === 'security' || normalizedRole === 'security officer'
+    ? 'security officer'
+    : normalizedRole === 'admin' || normalizedRole === 'administrator'
+      ? 'administrator'
+      : ['student', 'faculty', 'staff'].includes(normalizedRole)
+        ? normalizedRole
+        : 'user';
+  const profileLabel = `${safeName} ${roleLabel} profile`;
+  const initials = safeName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'U';
 
   if (user?.profile_photo_url && !imageFailed) {
-    return <img className={`${size} rounded-lg object-cover ring-4 ring-slate-100`} src={user.profile_photo_url} alt={alt} onError={() => setImageFailed(true)} />;
+    return (
+      <ProfilePhotoPreview
+        src={user.profile_photo_url}
+        alt={profileLabel}
+        className={`${size} rounded-lg object-cover ring-4 ring-slate-100`}
+        onError={() => setImageFailed(true)}
+      />
+    );
   }
 
-  return <div className={`flex ${size} items-center justify-center rounded-lg ${profile.className} ring-4 ring-slate-100`} role="img" aria-label={alt}><Icon className="text-[60%]" aria-hidden="true" /></div>;
+  return (
+    <div
+      className={`flex ${size} items-center justify-center rounded-lg bg-[#0b1f3a] text-xs font-black text-white ring-4 ring-slate-100`}
+      role="img"
+      aria-label={profileLabel}
+      title={profileLabel}
+    >
+      {initials}
+    </div>
+  );
 }

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Icon } from '../components/ui';
 import { socketService } from '../services/socket';
 import { updateIncident } from '../store/incidentSlice';
 

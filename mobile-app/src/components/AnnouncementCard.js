@@ -1,6 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { colors } from './ui';
+import { Icon, colors } from './ui';
 
 const priorityStyles = {
   low: { label: 'Low', color: '#16734A', background: '#E7F5ED' },

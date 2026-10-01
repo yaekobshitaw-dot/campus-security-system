@@ -3,6 +3,7 @@ const User = require('./User');
 const UserIdentity = require('./UserIdentity');
 const OAuthLoginTicket = require('./OAuthLoginTicket');
 const Incident = require('./Incident');
+const IncidentHistoryClear = require('./IncidentHistoryClear');
 const Alert = require('./Alert');
 const Response = require('./Response');
 const SmsMessage = require('./SmsMessage');
@@ -46,6 +47,7 @@ module.exports = {
 	UserIdentity,
 	OAuthLoginTicket,
 	Incident,
+	IncidentHistoryClear,
 	Alert,
 	Response,
 	SmsMessage,

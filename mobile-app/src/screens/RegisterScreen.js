@@ -11,8 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
+import { Icon } from '../components/ui';
 import { register } from '../store/authSlice';
 
 const RegisterScreen = ({ navigation }) => {
@@ -76,7 +76,7 @@ const RegisterScreen = ({ navigation }) => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
             <Icon name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.title}>Create Account</Text>
@@ -144,6 +144,8 @@ const RegisterScreen = ({ navigation }) => {
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             >
               <Icon
                 name={showPassword ? 'visibility' : 'visibility-off'}
@@ -166,6 +168,8 @@ const RegisterScreen = ({ navigation }) => {
             <TouchableOpacity
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               style={styles.eyeIcon}
+              accessibilityRole="button"
+              accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
             >
               <Icon
                 name={showConfirmPassword ? 'visibility' : 'visibility-off'}

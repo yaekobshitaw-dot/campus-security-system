@@ -1,0 +1,220 @@
+.dashboard-app :is(h1, h2, h3) {
+  color: var(--ink-900, #172b3a);
+  font-weight: 700;
+}
+
+.dashboard-app :is(h1, h2, h3) + p {
+  color: #426b8a;
+}
+
+.dashboard-app .dashboard-table-scroll,
+.dashboard-app .incident-table-scroll,
+.dashboard-app div:has(> table.dashboard-table),
+.dashboard-app div:has(> table.incident-table) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: #6b9dbc #e8f0f6;
+  scrollbar-width: thin;
+}
+
+.dashboard-app .dashboard-table-scroll::-webkit-scrollbar,
+.dashboard-app .incident-table-scroll::-webkit-scrollbar,
+.dashboard-app div:has(> table.dashboard-table)::-webkit-scrollbar,
+.dashboard-app div:has(> table.incident-table)::-webkit-scrollbar {
+  height: 9px;
+}
+
+.dashboard-app .dashboard-table-scroll::-webkit-scrollbar-track,
+.dashboard-app .incident-table-scroll::-webkit-scrollbar-track,
+.dashboard-app div:has(> table.dashboard-table)::-webkit-scrollbar-track,
+.dashboard-app div:has(> table.incident-table)::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #e8f0f6;
+}
+
+.dashboard-app .dashboard-table-scroll::-webkit-scrollbar-thumb,
+.dashboard-app .incident-table-scroll::-webkit-scrollbar-thumb,
+.dashboard-app div:has(> table.dashboard-table)::-webkit-scrollbar-thumb,
+.dashboard-app div:has(> table.incident-table)::-webkit-scrollbar-thumb {
+  border: 2px solid #e8f0f6;
+  border-radius: 999px;
+  background: #6b9dbc;
+}
+
+.dashboard-app table {
+  display: table;
+  width: 100%;
+  min-width: max(100%, 760px);
+  max-width: none;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.dashboard-app table :is(th, td) {
+  padding: 11px 15px;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.dashboard-app table th {
+  color: var(--ink-900, #172b3a);
+  font-weight: 700;
+}
+
+.dashboard-app table :is(.description-cell, .location-cell, .reporter-cell, .details-cell) {
+  min-width: 220px;
+  max-width: 420px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.dashboard-app .incident-table {
+  min-width: 1080px;
+  width: 100%;
+  table-layout: auto;
+}
+
+.dashboard-app .incident-table .incident-column-main,
+.dashboard-app .incident-table .incident-cell {
+  min-width: 270px;
+}
+
+.dashboard-app .incident-table .incident-cell {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.dashboard-app .incident-table .incident-description-cell {
+  max-width: 420px;
+  overflow-wrap: break-word;
+}
+
+.dashboard-app .incident-table .incident-location-cell,
+.dashboard-app .incident-table .incident-reporter-cell {
+  min-width: 160px;
+  max-width: 280px;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.dashboard-app .incident-table .incident-column-action,
+.dashboard-app .incident-table .incident-action-cell,
+.dashboard-app table .action-cell {
+  min-width: 300px;
+  white-space: nowrap;
+}
+
+.dashboard-app table :is(.action-cell, td:last-child:has(button)) > div,
+.dashboard-app table .action-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-app table :is(.action-cell, td:last-child:has(button)) button,
+.dashboard-app table .action-cell .table-action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.dashboard-app table .status-badge,
+.dashboard-app table .severity-badge {
+  white-space: nowrap;
+}
+
+.dashboard-app table :is(th.status-cell, td.status-cell, td.status, td[data-label="Status"]) {
+  width: 1%;
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+.dashboard-app table :is(.status-badge, .severity-badge, .sms-status-badge) {
+  display: inline-flex;
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.dashboard-app .dashboard-navigation-action {
+  border-color: #d4af37 !important;
+  background: #d4af37 !important;
+  color: #172b3a !important;
+}
+
+.dashboard-app .dashboard-navigation-action:hover {
+  border-color: #b8860b !important;
+  background: #b8860b !important;
+  color: #172b3a !important;
+}
+
+.dashboard-app .dashboard-navigation-action:focus-visible {
+  outline: 3px solid #b8860b !important;
+  outline-offset: 3px;
+}
+
+.dashboard-app .dashboard-navigation-action .text-sky-700 {
+  background: rgb(255 255 255 / 0.45);
+  color: #172b3a;
+}
+
+.dashboard-app .audit-table {
+  min-width: 940px;
+}
+
+.dashboard-app .recipient-table {
+  min-width: 680px;
+}
+
+.dashboard-app .sms-history-table {
+  min-width: 980px;
+}
+
+.dashboard-app .notification-table {
+  min-width: 960px;
+}
+
+.dashboard-app .user-table {
+  min-width: 900px;
+}
+
+.dashboard-app .dashboard-panel:has(> .dashboard-table-scroll),
+.dashboard-app .incident-table-shell:has(> .incident-table-scroll) {
+  min-width: 0;
+}
+
+.dashboard-app > .dashboard-footer-compact {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 0.5rem;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .dashboard-app table :is(th, td) {
+    padding: 9px 13px;
+  }
+}

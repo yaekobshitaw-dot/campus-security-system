@@ -1,0 +1,11 @@
+const DEFAULT_CAMPUS_LOCATION_MATCH_RADIUS_METERS = 100;
+const configuredRadius = process.env.CAMPUS_LOCATION_MATCH_RADIUS_METERS;
+const CAMPUS_LOCATION_MATCH_RADIUS_METERS = configuredRadius === undefined
+  ? DEFAULT_CAMPUS_LOCATION_MATCH_RADIUS_METERS
+  : Number(configuredRadius);
+
+if (!Number.isFinite(CAMPUS_LOCATION_MATCH_RADIUS_METERS) || CAMPUS_LOCATION_MATCH_RADIUS_METERS < 0) {
+  throw new Error('CAMPUS_LOCATION_MATCH_RADIUS_METERS must be a non-negative number');
+}
+
+module.exports = { CAMPUS_LOCATION_MATCH_RADIUS_METERS };

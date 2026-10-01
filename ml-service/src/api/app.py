@@ -1,8 +1,8 @@
 ﻿# src/api/app.py - Updated with CORS
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 import random
 import uvicorn
 
@@ -25,6 +25,57 @@ class IncidentData(BaseModel):
     building: Optional[str] = ""
     room: Optional[str] = ""
 
+class HotzoneData(BaseModel):
+    campus_locations: List[Dict[str, Any]] = Field(default_factory=list)
+    incidents: List[Dict[str, Any]] = Field(default_factory=list)
+
+RISK_SCORES = {
+    'fire': 0.8,
+    'security_threat': 0.9,
+    'medical': 0.7,
+    'suspicious_package': 0.6,
+    'assault': 0.9,
+    'theft': 0.5,
+    'other': 0.3
+}
+
+def calculate_hotzones(campus_locations, incidents):
+    hotzones = []
+    for location in campus_locations:
+        name = str(location.get('name') or '').strip()
+        location_id = location.get('location_id')
+        if not name or not location_id or location.get('is_active') is False:
+            continue
+
+        normalized_name = name.casefold()
+        matching_incidents = [
+            incident for incident in incidents
+            if (
+                location_id is not None
+                and incident.get('campus_location_id') is not None
+                and str(incident.get('campus_location_id')) == str(location_id)
+            ) or any(
+                str(incident.get(field) or '').strip().casefold() == normalized_name
+                for field in ('location_name', 'building')
+            )
+        ]
+        if not matching_incidents:
+            continue
+
+        scores = [RISK_SCORES.get(str(incident.get('type') or ''), 0.5) for incident in matching_incidents]
+        hotzones.append({
+            'location_id': location_id,
+            'location': name,
+            'risk_score': round(sum(scores) / len(scores), 2),
+            'incident_count': len(matching_incidents),
+            'incident_types': sorted({
+                str(incident['type'])
+                for incident in matching_incidents
+                if incident.get('type')
+            })
+        })
+    return hotzones
+
 @app.get("/")
 async def root():
     return {
@@ -38,16 +89,7 @@ async def health():
 
 @app.post("/predict/risk")
 async def predict_risk(incident: IncidentData):
-    risk_scores = {
-        'fire': 0.8,
-        'security_threat': 0.9,
-        'medical': 0.7,
-        'suspicious_package': 0.6,
-        'assault': 0.9,
-        'theft': 0.5,
-        'other': 0.3
-    }
-    base_risk = risk_scores.get(incident.type, 0.5)
+    base_risk = RISK_SCORES.get(incident.type, 0.5)
     confidence = round(random.uniform(0.6, 0.9), 2)
     
     if base_risk >= 0.8:
@@ -76,28 +118,10 @@ async def predict_risk(incident: IncidentData):
     }
 
 @app.post("/detect/hotzones")
-async def detect_hotzones():
-    hotzones = [
-        {
-            "location": "Science Block 3",
-            "risk_score": 0.85,
-            "incident_count": 12,
-            "incident_types": ["fire", "security_threat", "theft"]
-        },
-        {
-            "location": "Main Parking Lot",
-            "risk_score": 0.75,
-            "incident_count": 8,
-            "incident_types": ["theft", "vandalism"]
-        },
-        {
-            "location": "Library",
-            "risk_score": 0.45,
-            "incident_count": 5,
-            "incident_types": ["medical", "security_threat"]
-        }
-    ]
-    return {"hotzones": hotzones}
+async def detect_hotzones(data: HotzoneData):
+    return {
+        "hotzones": calculate_hotzones(data.campus_locations, data.incidents)
+    }
 
 @app.post("/classify/incident")
 async def classify_incident(incident: IncidentData):

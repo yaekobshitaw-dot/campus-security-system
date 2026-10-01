@@ -1,29 +1,45 @@
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
-import './public.css';
+import { translateDashboardText, useLanguage } from '../utils/language';
 
-const AuthShell = ({ eyebrow, title, children }) => (
-  <div className="auth-page">
-    <div className="auth-aside">
-      <Link to="/" className="brand">Campus<span>Secure</span></Link>
-      <div className="auth-aside-copy">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        <p>Secure access for authorized campus members.</p>
+const oauthExchangeRequests = new Map();
+
+const clearOAuthCallbackUrl = () => {
+  try {
+    window.history.replaceState({}, '', window.location.pathname + (window.location.hash || ''));
+  } catch {
+    // Ignore unsupported history replacement in non-browser test runners.
+  }
+};
+
+const AuthShell = ({ eyebrow, title, children }) => {
+  const [language] = useLanguage();
+  const t = (text) => translateDashboardText(text, language);
+  return (
+    <div className="auth-page" lang={language}>
+      <div className="auth-aside">
+        <Link to="/" className="brand">Campus<span>Secure</span></Link>
+        <div className="auth-aside-copy">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+          <p>{t('Secure access for authorized campus members.')}</p>
+        </div>
+      </div>
+      <div className="auth-content">
+        <Link className="back-home" to="/">{t('Back to CampusSecure')}</Link>
+        <div className="auth-form-wrap">{children}</div>
       </div>
     </div>
-    <div className="auth-content">
-      <Link className="back-home" to="/">Back to CampusSecure</Link>
-      <div className="auth-form-wrap">{children}</div>
-    </div>
-  </div>
-);
+  );
+};
 
 const PasswordInput = ({ label, value, onChange, name = 'password', autoComplete, minLength }) => {
   const [visible, setVisible] = useState(false);
+  const [language] = useLanguage();
+  const t = (text) => translateDashboardText(text, language);
 
   return (
     <label className="password-field">
@@ -42,8 +58,8 @@ const PasswordInput = ({ label, value, onChange, name = 'password', autoComplete
           type="button"
           className="password-toggle"
           onClick={() => setVisible((current) => !current)}
-          aria-label={visible ? 'Hide password' : 'Show password'}
-          title={visible ? 'Hide password' : 'Show password'}
+          aria-label={t(visible ? 'Hide password' : 'Show password')}
+          title={t(visible ? 'Hide password' : 'Show password')}
         >
           {visible ? <VisibilityOff size={18} /> : <Visibility size={18} />}
         </button>
@@ -52,7 +68,12 @@ const PasswordInput = ({ label, value, onChange, name = 'password', autoComplete
   );
 };
 
-export function OAuthButtons() {
+export function OAuthButtons({
+  continueLabel = 'Continue with Google',
+  connectingLabel = 'Connecting...',
+  dividerLabel = 'OR',
+  className = ''
+}) {
   const [loadingProvider, setLoadingProvider] = useState('');
   const [error, setError] = useState('');
 
@@ -70,10 +91,24 @@ export function OAuthButtons() {
   };
 
   return (
-    <div className="oauth-options">
-      <div className="oauth-divider"><span>OR</span></div>
-      <button type="button" className="button oauth-button" disabled={Boolean(loadingProvider)} onClick={() => beginOAuth('google')}>{loadingProvider === 'google' ? 'Connecting...' : 'Continue with Google'}</button>
-      <button type="button" className="button oauth-button" disabled={Boolean(loadingProvider)} onClick={() => beginOAuth('microsoft')}>{loadingProvider === 'microsoft' ? 'Connecting...' : 'Continue with Microsoft'}</button>
+    <div className={`oauth-options ${className}`.trim()}>
+      <div className="oauth-divider"><span>{dividerLabel}</span></div>
+      <button type="button" className="button oauth-button" aria-label={continueLabel} disabled={Boolean(loadingProvider)} onClick={() => beginOAuth('google')}>
+        {loadingProvider === 'google' ? connectingLabel : (
+          <>
+            <span className="oauth-icon" aria-hidden="true">
+              {/* Google "G" mark as inline SVG */}
+              <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.26 1.53 8.14 2.82l6.01-6.01C35.99 3.08 30.38 1 24 1 14.73 1 6.92 6.73 3.41 14.91l7.3 5.66C12.98 14.2 17.9 9.5 24 9.5z"/>
+                <path fill="#34A853" d="M46.5 24c0-1.6-.14-2.78-.44-4.01H24v7.58h12.9c-.56 3.02-2.26 5.6-4.86 7.32l7.41 5.77C44.86 36.54 46.5 30.71 46.5 24z"/>
+                <path fill="#4A90E2" d="M10.71 29.57A14.99 14.99 0 0 1 9.5 24c0-1.56.25-3.06.71-4.47L3 13.87A23.99 23.99 0 0 0 1 24c0 3.85.92 7.49 2.56 10.78l7.15-5.21z"/>
+                <path fill="#FBBC05" d="M24 46.5c6.38 0 11.99-2.08 16.15-5.64l-7.41-5.77C30.26 36.6 27.54 38 24 38c-6.1 0-11.02-4.7-13.29-11.3l-7.3 5.66C6.92 41.77 14.73 46.5 24 46.5z"/>
+              </svg>
+            </span>
+            <span>{continueLabel}</span>
+          </>
+        )}
+      </button>
       {error && <div className="form-error" role="alert">{error}</div>}
     </div>
   );
@@ -81,42 +116,70 @@ export function OAuthButtons() {
 
 export function LoginScreen({ onLogin }) {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const location = useLocation();
+  const [language] = useLanguage();
+  const t = (text) => translateDashboardText(text, language);
+  const [form, setForm] = useState({ email: '', phone: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    // Show a transient success message passed via navigation state (e.g., after reset password)
+    const passed = location.state?.message;
+    if (typeof passed === 'string' && passed.trim()) {
+      setSuccessMessage(passed);
+      const t = setTimeout(() => setSuccessMessage(''), 5000); // auto-dismiss after 5s
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [location.state]);
 
   const submit = async (event) => {
     event.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const response = await api.post('/auth/login', form);
-      const { user, accessToken } = response.data.data;
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      onLogin(user);
-      navigate('/dashboard', { replace: true });
+    // Send only the required credentials to the existing login API to avoid
+    // changing backend behavior if phone number is not supported server-side.
+    const payload = { email: form.email, password: form.password };
+    const response = await api.post('/auth/login', payload);
+    const { user, accessToken } = response.data.data;
+    localStorage.setItem('token', accessToken);
+    localStorage.setItem('user', JSON.stringify(user));
+    onLogin(user);
+    navigate('/dashboard', { replace: true });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to sign in. Please check your details.');
+    setError(requestError.response?.data?.message || 'Unable to sign in. Please check your details.');
     } finally {
-      setLoading(false);
+    setLoading(false);
     }
   };
 
   return (
-    <AuthShell eyebrow="Welcome back" title={<>Keep your campus<br /><em>within reach.</em></>}>
-      <p className="eyebrow">Secure sign in</p>
-      <h2>Welcome back.</h2>
-      <p className="auth-description">Use your campus account to continue.</p>
+    <AuthShell eyebrow={t('Welcome back')} title={language === 'am' ? <>የግቢዎን ደህንነት<br /><em>ይቆጣጠሩ።</em></> : <>Keep your campus<br /><em>within reach.</em></>}>
+      <p className="eyebrow">{t('Secure sign in')}</p>
+      <div className="login-logo-wrap">
+        <span className="brand-mark"><img src="/images/logo.png" alt="CampusSecure logo" /></span>
+      </div>
+      <h2>{language === 'am' ? 'እንኳን ደህና መጡ።' : 'Welcome back.'}</h2>
+      <p className="auth-description">{t('Use your campus account to continue.')}</p>
+      {successMessage && (
+        <div className="form-success" role="status" aria-live="polite">
+          <span>{successMessage}</span>
+          <button type="button" className="dismiss-success" onClick={() => setSuccessMessage('')} aria-label="Dismiss">×</button>
+        </div>
+      )}
       {error && <div className="form-error" role="alert">{error}</div>}
       <form className="auth-form" onSubmit={submit}>
-        <label>Campus email<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" /></label>
-        <PasswordInput label="Password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="current-password" />
-        <Link className="auth-help-link" to="/forgot-password">Forgot Password?</Link>
-        <button className="button button-primary auth-submit" disabled={loading}>{loading ? 'Please wait...' : 'Sign in to dashboard'}</button>
+        <label>{t('Campus email')}<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" /></label>
+        <label>{t('Phone Number')}<input name="phone" type="tel" placeholder={t('Enter your phone number')} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+        <PasswordInput label={t('Password')} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="current-password" />
+        <Link className="auth-help-link" to="/forgot-password">{t('Forgot Password?')}</Link>
+        <button className="button button-primary auth-submit" disabled={loading}>{loading ? t('Please wait...') : t('Sign in to dashboard')}</button>
       </form>
-      <OAuthButtons />
-      <p className="auth-switch">New to CampusSecure? <Link to="/register">Create an account</Link></p>
+      <OAuthButtons continueLabel={t('Continue with Google')} connectingLabel={t('Connecting...')} dividerLabel={t('OR')} />
+      <p className="auth-switch">{t('New to CampusSecure?')} <Link to="/register">{t('Create an account')}</Link></p>
     </AuthShell>
   );
 }
@@ -127,30 +190,58 @@ export function OAuthCallbackScreen({ onLogin }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const ticket = searchParams.get('ticket');
     const providerError = searchParams.get('error');
     if (providerError) {
       setError(providerError);
       return undefined;
     }
+
+    const extractTicket = () => {
+      const ticketFromQuery = searchParams.get('ticket');
+      if (typeof ticketFromQuery === 'string' && ticketFromQuery.trim()) {
+        return decodeURIComponent(ticketFromQuery);
+      }
+
+      const hash = window.location.hash || '';
+      const match = hash.match(/[#&]?ticket=([^&]+)/);
+      if (match) {
+        return decodeURIComponent(match[1]);
+      }
+
+      return '';
+    };
+
+    const ticket = extractTicket();
     if (!ticket) {
       setError('The provider sign-in response was incomplete. Please try again.');
       return undefined;
     }
 
-    let active = true;
-    api.post('/auth/oauth/exchange', { ticket }).then((response) => {
-      if (!active) return;
-      const { user, accessToken } = response.data.data;
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      onLogin(user);
-      navigate('/dashboard', { replace: true });
-    }).catch((requestError) => {
-      if (active) setError(requestError.response?.data?.message || 'Unable to complete provider sign-in. Please try again.');
-    });
+    if (oauthExchangeRequests.has(ticket)) {
+      return undefined;
+    }
 
-    return () => { active = false; };
+    const exchangeRequest = api.post('/auth/oauth/exchange', { ticket })
+      .then((response) => {
+        const { user, accessToken } = response.data.data;
+        localStorage.setItem('token', accessToken);
+        localStorage.setItem('user', JSON.stringify(user));
+        onLogin(user);
+        clearOAuthCallbackUrl();
+        navigate('/dashboard', { replace: true });
+      })
+      .catch((requestError) => {
+        setError(requestError.response?.data?.message || 'Unable to complete provider sign-in. Please try again.');
+      })
+      .finally(() => {
+        oauthExchangeRequests.delete(ticket);
+        if (window.location.search.includes('ticket=')) {
+          clearOAuthCallbackUrl();
+        }
+      });
+
+    oauthExchangeRequests.set(ticket, exchangeRequest);
+    return undefined;
   }, [navigate, onLogin, searchParams]);
 
   return (
@@ -217,7 +308,8 @@ export function ResetPasswordScreen() {
     setLoading(true);
     try {
       await api.post('/auth/reset-password', { token: searchParams.get('token'), password });
-      navigate('/login', { replace: true, state: { message: 'Password reset successful. Please sign in.' } });
+            // Redirect to the existing login page and pass a one-time success message via navigation state
+            navigate('/login', { replace: true, state: { message: 'Password changed successfully. You can now log in.' } });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'This reset link is invalid or expired.');
     } finally {

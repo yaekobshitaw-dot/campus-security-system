@@ -1,17 +1,16 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { AnnouncementCard } from '../components/AnnouncementCard';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import { fetchAnnouncements } from '../store/announcementSlice';
 
 const AnnouncementsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { announcements, unreadCount, loading, error } = useSelector((state) => state.announcements);
   const { user } = useSelector((state) => state.auth);
-  const canViewAnnouncements = ['student', 'faculty', 'staff', 'security'].includes(user?.role);
+  const canViewAnnouncements = ['student', 'faculty', 'staff', 'security', 'security_officer'].includes(user?.role);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(useCallback(() => {

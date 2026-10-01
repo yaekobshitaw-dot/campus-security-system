@@ -7,9 +7,9 @@ router.use(authenticate);
 
 router.get('/', zoneController.getZones);
 router.get('/:id', zoneController.getZoneById);
-router.post('/', authorize('admin', 'security'), zoneController.createZone);
-router.put('/:id', authorize('admin', 'security'), zoneController.updateZone);
-router.patch('/:id', authorize('admin', 'security'), zoneController.patchZone);
-router.delete('/:id', authorize('admin', 'security'), zoneController.deleteZone);
+router.post('/', authorize('admin'), zoneController.createZone);
+router.put('/:id', authorize('admin'), zoneController.updateZone);
+router.patch('/:id', authorize('admin'), zoneController.patchZone);
+router.delete('/:id', authorize('admin'), zoneController.deleteZone);
 
 module.exports = router;

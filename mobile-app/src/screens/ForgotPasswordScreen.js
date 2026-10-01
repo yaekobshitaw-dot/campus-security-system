@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Icon } from '../components/ui';
 import api from '../services/api';
 
 const ForgotPasswordScreen = ({ navigation }) => {
@@ -45,7 +45,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
 

@@ -12,12 +12,11 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
 import { IncidentCard } from '../components/IncidentCard';
 import { SOSButton } from '../components/SOSButton';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import { socketService } from '../services/socket';
 import { addAlert, fetchAlerts } from '../store/alertSlice';
 import { fetchRecentIncidents, updateIncident } from '../store/incidentSlice';

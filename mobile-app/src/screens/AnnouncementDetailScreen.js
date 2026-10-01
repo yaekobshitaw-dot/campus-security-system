@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
 import { getPriorityStyle } from '../components/AnnouncementCard';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import { fetchAnnouncementRequest } from '../services/announcementService';
 import { markAnnouncementAsRead } from '../store/announcementSlice';
 import { getAnnouncementDetailFields } from '../utils/announcement';

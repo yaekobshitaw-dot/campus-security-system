@@ -15,6 +15,27 @@ exports.list = async (req, res) => {
   }
 };
 
+exports.clearHistory = async (req, res) => {
+  try {
+    const deletedCount = await Notification.destroy({
+      where: { user_id: req.user.user_id },
+    });
+    await recordAudit(req, {
+      action: 'notification_history_cleared',
+      resourceType: 'notification',
+      details: `User ${req.user.user_id} cleared their notification history.`,
+    });
+    return res.status(200).json({
+      success: true,
+      message: 'Notification history cleared successfully',
+      data: { deleted_count: deletedCount },
+    });
+  } catch (error) {
+    console.error('Unable to clear notification history:', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Unable to clear notification history' });
+  }
+};
+
 exports.markRead = async (req, res) => {
   try {
     const item = await Notification.findOne({ where: { notification_id: req.params.id, user_id: req.user.user_id } });

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import { fetchIncidents } from '../store/incidentSlice';
 
 const statusLabel = (status) => ({ reported: 'Reported', investigating: 'In Progress', resolved: 'Resolved', acknowledged: 'Acknowledged', dispatched: 'Dispatched', on_scene: 'On Scene', closed: 'Closed', cancelled: 'Cancelled' }[status] || 'Reported');

@@ -1,5 +1,6 @@
 ﻿const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { isSystemActive } = require('../services/settingsService');
 
 function initSocket(io) {
   // Simple in-memory presence map: user_id -> { count, lastSeen }
@@ -13,6 +14,9 @@ function initSocket(io) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findByPk(decoded.user_id);
       if (!user || !user.is_active) return next(new Error('Authentication required'));
+      if (String(user.role || '').trim().toLowerCase() !== 'admin' && !(await isSystemActive())) {
+        return next(new Error('The campus security system is temporarily deactivated'));
+      }
       socket.user = user;
       return next();
     } catch (error) {

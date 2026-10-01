@@ -8,6 +8,8 @@ const { sendEmail, getEmailServiceConfig, formatEmailError } = require('../servi
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
 const { exchangeLoginTicket } = require('../services/oauthService');
+const { withAdminAccountsLocked, assertAdminCapacity } = require('../services/adminAccountPolicy');
+const { logger } = require('../utils/logger');
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -21,6 +23,8 @@ const normalizeRole = (role, allowedRoles, fallbackRole = 'student') => {
   const normalized = String(role || '').trim().toLowerCase();
   return allowedRoles.includes(normalized) ? normalized : fallbackRole;
 };
+const canonicalizeSecurityRole = (role) => (String(role || '').trim().toLowerCase() === 'security_officer' ? 'security' : String(role || '').trim().toLowerCase());
+const isSecurityRole = (role) => ['security', 'security_officer'].includes(String(role || '').trim().toLowerCase());
 const isValidBootstrapSecret = (providedSecret) => {
   const configuredSecret = String(process.env.ADMIN_BOOTSTRAP_SECRET || '');
   const suppliedSecret = String(providedSecret || '');
@@ -32,7 +36,7 @@ const isValidBootstrapSecret = (providedSecret) => {
 };
 
 const PUBLIC_REGISTRATION_ROLES = ['student', 'faculty', 'staff'];
-const ADMIN_MANAGED_ROLES = ['student', 'faculty', 'staff', 'security', 'admin'];
+const ADMIN_MANAGED_ROLES = ['student', 'faculty', 'staff', 'security', 'security_officer', 'admin'];
 
 const generateToken = (user) => {
   if (!jwtSecret) {
@@ -109,22 +113,31 @@ exports.createUserByAdmin = async (req, res) => {
     const normalizedPhone = normalizePhone(phone);
     const requestedRole = String(role || '').trim().toLowerCase();
 
-    if (!name || !normalizedEmail || !password) {
+    if (typeof name !== 'string' || !name.trim() || !normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: 'Email is invalid' });
     }
 
     if (normalizedPhone && !/^\+?[0-9\s()-]{7,20}$/.test(normalizedPhone)) {
       return res.status(400).json({ success: false, message: 'Phone number is invalid.' });
     }
 
-    if (password.length < 8) {
+    if (req.body.is_active !== undefined && typeof req.body.is_active !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'is_active must be a boolean' });
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long' });
     }
 
-    if (!ADMIN_MANAGED_ROLES.includes(requestedRole)) {
+    const canonicalRole = canonicalizeSecurityRole(requestedRole);
+    if (!ADMIN_MANAGED_ROLES.includes(canonicalRole) && !ADMIN_MANAGED_ROLES.includes(requestedRole)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be one of: student, faculty, staff, security, admin'
+        message: 'Role must be one of: student, faculty, staff, security, security_officer, admin'
       });
     }
 
@@ -133,15 +146,23 @@ exports.createUserByAdmin = async (req, res) => {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
-    const user = await User.create({
+    const attributes = {
       name: name.trim(),
       email: normalizedEmail,
       password_hash: password,
       phone: normalizedPhone || null,
-      role: requestedRole
-    });
-    await recordAudit(req, { action: 'user_created', resourceType: 'user', resourceId: user.user_id, details: `Created ${requestedRole} account.` });
-    await notifyUsers(req, { type: 'user_admin_event', title: 'User account created', message: `A ${requestedRole} account was created.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-created:${user.user_id}` });
+      role: canonicalRole,
+      availability_status: isSecurityRole(canonicalRole) ? 'available' : undefined,
+      ...(req.body.is_active === undefined ? {} : { is_active: req.body.is_active })
+    };
+    const user = canonicalRole === 'admin'
+      ? await withAdminAccountsLocked(async (transaction, admins) => {
+        assertAdminCapacity(admins);
+        return User.create(attributes, { transaction });
+      })
+      : await User.create(attributes);
+    await recordAudit(req, { action: 'user_created', resourceType: 'user', resourceId: user.user_id, details: `Created ${canonicalRole} account.` });
+    await notifyUsers(req, { type: 'user_admin_event', title: 'User account created', message: `A ${canonicalRole} account was created.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-created:${user.user_id}` });
 
     return res.status(201).json({
       success: true,
@@ -149,7 +170,13 @@ exports.createUserByAdmin = async (req, res) => {
       data: { user: user.toJSON() }
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'User creation failed' });
+    const statusCode = error.statusCode || (error.name === 'SequelizeUniqueConstraintError' ? 409 : 500);
+    const message = error.statusCode
+      ? error.message
+      : error.name === 'SequelizeUniqueConstraintError'
+        ? 'Email already registered'
+        : 'User creation failed';
+    return res.status(statusCode).json({ success: false, message });
   }
 };
 
@@ -218,25 +245,36 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
+    // Lightweight request logging for debugging failed login attempts (no passwords)
+    try { logger.info(`Auth login attempt: ${normalizedEmail} from ${req.ip} - UA: ${req.get('user-agent') || 'unknown'}`); } catch (e) { /* ignore logging errors */ }
+
     if (!normalizedEmail || !password) {
+      logger.warn(`Auth login missing fields from ${req.ip}: email=${!!normalizedEmail}`);
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
     const user = await User.findOne({ where: { email: normalizedEmail } });
     if (!user || !user.is_active) {
+      logger.warn(`Auth login failed (invalid user or inactive): ${normalizedEmail} from ${req.ip}`);
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
     const isValid = await user.comparePassword(password);
     if (!isValid) {
+      logger.warn(`Auth login failed (bad password): ${normalizedEmail} from ${req.ip}`);
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
     const token = generateToken(user);
+    if (isSecurityRole(user.role)) {
+      await user.update({ availability_status: 'available' });
+    }
     if (user.role === 'admin') {
       req.user = user;
       await recordAudit(req, { action: 'admin_login', resourceType: 'user', resourceId: user.user_id });
     }
+
+    logger.info(`Auth login success: ${normalizedEmail} from ${req.ip}`);
 
     return res.status(200).json({
       success: true,
@@ -248,6 +286,7 @@ exports.login = async (req, res) => {
       ? 'Authentication is not configured correctly'
       : 'Login failed';
 
+    logger.error('Auth login error', { error: error && error.message });
     return res.status(500).json({ success: false, message });
   }
 };
@@ -329,10 +368,20 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: 'Logout successful'
-  });
+  try {
+    if (req.user && isSecurityRole(req.user.role)) {
+      await req.user.update({ availability_status: 'offline' });
+    }
+    return res.status(200).json({
+      success: true,
+      message: 'Logout successful'
+    });
+  } catch (error) {
+    return res.status(200).json({
+      success: true,
+      message: 'Logout successful'
+    });
+  }
 };
 
 exports.oauthExchange = async (req, res) => {

@@ -1,7 +1,8 @@
 import 'leaflet/dist/leaflet.css';
+import './SecurityMap.css';
 import L from 'leaflet';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Circle, MapContainer, Marker, Polygon, Popup, TileLayer, LayersControl, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Polygon, Popup, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { UserAvatar } from './DashboardLayout';
 
 const CAMPUS_CENTER = [10.9854535, 39.2631819];
@@ -70,7 +71,7 @@ const markerIcon = (background, symbol, testId) => {
 
 const icons = {
   campus: markerIcon('#0b1f3a', 'C'),
-  place: markerIcon('#0e7c86', 'P'),
+  place: markerIcon('#0e7c86', ''),
   zone: markerIcon('#2563eb', 'Z'),
   incident: markerIcon('#d9534f', '!'),
   sos: markerIcon('#991b1b', 'SOS'),
@@ -78,7 +79,8 @@ const icons = {
 };
 
 const coordinatesFor = (latitude, longitude) => {
-  if (latitude === null || latitude === undefined || latitude === '' || longitude === null || longitude === undefined || longitude === '') return null;
+  if (latitude === null || latitude === undefined || String(latitude).trim() === ''
+    || longitude === null || longitude === undefined || String(longitude).trim() === '') return null;
   const lat = Number(latitude);
   const lng = Number(longitude);
   return Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lng) && lng >= -180 && lng <= 180
@@ -136,11 +138,6 @@ const distanceMeters = (from, to) => {
 
 const formatDistance = (meters) => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 
-function FitCampusButton({ bounds }) {
-  const map = useMap();
-  return <button type="button" className="campus-map-control" onClick={() => bounds.length && map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 })}>Fit campus</button>;
-}
-
 function FitMapToData({ campusLocations, incidents, officers, zones }) {
   const map = useMap();
   const fittedKey = useRef('');
@@ -188,13 +185,44 @@ function LocationMapEvents({ enabled, onMapClick }) {
   return null;
 }
 
-export default function SecurityMap({ incidents = [], officers = [], zones = [], campusLocations = [], onAssign, selectedLocationId, onMapClick, onLocationDragEnd }) {
+function MapInstanceBridge({ onMapReady }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (IS_TEST && typeof window !== 'undefined' && typeof map.setView === 'function') {
+      const setView = map.setView.bind(map);
+      map.setView = (position, zoom) => {
+        window._map_last_setView = { pos: position, zoom };
+        return setView(position, zoom);
+      };
+    }
+    onMapReady(map);
+    if (typeof map.invalidateSize === 'function') setTimeout(() => map.invalidateSize(), 150);
+  }, [map, onMapReady]);
+
+  return null;
+}
+
+export default function SecurityMap({ incidents = [], officers = [], zones = [], campusLocations = [], onAssign, selectedLocationId, onMapClick, onLocationDragEnd, focusedIncidentId, focusRequestKey, defaultMapStyle = 'standard', defaultOfficerAvailability = 'all', canManageZones = false, onDeleteZone }) {
   // Search and type
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
 
   // Map instance (used for programmatic pan/zoom)
   const [map, setMap] = useState(null);
+  const [mapStyle, setMapStyle] = useState(defaultMapStyle === 'satellite' ? 'satellite' : 'standard');
+  const [selectedZoneId, setSelectedZoneId] = useState('');
+  const [zoneActionError, setZoneActionError] = useState('');
+  const [zoneActionSuccess, setZoneActionSuccess] = useState('');
+  const [deletingZone, setDeletingZone] = useState(false);
+  const mapFullscreenRef = useRef(null);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [fullscreenFallback, setFullscreenFallback] = useState(false);
+  const fullscreenActive = nativeFullscreen || fullscreenFallback;
+
+  useEffect(() => {
+    setMapStyle(defaultMapStyle === 'satellite' ? 'satellite' : 'standard');
+  }, [defaultMapStyle]);
 
   // Layer toggles
   const [layers, setLayers] = useState({
@@ -209,87 +237,69 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
   const [incidentFilters, setIncidentFilters] = useState({ status: 'all', severity: 'all', sosOnly: false });
 
   // Officer filter
-  const [officerAvailability, setOfficerAvailability] = useState('all');
+  const [officerAvailability, setOfficerAvailability] = useState(defaultOfficerAvailability);
 
   const markerRefs = useRef({});
 
+  useEffect(() => {
+    setOfficerAvailability(defaultOfficerAvailability);
+  }, [defaultOfficerAvailability]);
+
   const visibleLocations = useMemo(() => campusLocations.filter((location) => locationMatches(location, query, type)), [campusLocations, query, type]);
-  const effectiveZones = useMemo(() => {
-    // Start with any active backend zones
-    const backendZones = zones.filter((z) => z && z.is_active !== false);
+  const effectiveZones = useMemo(() => zones
+    .filter((zone) => zone && zone.is_active !== false)
+    .map((zone) => ({
+      ...zone,
+      buildings: campusLocations
+        .filter((location) => location && (
+          location.zone_id === zone.zone_id
+          || location.zone === zone.name
+          || location.zone === zone.zone_id
+        ))
+        .map((location) => ({
+          location_id: location.location_id || location.id,
+          name: location.name,
+          type: location.type,
+          description: location.description,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          placed: coordinatesFor(location.latitude, location.longitude) !== null,
+        })),
+    })), [campusLocations, zones]);
+  const selectedZone = effectiveZones.find((zone) => zone.zone_id === selectedZoneId);
+  const selectedBackendZone = selectedZone && !String(selectedZone.zone_id).startsWith('group-');
 
-    // Group campus locations by logical zone categories for MAU Tulu Awuliya campus
-    const groupDefs = [
-      { id: 'campus-core', name: 'MAU Tulu Awuliya Campus Core', types: ['university', 'campus'] },
-      { id: 'administration', name: 'Administration Zone', types: ['administration'] },
-      { id: 'academic', name: 'Academic Zone', types: ['classroom', 'seminar', 'building/block'] },
-      { id: 'student-services', name: 'Student Services Zone', types: ['library', 'cafeteria', 'clinic'] },
-      { id: 'residential', name: 'Residential Zone', types: ['dormitory'] },
-      { id: 'other', name: 'Other campus places', types: ['other', 'security_post', 'gate', 'parking', 'sports', 'emergency_point'] },
-    ];
-
-    const groups = groupDefs.map((def) => {
-      const members = campusLocations
-        .filter((loc) => def.types.includes(loc.type))
-        .map((loc) => ({
-          location_id: loc.location_id || loc.id,
-          name: loc.name,
-          type: loc.type,
-          description: loc.description,
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          placed: coordinatesFor(loc.latitude, loc.longitude) !== null,
-        }));
-
-      // compute center from placed members (average lat/lng) if any
-      const placedPositions = members.map((m) => coordinatesFor(m.latitude, m.longitude)).filter(Boolean);
-      let center = null;
-      if (placedPositions.length) {
-        const avgLat = placedPositions.reduce((s, p) => s + p[0], 0) / placedPositions.length;
-        const avgLng = placedPositions.reduce((s, p) => s + p[1], 0) / placedPositions.length;
-        center = [avgLat, avgLng];
-      }
-
-      return {
-        id: def.id,
-        zone_id: `group-${def.id}`,
-        name: def.name,
-        description: `${def.name} (logical grouping of campus locations)`,
-        center_lat: center ? Number(center[0]) : null,
-        center_lng: center ? Number(center[1]) : null,
-        radius: 250, // display radius for grouped zones (client-side only)
-        is_active: true,
-        buildings: members,
-      };
-    });
-
-    // Merge backend zones and client-side grouped zones.
-    // If backend zones exist, include them first and also include any grouped zones that do not overlap (no backend zone with same name)
-    if (backendZones.length) {
-      // Attach building lists to backend zones by scanning campusLocations for explicit zone assignment
-      const backendWithBuildings = backendZones.map((bz) => {
-        const members = campusLocations
-          .filter((loc) => loc && (loc.zone_id === bz.zone_id || loc.zone_id === bz.zone_id || loc.zone === bz.name || loc.zone === bz.zone_id))
-          .map((loc) => ({
-            location_id: loc.location_id || loc.id,
-            name: loc.name,
-            type: loc.type,
-            description: loc.description,
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-            placed: coordinatesFor(loc.latitude, loc.longitude) !== null,
-          }));
-        return { ...bz, buildings: members };
-      });
-
-      const backendNames = new Set(backendZones.map((bz) => bz.name));
-      const extraGroups = groups.filter((g) => !backendNames.has(g.name));
-      return [...backendWithBuildings, ...extraGroups];
+  useEffect(() => {
+    if (selectedZoneId && !effectiveZones.some((zone) => zone.zone_id === selectedZoneId)) {
+      setSelectedZoneId('');
+      setZoneActionError('');
     }
+  }, [effectiveZones, selectedZoneId]);
 
-    // If no backend zones, show grouped zones so the map is useful for admins immediately
-    return groups;
-  }, [campusLocations, zones]);
+  const selectZone = (zone, event) => {
+    event?.originalEvent?.stopPropagation?.();
+    setSelectedZoneId(zone.zone_id);
+    setZoneActionError('');
+    setZoneActionSuccess('');
+  };
+
+  const removeSelectedZone = async () => {
+    if (!canManageZones || !selectedBackendZone || !onDeleteZone || deletingZone) return;
+    if (!window.confirm('Are you sure you want to delete this zone?')) return;
+
+    setDeletingZone(true);
+    setZoneActionError('');
+    setZoneActionSuccess('');
+    try {
+      await onDeleteZone(selectedZone);
+      setSelectedZoneId('');
+      setZoneActionSuccess('Zone deleted successfully. Existing incidents are preserved; database zone references are cleared.');
+    } catch (error) {
+      setZoneActionError(error.response?.data?.message || error.message || 'Unable to delete zone.');
+    } finally {
+      setDeletingZone(false);
+    }
+  };
   const campusBounds = useMemo(() => [
     ...campusLocations.map((location) => coordinatesFor(location.latitude, location.longitude)).filter(Boolean),
     ...effectiveZones.flatMap((zone) => {
@@ -304,6 +314,8 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
   const filteredIncidents = useMemo(() => incidents.filter((incident) => {
     const pos = coordinatesFor(incident.latitude, incident.longitude);
     if (!pos) return false;
+    if (focusedIncidentId && String(incident.incident_id) === String(focusedIncidentId)) return true;
+    if (['resolved', 'closed', 'cancelled'].includes(String(incident.status || '').toLowerCase())) return false;
     // Layer toggles
     if (incident.is_sos && !layers.sos) return false;
     if (!incident.is_sos && !layers.incidents) return false;
@@ -314,7 +326,19 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
     // Severity filter
     if (incidentFilters.severity !== 'all' && incident.severity && incidentFilters.severity !== String(incident.severity)) return false;
     return true;
-  }), [incidents, incidentFilters, layers]);
+  }), [incidents, incidentFilters, layers, focusedIncidentId]);
+
+  const focusedIncident = focusedIncidentId
+    ? filteredIncidents.find((incident) => String(incident.incident_id) === String(focusedIncidentId))
+    : null;
+  useEffect(() => {
+    if (!map || !focusedIncident) return;
+    const position = coordinatesFor(focusedIncident.latitude, focusedIncident.longitude);
+    if (!position) return;
+    map.setView(position, Math.max(map.getZoom(), 17));
+    const marker = markerRefs.current[`incident-${focusedIncident.incident_id}`];
+    marker?.openPopup?.();
+  }, [focusRequestKey, focusedIncident, map]);
 
   const filteredOfficers = useMemo(() => officers.filter((officer) => {
     const pos = coordinatesFor(officer.latitude, officer.longitude);
@@ -344,26 +368,94 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
     }
   };
 
+  const fitCampus = () => {
+    if (campusBounds.length) map?.fitBounds(campusBounds, { padding: [30, 30], maxZoom: 17 });
+  };
+
+  const toggleFullscreen = async () => {
+    const mapContainer = mapFullscreenRef.current;
+    if (!mapContainer) return;
+
+    if (fullscreenFallback) {
+      setFullscreenFallback(false);
+      return;
+    }
+
+    if (document.fullscreenElement === mapContainer) {
+      if (typeof document.exitFullscreen !== 'function') {
+        setNativeFullscreen(false);
+        setFullscreenFallback(true);
+        return;
+      }
+      await document.exitFullscreen();
+      setNativeFullscreen(false);
+      return;
+    }
+
+    if (typeof mapContainer.requestFullscreen !== 'function') {
+      setFullscreenFallback(true);
+      return;
+    }
+
+    try {
+      await mapContainer.requestFullscreen();
+      setNativeFullscreen(true);
+      setFullscreenFallback(false);
+    } catch {
+      setFullscreenFallback(true);
+    }
+  };
+
+  useEffect(() => {
+    const updateFullscreenState = () => {
+      setNativeFullscreen(document.fullscreenElement === mapFullscreenRef.current);
+    };
+    document.addEventListener('fullscreenchange', updateFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', updateFullscreenState);
+  }, []);
+
+  useEffect(() => {
+    if (!map) return undefined;
+
+    const frame = requestAnimationFrame(() => map.invalidateSize({ pan: false }));
+    const timeout = window.setTimeout(() => map.invalidateSize({ pan: false }), 150);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [fullscreenActive, map]);
+
   useEffect(() => {
     if (!map || typeof window === 'undefined') return undefined;
+    let resizeFrame = null;
     const refreshMap = () => {
-      try {
-        setTimeout(() => {
-          if (map && typeof map.invalidateSize === 'function') map.invalidateSize();
-        }, 120);
-      } catch (e) {
-        // ignore invalidation failures
-      }
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        map.invalidateSize({ pan: false });
+      });
     };
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(refreshMap);
+    if (resizeObserver && mapFullscreenRef.current) {
+      resizeObserver.observe(mapFullscreenRef.current);
+    }
     refreshMap();
     window.addEventListener('resize', refreshMap);
-    return () => window.removeEventListener('resize', refreshMap);
+    return () => {
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', refreshMap);
+    };
   }, [map]);
 
   return (
-    <div className="campus-map-wrapper">
-      <div className="campus-map-controls dashboard-panel" aria-label="Map controls">
-        <div className="campus-map-toolbar">
+    <div
+      className={`campus-map-experience${fullscreenFallback ? ' is-fullscreen-fallback' : ''}`}
+    >
+      <div className="campus-map-controls dashboard-panel" aria-label="Map search and filters" hidden={fullscreenActive}>
+        <div className="campus-map-toolbar" hidden={fullscreenActive}>
           <label>Search campus places<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Library, gate, block..." /></label>
           <label>Type<select value={type} onChange={(event) => setType(event.target.value)}>{locationTypes.map((value) => <option key={value} value={value}>{value === 'all' ? 'All places' : locationTypeLabels[value]}</option>)}</select></label>
 
@@ -398,43 +490,58 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             )}
           </div>
         </div>
+        {selectedZone && <section className="mt-3 rounded-xl border border-cyan-300 bg-cyan-50 p-3" aria-label="Selected zone" data-testid="selected-zone-details" aria-live="polite">
+          <p className="text-xs font-black uppercase tracking-wide text-cyan-800">Selected zone</p>
+          <h3 className="mt-1 text-sm font-black text-[#0b1f3a]">{selectedZone.name}</h3>
+          {selectedZone.description && <p className="mt-1 text-xs text-slate-700">{selectedZone.description}</p>}
+          {selectedZone.radius && <p className="mt-1 text-xs text-slate-700">Radius: {selectedZone.radius} m</p>}
+          {selectedBackendZone && selectedZone.buildings?.length > 0 && <p className="mt-1 text-xs text-slate-700">Assigned campus locations: {selectedZone.buildings.map((building) => building.name).join(', ')}</p>}
+          {selectedBackendZone && selectedZone.buildings?.length > 0 && <p className="mt-1 text-xs font-semibold text-amber-800">Reassign or unassign these campus locations before deleting this zone.</p>}
+          {canManageZones && selectedBackendZone && <button type="button" className="dashboard-button mt-3 border-red-200 text-red-700 hover:bg-red-50" onClick={removeSelectedZone} disabled={deletingZone}>{deletingZone ? 'Removing...' : 'Remove Zone'}</button>}
+          {zoneActionError && <p className="mt-2 text-sm font-semibold text-red-700" role="alert">{zoneActionError}</p>}
+        </section>}
+        {zoneActionSuccess && <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800" role="status">{zoneActionSuccess}</p>}
 
-        <div className="campus-map-legend" aria-label="Map legend">
-          <strong>Map legend</strong>
-          <div className="campus-map-legend-items">
-            <span><i className="legend-dot place" />Campus place</span>
-            <span><i className="legend-dot officer" />Officer</span>
-            <span><i className="legend-dot incident" />Incident</span>
-            <span><i className="legend-dot sos" />SOS</span>
-            <span><i className="legend-dot zone" />Security zone</span>
-          </div>
-        </div>
       </div>
 
-      <div className="campus-map-container" role="region" aria-label="Live campus map">
-        <MapContainer center={CAMPUS_CENTER} zoom={15} style={{ height: '100%', width: '100%' }} scrollWheelZoom whenCreated={(m) => {
-          setMap(m);
-          if (typeof window !== 'undefined' && m && typeof m.setView === 'function') {
-            const orig = m.setView.bind(m);
-            m.setView = (pos, z) => { window._map_last_setView = { pos, zoom: z }; return orig(pos, z); };
-          }
-          if (m && typeof m.invalidateSize === 'function') setTimeout(() => m.invalidateSize(), 150);
-        }}>
+      <div ref={mapFullscreenRef} className="campus-map-wrapper campus-map-fullscreen-container">
+        <div className="campus-map-map-controls" aria-label="Map controls">
+          <section aria-label="Map Controls">
+            <h3 className="text-xs font-black uppercase tracking-wide text-slate-500">Map Controls</h3>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="dashboard-button" onClick={fitCampus}>Fit Campus</button>
+              <button
+                type="button"
+                className="dashboard-button campus-map-fullscreen-button"
+                onClick={toggleFullscreen}
+                aria-label={fullscreenActive ? 'Exit fullscreen map' : 'Open fullscreen map'}
+                aria-pressed={fullscreenActive}
+                title={fullscreenActive ? 'Exit fullscreen map' : 'Open fullscreen map'}
+              >
+                <span aria-hidden="true">⛶</span>
+                {fullscreenActive ? 'Exit Fullscreen' : 'Fullscreen'}
+              </button>
+            </div>
+          </section>
+          <section aria-label="Map Style">
+            <h3 className="text-xs font-black uppercase tracking-wide text-slate-500">Map Style</h3>
+            <div className="mt-2 flex gap-2">
+              <button type="button" className={`dashboard-button ${mapStyle === 'satellite' ? 'primary' : ''}`} aria-pressed={mapStyle === 'satellite'} onClick={() => setMapStyle('satellite')}>Satellite</button>
+              <button type="button" className={`dashboard-button ${mapStyle === 'standard' ? 'primary' : ''}`} aria-pressed={mapStyle === 'standard'} onClick={() => setMapStyle('standard')}>Standard</button>
+            </div>
+          </section>
+        </div>
+        <div className="campus-map-container" role="region" aria-label="Live campus map">
+        <MapContainer center={CAMPUS_CENTER} zoom={15} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+          <MapInstanceBridge onMapReady={setMap} />
           <FitMapToData campusLocations={campusLocations} incidents={incidents} officers={officers} zones={zones} />
           <LocationMapEvents enabled={Boolean(selectedLocationId)} onMapClick={onMapClick} />
-          <FitCampusButton bounds={campusBounds} />
-
-          <LayersControl position="topright">
-            <LayersControl.BaseLayer checked name="Street map (OSM)">
-              <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="Satellite (Esri)">
-              <TileLayer
-                attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-            </LayersControl.BaseLayer>
-          </LayersControl>
+          {mapStyle === 'standard'
+            ? <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            : <TileLayer
+              attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />}
 
           {filteredIncidents.map((incident) => {
             const position = coordinatesFor(incident.latitude, incident.longitude);
@@ -442,13 +549,20 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             const assigned = incident.responses?.[0]?.responder;
             const incidentIcon = markerIcon(incident.is_sos ? '#991b1b' : '#d9534f', incident.is_sos ? 'SOS' : '!', `marker-incident-${incident.incident_id}`);
             return (
-              <Marker key={`incident-${incident.incident_id}`} position={position} icon={incidentIcon}>
+              <Marker
+                key={`incident-${incident.incident_id}`}
+                position={position}
+                icon={incidentIcon}
+                ref={(marker) => { markerRefs.current[`incident-${incident.incident_id}`] = marker; }}
+              >
                 <Popup>
                   <strong>{incident.is_sos ? 'SOS' : 'Incident'}</strong>
                   <br />Type: {incident.type}
                   {incident.is_sos && <><br />Reporter: {incident.reporter ? <span className="inline-flex items-center gap-1"><UserAvatar user={incident.reporter} size="h-6 w-6" /><span>{incident.reporter.name || 'Campus member'}</span></span> : 'Campus member'}</>}
                   <br />Time: {incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unknown'}
                   <br />Coordinates: {position[0].toFixed(7)}, {position[1].toFixed(7)}
+                  {incident.location_accuracy !== null && incident.location_accuracy !== undefined && Number.isFinite(Number(incident.location_accuracy)) && Number(incident.location_accuracy) >= 0 && <><br />GPS accuracy: {Number(incident.location_accuracy)} m</>}
+                  {incident.location_timestamp && <><br />Location captured: {new Date(incident.location_timestamp).toLocaleString()}</>}
                   {!incident.is_sos && <><br />{assigned ? `Assigned: ${assigned.name}` : 'Unassigned'}</>}
                 </Popup>
               </Marker>
@@ -459,14 +573,17 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             const position = coordinatesFor(officer.latitude, officer.longitude);
             if (!position) return null;
             const assignment = incidents.find((incident) => incident.responses?.some((response) => response.responder_id === officer.user_id || response.responder?.user_id === officer.user_id));
+            const activeAssignment = assignment?.responses?.find((response) => response.responder_id === officer.user_id || response.responder?.user_id === officer.user_id);
+            const officerAssignmentStatus = activeAssignment?.assignment_status;
+            const displayStatus = officerAssignmentStatus === 'pending' ? 'Assignment pending' : officerAssignmentStatus === 'accepted' ? 'Responding' : (officer.availability_status || 'unavailable');
             const incidentPosition = assignment && coordinatesFor(assignment.latitude, assignment.longitude);
             const officerIcon = markerIcon('#2d8a61', 'S', `marker-officer-${officer.user_id}`);
             return (
               <Marker key={`officer-${officer.user_id}`} position={position} icon={officerIcon}>
                 <Popup>
                   <span className="inline-flex items-center gap-2"><UserAvatar user={officer} size="h-7 w-7" /><strong>{officer.name}</strong></span>
-                  <br />Status: {officer.availability_status || 'unavailable'}
-                  <br />Assignment: {assignment?.type || 'None'}
+                  <br />Status: {displayStatus}
+                  <br />Assignment: {officerAssignmentStatus === 'pending' ? 'Assignment pending' : assignment?.type || 'None'}
                   {incidentPosition && <><br />Distance: {formatDistance(distanceMeters(position, incidentPosition))}</>}
                   <br />Last update: {officer.location_updated_at ? new Date(officer.location_updated_at).toLocaleString() : 'Unavailable'}
                   {onAssign && <><br /><button type="button" onClick={() => onAssign(officer.user_id)}>Assign selected incident</button></>}
@@ -511,24 +628,39 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
               if (IS_TEST) {
                 const centerPos = zoneCenter(zone);
                 return centerPos ? (
-                  <Marker key={`zone-group-${zone.zone_id}`} position={centerPos} icon={markerIcon('#2563eb','Z', `marker-zone-${zone.zone_id}`)}>
+                  <Marker key={`zone-group-${zone.zone_id}`} position={centerPos} icon={markerIcon(selectedZoneId === zone.zone_id ? '#dc2626' : '#2563eb','Z', `marker-zone-${zone.zone_id}`)} eventHandlers={{ click: (event) => selectZone(zone, event) }}>
                     <Popup>{popupContent}</Popup>
                   </Marker>
                 ) : null;
               }
 
-              return <Fragment key={`zone-group-${zone.zone_id}`}><Polygon positions={polygon} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.22, weight: 2 }}><Popup>{popupContent}</Popup></Polygon>{zoneCenter(zone) && <Marker position={zoneCenter(zone)} icon={markerIcon('#2563eb','Z', `marker-zone-${zone.zone_id}`)}><Popup>{popupContent}</Popup></Marker>}</Fragment>;
+              const selected = selectedZoneId === zone.zone_id;
+              const zonePathOptions = {
+                color: selected ? '#dc2626' : '#2563eb',
+                fillColor: selected ? '#f87171' : '#60a5fa',
+                fillOpacity: selected ? 0.4 : 0.22,
+                weight: selected ? 4 : 2,
+                className: selected ? 'selected-security-zone' : 'selectable-security-zone',
+              };
+              return <Fragment key={`zone-group-${zone.zone_id}`}><Polygon positions={polygon} bubblingMouseEvents={false} eventHandlers={{ click: (event) => selectZone(zone, event) }} pathOptions={zonePathOptions}><Popup>{popupContent}</Popup></Polygon>{zoneCenter(zone) && <Marker position={zoneCenter(zone)} icon={markerIcon(selected ? '#dc2626' : '#2563eb','Z', `marker-zone-${zone.zone_id}`)} eventHandlers={{ click: (event) => selectZone(zone, event) }}><Popup>{popupContent}</Popup></Marker>}</Fragment>;
             }
             if (!hasPolygonData && hasCircle) {
               if (IS_TEST) {
                 return (
-                  <Marker key={`zone-group-${zone.zone_id}`} position={center} icon={markerIcon('#2563eb','Z', `marker-zone-${zone.zone_id}`)}>
+                  <Marker key={`zone-group-${zone.zone_id}`} position={center} icon={markerIcon(selectedZoneId === zone.zone_id ? '#dc2626' : '#2563eb','Z', `marker-zone-${zone.zone_id}`)} eventHandlers={{ click: (event) => selectZone(zone, event) }}>
                     <Popup>{popupContent}</Popup>
                   </Marker>
                 );
               }
 
-              return <Fragment key={`zone-group-${zone.zone_id}`}><Circle center={center} radius={radius} pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.22, weight: 2 }}><Popup>{popupContent}</Popup></Circle><Marker position={center} icon={markerIcon('#2563eb','Z', `marker-zone-${zone.zone_id}`)}><Popup>{popupContent}</Popup></Marker></Fragment>;
+              const selected = selectedZoneId === zone.zone_id;
+              const zonePathOptions = {
+                color: selected ? '#dc2626' : '#2563eb',
+                fillColor: selected ? '#f87171' : '#60a5fa',
+                fillOpacity: selected ? 0.4 : 0.22,
+                weight: selected ? 4 : 2,
+              };
+              return <Fragment key={`zone-group-${zone.zone_id}`}><Circle center={center} radius={radius} bubblingMouseEvents={false} eventHandlers={{ click: (event) => selectZone(zone, event) }} pathOptions={zonePathOptions}><Popup>{popupContent}</Popup></Circle><Marker position={center} icon={markerIcon(selected ? '#dc2626' : '#2563eb','Z', `marker-zone-${zone.zone_id}`)} eventHandlers={{ click: (event) => selectZone(zone, event) }}><Popup>{popupContent}</Popup></Marker></Fragment>;
             }
             return null;
           })}
@@ -537,7 +669,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             const position = coordinatesFor(location.latitude, location.longitude);
             if (!position) return null;
             const key = `place-${location.location_id || location.id}`;
-            const placeIcon = markerIcon(location.type === 'university' || location.type === 'campus' ? '#0b1f3a' : '#0e7c86', 'P', `marker-place-${location.location_id || location.id}`);
+            const placeIcon = markerIcon(location.type === 'university' || location.type === 'campus' ? '#0b1f3a' : '#0e7c86', '', `marker-place-${location.location_id || location.id}`);
             return (
               <Marker
                 key={key}
@@ -547,6 +679,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
                 icon={placeIcon}
                 ref={(r) => { markerRefs.current[key] = r; }}
               >
+                <Tooltip direction="top" offset={[0, -10]}>{location.name}</Tooltip>
                 <Popup>
                   <strong>{location.name}</strong>
                   <br />Type: {locationTypeLabels[location.type] || location.type || 'Campus place'}
@@ -557,19 +690,31 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             );
           })}
 
-          {!campusLocations.some((location) => location.type !== 'university' && location.type !== 'campus' && coordinatesFor(location.latitude, location.longitude)) && !zones.length && <div className="campus-map-notice">No individual campus locations have verified coordinates yet. Select a location and place it on the map.</div>}
+          {!campusLocations.some((location) => location.type !== 'university' && location.type !== 'campus' && coordinatesFor(location.latitude, location.longitude)) && !zones.length && <div className="campus-map-notice" hidden={fullscreenActive}>No individual campus locations have verified coordinates yet. Select a location and place it on the map.</div>}
 
           {invalidSOSCount > 0 && (
-            <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#8a1c1c', border: '1px solid #e4b4b4', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
+            <div className="campus-map-status-notice" hidden={fullscreenActive} style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#8a1c1c', border: '1px solid #e4b4b4', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
               SOS: Location unavailable
             </div>
           )}
           {unavailableOfficerCount > 0 && (
-            <div style={{ position: 'absolute', top: invalidSOSCount ? 52 : 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#68757a', border: '1px solid #cbd5d6', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
+            <div className="campus-map-status-notice" hidden={fullscreenActive} style={{ position: 'absolute', top: invalidSOSCount ? 52 : 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#68757a', border: '1px solid #cbd5d6', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
               {unavailableOfficerCount} officer location{unavailableOfficerCount === 1 ? '' : 's'} unavailable
             </div>
           )}
         </MapContainer>
+      </div>
+      </div>
+
+      <div className="campus-map-legend" aria-label="Map legend" hidden={fullscreenActive}>
+        <strong>Map legend</strong>
+        <div className="campus-map-legend-items">
+          <span><i className="legend-dot place" />Campus place</span>
+          <span><i className="legend-dot officer" />Officer</span>
+          <span><i className="legend-dot incident" />Incident</span>
+          <span><i className="legend-dot sos" />SOS</span>
+          <span><i className="legend-dot zone" />Security zone</span>
+        </div>
       </div>
     </div>
   );

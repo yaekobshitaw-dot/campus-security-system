@@ -1,5 +1,9 @@
 ﻿const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { isSystemActive } = require('../services/settingsService');
+
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+const isAllowedRole = (role, allowedRoles) => allowedRoles.some((candidate) => normalizeRole(role) === normalizeRole(candidate));
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -33,6 +37,26 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'User not found or inactive' });
     }
 
+    if (String(user.role || '').trim().toLowerCase() !== 'admin') {
+      let systemActive;
+      try {
+        systemActive = await isSystemActive();
+      } catch {
+        return res.status(503).json({
+          success: false,
+          code: 'SYSTEM_STATUS_UNAVAILABLE',
+          message: 'System availability could not be verified. Please try again later.'
+        });
+      }
+      if (!systemActive) {
+        return res.status(503).json({
+          success: false,
+          code: 'SYSTEM_DEACTIVATED',
+          message: 'The campus security system is temporarily deactivated. Please check back later.'
+        });
+      }
+    }
+
     req.user = user;
     return next();
   } catch (error) {
@@ -49,7 +73,7 @@ const authorize = (...allowedRoles) => (req, res, next) => {
     return res.status(401).json({ success: false, message: 'Authentication required' });
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(req.user.role)) {
+  if (allowedRoles.length > 0 && !isAllowedRole(req.user.role, allowedRoles)) {
     return res.status(403).json({ success: false, message: 'Forbidden: insufficient permissions' });
   }
 

@@ -1,14 +1,27 @@
 ﻿const express = require('express');
+const { Op } = require('sequelize');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
-const { Alert, Incident } = require('../models');
+const { Alert, Incident, Response } = require('../models');
 
 router.use(authenticate);
 
+const assignedIncidentIdsFor = async (user) => (await Response.findAll({
+  where: { responder_id: user.user_id },
+  attributes: ['incident_id']
+})).map((response) => response.incident_id);
+
 router.get('/', async (req, res) => {
   try {
-    const isPrivileged = ['security', 'admin'].includes(req.user.role);
+    const role = String(req.user.role || '').trim().toLowerCase();
+    const isPrivileged = ['security', 'security_officer', 'admin'].includes(role);
+    const assignedIncidentIds = ['security', 'security_officer'].includes(role)
+      ? await assignedIncidentIdsFor(req.user)
+      : null;
     const alerts = await Alert.findAll({
+      ...(['security', 'security_officer'].includes(role) ? {
+        where: { incident_id: { [Op.in]: assignedIncidentIds } }
+      } : {}),
       include: [{
         model: Incident,
         as: 'incident',
@@ -28,9 +41,16 @@ router.post('/', (req, res) => {
 
 router.put('/:id/read', async (req, res) => {
   try {
-    const isPrivileged = ['security', 'admin'].includes(req.user.role);
+    const role = String(req.user.role || '').trim().toLowerCase();
+    const isPrivileged = ['security', 'security_officer', 'admin'].includes(role);
+    const assignedIncidentIds = ['security', 'security_officer'].includes(role)
+      ? await assignedIncidentIdsFor(req.user)
+      : null;
     const alert = await Alert.findOne({
-      where: { alert_id: req.params.id },
+      where: {
+        alert_id: req.params.id,
+        ...(['security', 'security_officer'].includes(role) ? { incident_id: { [Op.in]: assignedIncidentIds } } : {})
+      },
       include: [{
         model: Incident,
         as: 'incident',

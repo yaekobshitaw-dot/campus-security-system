@@ -53,6 +53,14 @@ const Incident = sequelize.define('Incident', {
     type: DataTypes.DECIMAL(10, 7),
     allowNull: true
   },
+  location_accuracy: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  location_timestamp: {
+    type: DataTypes.DATE(3),
+    allowNull: true
+  },
   is_sos: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

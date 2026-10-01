@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Emergency response team responding to an incident</title>
+  <desc id="desc">Campus security personnel and emergency responders moving quickly to an incident site.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#eef7ff"/>
+      <stop offset="100%" stop-color="#dfeeff"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="420" fill="url(#bg)"/>
+  <path d="M0 290 C100 260, 180 320, 268 286 S460 242, 600 280 V420 H0 Z" fill="#cfe5ff"/>
+  <rect x="60" y="92" width="162" height="202" rx="24" fill="#13345b"/>
+  <rect x="76" y="110" width="130" height="150" rx="18" fill="#ffffff"/>
+  <circle cx="140" cy="166" r="30" fill="#f3b7aa"/>
+  <path d="M118 160c7-21 25-31 44-31 21 0 36 11 41 29-12-8-20-11-33-11-17 0-34 7-52 13Z" fill="#173c6b"/>
+  <path d="M111 220c10-18 20-24 30-24 18 0 33 16 36 38l5 34H104l7-48Z" fill="#2a75d5"/>
+  <path d="M102 256h76" stroke="#dcecff" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="387" cy="152" r="46" fill="#fae3a0" opacity="0.8"/>
+  <path d="M387 111v82M346 152h82" stroke="#f7a600" stroke-width="18" stroke-linecap="round"/>
+  <rect x="312" y="216" width="190" height="84" rx="18" fill="#ffffff" stroke="#cfe0ff" stroke-width="2"/>
+  <rect x="332" y="236" width="62" height="44" rx="12" fill="#eaf3ff"/>
+  <path d="M344 259h40" stroke="#2a75d5" stroke-width="9" stroke-linecap="round"/>
+  <rect x="410" y="236" width="62" height="44" rx="12" fill="#dfeeff"/>
+  <circle cx="440" cy="258" r="14" fill="#2a75d5"/>
+  <path d="M220 188h54l24 38h-94l16-38Z" fill="#e7f1ff" stroke="#b9d2f7" stroke-width="3"/>
+  <path d="M246 227v72" stroke="#1a3d70" stroke-width="14" stroke-linecap="round"/>
+  <path d="M196 290l50-30 50 30" fill="none" stroke="#1a3d70" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="250" cy="102" r="22" fill="#d9ebff"/>
+  <path d="M240 102l6 8 16-18" fill="none" stroke="#2a75d5" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

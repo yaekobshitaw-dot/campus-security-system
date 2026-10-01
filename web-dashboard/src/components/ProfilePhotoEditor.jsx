@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../services/api';
+import ProfilePhotoPreview from './ProfilePhotoPreview';
 
 const MAX_SIZE = 5 * 1024 * 1024;
 
@@ -136,7 +137,7 @@ const ProfilePhotoEditor = ({ user, onUpdated, selfOnly = false }) => {
         <button type="button" className="dashboard-button" onClick={openCamera} disabled={loading}>Use camera</button>
         {user.profile_photo_url && <button type="button" className="table-action" onClick={remove} disabled={loading}>Remove photo</button>}
       </div>
-      {previewUrl && <div className="mt-4 flex flex-wrap items-center gap-4"><img src={previewUrl} alt="Selected profile preview" className="h-24 w-24 rounded-xl object-cover ring-2 ring-emerald-200" /><button type="button" className="dashboard-button primary" onClick={upload} disabled={loading}>{loading ? 'Saving...' : 'Save'}</button></div>}
+      {previewUrl && <div className="mt-4 flex flex-wrap items-center gap-4"><ProfilePhotoPreview src={previewUrl} alt="Selected profile preview" className="h-24 w-24 rounded-xl object-cover ring-2 ring-emerald-200" /><button type="button" className="dashboard-button primary" onClick={upload} disabled={loading}>{loading ? 'Saving...' : 'Save'}</button></div>}
       {cameraOpen && <div className="mt-4 max-w-md rounded-xl border border-slate-200 bg-slate-50 p-3"><video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg" /><div className="mt-3 flex gap-2"><button type="button" className="dashboard-button primary" onClick={capturePhoto}>Take photo</button><button type="button" className="dashboard-button" onClick={closeCamera}>Cancel</button></div></div>}
       {message && <p className="mt-3 text-sm font-bold text-emerald-700" role="status">{message}</p>}
       {error && <p className="mt-3 text-sm font-bold text-red-700" role="alert">{error}</p>}

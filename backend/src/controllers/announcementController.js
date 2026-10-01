@@ -1,7 +1,9 @@
+const { User } = require('../models');
 const announcementService = require('../services/announcementService');
 const { AnnouncementValidationError } = require('../validators/announcementValidator');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
+const { logger } = require('../utils/logger');
 
 const sendError = (res, error, fallbackMessage) => {
   if (error instanceof AnnouncementValidationError) {
@@ -82,7 +84,27 @@ exports.publish = async (req, res) => {
     const data = await announcementService.publishAnnouncement(req.user, req.params.id);
     if (!data) return res.status(404).json({ success: false, message: 'Announcement not found' });
     await recordAudit(req, { action: 'announcement_published', resourceType: 'announcement', resourceId: req.params.id });
-    await notifyUsers(req, { type: 'announcement_published', title: 'New campus announcement', message: data.title, resourceType: 'announcement', resourceId: req.params.id, link: '/announcements', dedupeKey: `announcement-published:${req.params.id}:${data.published_at}` });
+    try {
+      const recipientRoles = announcementService.userRolesForAudiences(data.target_roles);
+      const recipients = await User.findAll({
+        where: { is_active: true, role: recipientRoles },
+        attributes: ['user_id']
+      });
+      await notifyUsers(req, {
+        type: 'announcement_published',
+        title: 'New campus announcement',
+        message: data.title,
+        resourceType: 'announcement',
+        resourceId: req.params.id,
+        link: '/announcements',
+        dedupeKey: `announcement-published:${req.params.id}:${data.published_at}`
+      }, recipients);
+    } catch (notificationError) {
+      logger.error('Announcement published but audience notification delivery failed', {
+        announcementId: req.params.id,
+        error: notificationError.message
+      });
+    }
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return sendError(res, error, 'Unable to publish announcement');

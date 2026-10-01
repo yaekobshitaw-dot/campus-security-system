@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Icon } from './ui';
 
 const { width } = Dimensions.get('window');
 

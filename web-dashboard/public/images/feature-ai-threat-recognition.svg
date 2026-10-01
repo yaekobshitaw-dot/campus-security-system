@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" role="img" aria-labelledby="title desc">
+  <title id="title">AI-powered security monitoring</title>
+  <desc id="desc">A surveillance dashboard with a central AI monitoring view and security analytics.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ebf4ff"/>
+      <stop offset="100%" stop-color="#dfeeff"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="420" fill="url(#bg)"/>
+  <rect x="48" y="72" width="504" height="274" rx="26" fill="#0d2343"/>
+  <rect x="74" y="100" width="120" height="218" rx="18" fill="#153d6f"/>
+  <circle cx="134" cy="150" r="26" fill="#59b7ff"/>
+  <path d="M120 150l10 10 23-28" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="92" y="190" width="84" height="10" rx="5" fill="#4b6fb3"/>
+  <rect x="92" y="214" width="62" height="10" rx="5" fill="#4b6fb3"/>
+  <rect x="92" y="238" width="74" height="10" rx="5" fill="#4b6fb3"/>
+  <rect x="222" y="112" width="292" height="126" rx="18" fill="#112d58" stroke="#2f67cb" stroke-width="3"/>
+  <path d="M246 214 L298 176 L348 198 L392 152 L460 194 L494 160" fill="none" stroke="#7ad7ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="246" cy="214" r="8" fill="#7ad7ff"/>
+  <circle cx="298" cy="176" r="8" fill="#7ad7ff"/>
+  <circle cx="348" cy="198" r="8" fill="#7ad7ff"/>
+  <circle cx="392" cy="152" r="8" fill="#7ad7ff"/>
+  <circle cx="460" cy="194" r="8" fill="#7ad7ff"/>
+  <circle cx="494" cy="160" r="8" fill="#7ad7ff"/>
+  <rect x="222" y="254" width="136" height="48" rx="12" fill="#183a69"/>
+  <rect x="378" y="254" width="136" height="48" rx="12" fill="#183a69"/>
+  <circle cx="248" cy="278" r="18" fill="#7ad7ff" opacity="0.85"/>
+  <path d="M240 278h16" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M248 270v16" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <rect x="392" y="268" width="70" height="10" rx="5" fill="#7ad7ff"/>
+  <rect x="392" y="286" width="46" height="8" rx="4" fill="#4f84d6"/>
+  <path d="M110 310h380" stroke="#5e86c8" stroke-width="3" opacity="0.8"/>
+</svg>

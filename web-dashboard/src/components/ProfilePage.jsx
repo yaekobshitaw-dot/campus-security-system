@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { UserAvatar } from './DashboardLayout';
 import ProfilePhotoEditor from './ProfilePhotoEditor';
-import api from '../services/api';
+import userService from '../services/user';
 
 const ProfilePage = ({ user, onUpdated }) => {
   const [status, setStatus] = useState(user?.availability_status || 'offline');
@@ -14,8 +14,7 @@ const ProfilePage = ({ user, onUpdated }) => {
     setError('');
     setLoading(true);
     try {
-      const payload = { availability_status: next };
-      const resp = await api.patch('/users/me/location', payload);
+      const resp = await userService.updateMyAvailability(next);
       if (onUpdated) onUpdated(resp.data?.data || {});
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to update status');
@@ -42,7 +41,7 @@ const ProfilePage = ({ user, onUpdated }) => {
         </div>
 
         <div className="mt-6">
-          {user?.role === 'security' ? (
+          {['security', 'security_officer'].includes(String(user?.role || '').toLowerCase()) ? (
             <div className="max-w-md">
               <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
               <select value={status} onChange={handleChange} disabled={loading} className="w-full rounded-md border px-3 py-2">

@@ -1,7 +1,14 @@
 const crypto = require('crypto');
-const { Issuer, generators } = require('openid-client');
+const { Issuer, generators, custom } = require('openid-client');
 const { Op } = require('sequelize');
 const { OAuthLoginTicket, User, UserIdentity } = require('../models');
+
+const getOidcRequestTimeoutMs = () => {
+  const parsed = Number(process.env.OAUTH_HTTP_TIMEOUT_MS || process.env.OPENID_CLIENT_TIMEOUT_MS || 20000);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 20000;
+};
+
+custom.setHttpOptionsDefaults({ timeout: getOidcRequestTimeoutMs() });
 
 const SUPPORTED_PROVIDERS = ['google', 'microsoft'];
 const providerClients = new Map();
@@ -179,8 +186,14 @@ const callback = async (req, res, provider, generateToken) => {
     const user = await findOrCreateUser(provider, identity);
     const ticket = await createLoginTicket(user);
     res.setHeader('Set-Cookie', cookieOptions(provider, '', 0));
-    return res.redirect(`${frontendUrl()}/oauth/callback?ticket=${encodeURIComponent(ticket)}`);
+    // Keep the ticket in a single query parameter so the callback page has one
+    // canonical source of truth and the one-time ticket cannot be replayed via
+    // a duplicate hash param. The ticket remains single-use and short-lived.
+    const encoded = encodeURIComponent(ticket);
+    return res.redirect(`${frontendUrl()}/oauth/callback?ticket=${encoded}`);
   } catch (error) {
+    // Diagnostic logging (safe): capture error message for debugging without logging secrets or tokens.
+    try { console.error(`[oauthService] callback error for provider ${provider}:`, String(error.message || error)); } catch (e) { /* ignore logging failures */ }
     res.setHeader('Set-Cookie', cookieOptions(provider, '', 0));
     return redirectWithError(res, error.message === 'The provider did not return a verified email address'
       ? error.message

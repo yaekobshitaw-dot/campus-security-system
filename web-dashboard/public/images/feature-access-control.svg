@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Role-based access and secure login</title>
+  <desc id="desc">A secure login screen with credentials and access control indicators.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#edf7ff"/>
+      <stop offset="100%" stop-color="#e5f0ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="420" fill="url(#bg)"/>
+  <rect x="86" y="78" width="428" height="264" rx="28" fill="#f9fbff" stroke="#d6e7ff" stroke-width="2"/>
+  <rect x="130" y="118" width="184" height="182" rx="20" fill="#122d52"/>
+  <rect x="148" y="144" width="148" height="16" rx="8" fill="#274a7d"/>
+  <rect x="148" y="176" width="148" height="48" rx="12" fill="#ffffff"/>
+  <circle cx="170" cy="200" r="10" fill="#7ec9ff"/>
+  <rect x="188" y="192" width="86" height="10" rx="5" fill="#d8edff"/>
+  <rect x="148" y="234" width="148" height="48" rx="12" fill="#ffffff"/>
+  <path d="M168 260h24v-18c0-13 10-22 22-22s22 9 22 22v18h-68Z" fill="#2b75d5"/>
+  <rect x="332" y="132" width="124" height="130" rx="18" fill="#eaf4ff"/>
+  <circle cx="394" cy="164" r="30" fill="#7bbdff"/>
+  <path d="M381 164l8 8 17-20" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="356" y="206" width="78" height="10" rx="5" fill="#bfdcff"/>
+  <rect x="356" y="224" width="54" height="10" rx="5" fill="#d7ebff"/>
+  <rect x="186" y="76" width="220" height="30" rx="15" fill="#dfeeff"/>
+  <rect x="212" y="84" width="68" height="12" rx="6" fill="#7ec9ff"/>
+  <rect x="300" y="84" width="86" height="12" rx="6" fill="#c2dcff"/>
+  <circle cx="426" cy="290" r="38" fill="#bfdcff"/>
+  <path d="M406 290l11 11 22-28" fill="none" stroke="#2c70d9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -2,8 +2,11 @@ import api from './api';
 import { getLocation } from './location';
 
 const LOCATION_UPDATE_INTERVAL_MS = 30000;
+const DATA_SAVING_LOCATION_UPDATE_INTERVAL_MS = 120000;
 
-export const startOfficerLocationUpdates = () => {
+export const startOfficerLocationUpdates = ({ shareLocation = true, dataSaving = false } = {}) => {
+  if (!shareLocation) return undefined;
+
   let stopped = false;
   let updateInProgress = false;
 
@@ -30,7 +33,10 @@ export const startOfficerLocationUpdates = () => {
   };
 
   sendLocation();
-  const intervalId = setInterval(sendLocation, LOCATION_UPDATE_INTERVAL_MS);
+  const intervalId = setInterval(
+    sendLocation,
+    dataSaving ? DATA_SAVING_LOCATION_UPDATE_INTERVAL_MS : LOCATION_UPDATE_INTERVAL_MS
+  );
 
   return () => {
     stopped = true;

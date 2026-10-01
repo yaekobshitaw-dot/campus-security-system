@@ -1,6 +1,7 @@
 const { SystemSetting } = require('../models');
 
 const SETTING_DEFINITIONS = [
+  { key: 'system.active', category: 'system', defaultValue: 'true', type: 'boolean' },
   { key: 'emergency.sos_cooldown_seconds', category: 'emergency', defaultValue: '30', type: 'integer', min: 5, max: 300 },
   { key: 'emergency.sos_auto_assign_enabled', category: 'emergency', defaultValue: 'true', type: 'boolean' },
   { key: 'notifications.admin_alerts_enabled', category: 'notifications', defaultValue: 'true', type: 'boolean' },
@@ -32,6 +33,11 @@ const getSetting = async (key) => {
   if (definition.type === 'integer') return Number(value);
   if (definition.type === 'boolean') return value === true || value === 'true';
   return value;
+};
+
+const isSystemActive = async () => {
+  const setting = await SystemSetting.findByPk('system.active');
+  return setting ? setting.value === true || setting.value === 'true' : true;
 };
 
 const validateSettingValue = (definition, value) => {
@@ -67,4 +73,4 @@ const updateSettings = async (settings, userId) => {
   return listSettings();
 };
 
-module.exports = { SETTING_DEFINITIONS, ensureDefaultSettings, getSetting, listSettings, updateSettings };
+module.exports = { SETTING_DEFINITIONS, ensureDefaultSettings, getSetting, isSystemActive, listSettings, updateSettings };

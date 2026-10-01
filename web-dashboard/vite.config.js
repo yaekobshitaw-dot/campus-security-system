@@ -16,6 +16,12 @@ export default defineConfig(({ mode }) => {
         ignored: ['**/dist/**'],
       },
       proxy: {
+        '/api/ml': {
+          target: env.VITE_ML_API_URL || 'http://127.0.0.1:5001',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/ml/, '')
+        },
         '/api': {
           target: env.VITE_API_PROXY_TARGET || 'http://localhost:5002',
           changeOrigin: true,

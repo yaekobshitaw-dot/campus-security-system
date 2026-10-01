@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Security alert notification on a smartphone</title>
+  <desc id="desc">A smartphone displaying a campus safety notification alert.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#eef7ff"/>
+      <stop offset="100%" stop-color="#deebff"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="420" fill="url(#bg)"/>
+  <rect x="80" y="70" width="440" height="280" rx="28" fill="#f5f9ff" stroke="#d5e7ff" stroke-width="2"/>
+  <rect x="180" y="104" width="240" height="206" rx="26" fill="#132d4d"/>
+  <rect x="196" y="122" width="208" height="22" rx="11" fill="#193a69"/>
+  <circle cx="214" cy="133" r="8" fill="#7ac8ff"/>
+  <rect x="228" y="130" width="110" height="8" rx="4" fill="#95bddc"/>
+  <rect x="196" y="170" width="208" height="96" rx="18" fill="#eaf5ff"/>
+  <path d="M218 198h70l18 28 28-42 24 34 28-52 28 32h22" fill="none" stroke="#2a75d5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="218" cy="198" r="7" fill="#2a75d5"/>
+  <circle cx="288" cy="226" r="7" fill="#2a75d5"/>
+  <circle cx="316" cy="184" r="7" fill="#2a75d5"/>
+  <circle cx="340" cy="218" r="7" fill="#2a75d5"/>
+  <circle cx="366" cy="196" r="7" fill="#2a75d5"/>
+  <rect x="206" y="278" width="94" height="12" rx="6" fill="#cfe8ff"/>
+  <rect x="316" y="278" width="70" height="12" rx="6" fill="#cfe8ff"/>
+  <path d="M132 212h36v76h-36c-15 0-26-11-26-26v-24c0-15 11-26 26-26Z" fill="#f7c75f"/>
+  <path d="M130 190l14-20 14 20h-28Z" fill="#f2a93a"/>
+  <path d="M121 248h30" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M120 262h30" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <rect x="445" y="174" width="34" height="68" rx="12" fill="#f5dba1"/>
+  <path d="M460 183v45" stroke="#d47c00" stroke-width="8" stroke-linecap="round"/>
+  <path d="M460 232l4 10h-8l4-10Z" fill="#d47c00"/>
+</svg>

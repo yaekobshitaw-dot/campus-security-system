@@ -76,14 +76,15 @@ test('keeps an officer online while another authenticated socket for the same us
   assert.equal(response.payload.data[0].presence, true);
 });
 
-test('marks stale valid coordinates as last known and makes available officer offline', async () => {
+test('marks stale valid coordinates as last known and keeps available officer available', async () => {
   User.findAll = async () => [officer({ location_updated_at: new Date(Date.now() - 10 * 60 * 1000) })];
   Response.findAll = async () => [];
   const response = makeResponse();
 
   await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'offline');
+  // DB availability 'available' should not be overridden by stale location
+  assert.equal(response.payload.data[0].availability_status, 'available');
   assert.equal(response.payload.data[0].location_status, 'last_known');
   assert.equal(response.payload.data[0].location_is_stale, true);
 });
@@ -95,7 +96,8 @@ test('rejects invalid coordinates from being shown as current', async () => {
 
   await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'offline');
+  // Invalid coordinates should not make an otherwise-available officer offline
+  assert.equal(response.payload.data[0].availability_status, 'available');
   assert.equal(response.payload.data[0].location_status, 'unavailable');
 });
 
@@ -107,6 +109,73 @@ test('does not mark an officer responding after the incident is resolved', async
   await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
   assert.equal(response.payload.data[0].availability_status, 'available');
+});
+
+// Assignable flag tests
+test('available officer → assignable === true', async () => {
+  User.findAll = async () => [officer({ availability_status: 'available' })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'available');
+  assert.equal(response.payload.data[0].assignable, true);
+});
+
+test('responding officer → assignable === false', async () => {
+  User.findAll = async () => [officer({ availability_status: 'responding' })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'responding');
+  assert.equal(response.payload.data[0].assignable, false);
+});
+
+test('busy officer → assignable === false', async () => {
+  User.findAll = async () => [officer({ availability_status: 'busy' })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'busy');
+  assert.equal(response.payload.data[0].assignable, false);
+});
+
+test('offline officer → assignable === false', async () => {
+  User.findAll = async () => [officer({ availability_status: 'offline', latitude: null, longitude: null, location_updated_at: null })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'offline');
+  assert.equal(response.payload.data[0].assignable, false);
+});
+
+test('stale/missing location does NOT change assignable', async () => {
+  User.findAll = async () => [officer({ availability_status: 'available', location_updated_at: new Date(Date.now() - 10 * 60 * 1000) })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'available');
+  assert.equal(response.payload.data[0].assignable, true);
+});
+
+test('missing Socket.IO presence does NOT change assignable', async () => {
+  User.findAll = async () => [officer({ availability_status: 'available' })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ app: { get: () => null }, user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].availability_status, 'available');
+  assert.equal(response.payload.data[0].assignable, true);
 });
 
 test('requires security or admin authorization for officer operations', () => {

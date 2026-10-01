@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Icon } from '../components/ui';
 
 const AlertDetailScreen = ({ route, navigation }) => {
   const alert = route.params?.alert || {};

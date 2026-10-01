@@ -1,6 +1,6 @@
 ﻿import { NavigationContainer } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, View } from 'react-native';
+import { ActivityIndicator, StatusBar, useColorScheme, View, Vibration } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AppNavigator from './navigation/AppNavigator';
 import { setAuthInvalidationHandler } from './services/api';
@@ -11,15 +11,20 @@ import { hydrateAuth, sessionExpired } from './store/authSlice';
 import { socketService } from './services/socket';
 import NotificationBanner from './components/NotificationBanner';
 import { addRealtimeNotification } from './store/notificationSlice';
+import { getNotificationBannerPreference, hydrateSettings } from './store/settingsSlice';
 
 function AppContent() {
   const dispatch = useDispatch();
   const userRole = useSelector((state) => state.auth.user?.role);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const isHydrated = useSelector((state) => state.auth.isHydrated);
+  const notificationPreferences = useSelector((state) => state.settings.preferences);
+  const deviceColorScheme = useColorScheme();
+  const isDarkTheme = notificationPreferences.theme === 'dark'
+    || (notificationPreferences.theme === 'system' && deviceColorScheme === 'dark');
 
   useEffect(() => {
-    dispatch(hydrateAuth());
+    dispatch(hydrateSettings()).finally(() => dispatch(hydrateAuth()));
   }, [dispatch]);
 
   useEffect(() => setAuthInvalidationHandler(() => dispatch(sessionExpired())), [dispatch]);
@@ -31,8 +36,17 @@ function AppContent() {
     const handleNotification = (payload) => {
       try {
         dispatch(addRealtimeNotification(payload));
-        setBanner({ title: payload.title || 'Notification', message: payload.message || (payload.data && payload.data.message) || '' });
-        setTimeout(() => setBanner(null), 5000);
+        if (getNotificationBannerPreference(payload, notificationPreferences)) {
+          if (notificationPreferences.vibrateOnAlerts) {
+            try {
+              Vibration.vibrate(250);
+            } catch (error) {
+              console.warn('In-app alert vibration failed:', error?.message || error);
+            }
+          }
+          setBanner({ title: payload.title || 'Notification', message: payload.message || (payload.data && payload.data.message) || '' });
+          setTimeout(() => setBanner(null), 5000);
+        }
       } catch (err) {
         console.warn('Failed to handle realtime notification', err);
       }
@@ -40,12 +54,15 @@ function AppContent() {
 
     socketService.on('notification-created', handleNotification);
     return () => socketService.off('notification-created', handleNotification);
-  }, [dispatch]);
+  }, [dispatch, notificationPreferences]);
 
   useEffect(() => {
     if (userRole !== 'security') return undefined;
-    return startOfficerLocationUpdates();
-  }, [userRole]);
+    return startOfficerLocationUpdates({
+      shareLocation: notificationPreferences.shareLocation,
+      dataSaving: notificationPreferences.dataSaving,
+    });
+  }, [userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
@@ -88,8 +105,8 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <StatusBar barStyle="dark-content" />
-      {banner && <NotificationBanner title={banner.title} message={banner.message} onClose={() => setBanner(null)} />}
+      <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
+      {banner && <NotificationBanner title={banner.title} message={banner.message} isDark={isDarkTheme} onClose={() => setBanner(null)} />}
       <AppNavigator />
     </NavigationContainer>
   );

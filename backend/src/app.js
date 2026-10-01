@@ -18,6 +18,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const campusLocationRoutes = require('./routes/campusLocationRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const contentRoutes = require('./routes/contentRoutes');
+const systemRoutes = require('./routes/systemRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter, assistantLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { corsOrigin } = require('./config/cors');
@@ -40,6 +41,7 @@ app.use('/uploads/profile-photos', express.static(path.resolve(__dirname, '../up
   maxAge: '1h'
 }));
 app.use('/api', apiLimiter);
+app.use('/api/system', systemRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/incidents', incidentRoutes);

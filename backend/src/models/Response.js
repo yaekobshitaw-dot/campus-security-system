@@ -26,6 +26,11 @@ Response.init({
     allowNull: false,
     defaultValue: 'assigned'
   },
+  assignment_status: {
+    type: DataTypes.ENUM('pending', 'accepted', 'declined'),
+    allowNull: false,
+    defaultValue: 'pending'
+  },
   response_time_seconds: {
     type: DataTypes.INTEGER,
     allowNull: true

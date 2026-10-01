@@ -1,4 +1,5 @@
 import { Box, Chip, Divider, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
+import { formatIncidentStatus } from '../DashboardLayout';
 
 export const IncidentList = ({ incidents = [], onIncidentClick }) => {
   if (!incidents.length) {
@@ -34,7 +35,7 @@ export const IncidentList = ({ incidents = [], onIncidentClick }) => {
                       {incident.location_name || incident.location || 'Campus'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {incident.status || 'open'} · {incident.created_at || 'Recently'}
+                      {formatIncidentStatus(incident.status || 'open')} · {incident.created_at || 'Recently'}
                     </Typography>
                   </>
                 }

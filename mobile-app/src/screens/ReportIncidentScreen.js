@@ -5,19 +5,24 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import LocationPicker from '../components/LocationPicker';
 import PhotoUploader from '../components/PhotoUploader';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
+import AppText from '../components/AppText';
+import AppTextInput from '../components/AppTextInput';
 import api from '../services/api';
+import { getFreshLocation, logLocationSubmission, openLocationSettings } from '../services/location';
 import { socketService } from '../services/socket';
 import { addIncident } from '../store/incidentSlice';
+import { useMobileTranslation } from '../utils/translations';
+import { useMobileTheme } from '../utils/settingsAppearance';
+
+const Text = AppText;
+const TextInput = AppTextInput;
 
 const ReportIncidentScreen = () => {
   const [formData, setFormData] = useState({
@@ -34,8 +39,12 @@ const ReportIncidentScreen = () => {
     photos: [],
   });
   const [submitting, setSubmitting] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState('');
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const shareLocation = useSelector((state) => state.settings.preferences.shareLocation);
+  const t = useMobileTranslation();
+  const { colors } = useMobileTheme();
 
   const incidentTypes = [
     { label: 'Fire/Hazard', value: 'fire' },
@@ -64,23 +73,58 @@ const ReportIncidentScreen = () => {
     }
 
     if (!formData.type) {
-      Alert.alert('Error', 'Please select an incident type');
+      Alert.alert(t('Error'), t('Please select an incident type'));
       return;
     }
 
     if (!formData.description || !formData.description.trim()) {
-      Alert.alert('Error', 'Please provide a description');
+      Alert.alert(t('Error'), t('Please provide a description'));
       return;
     }
 
     try {
       setSubmitting(true);
+      let location = null;
+      if (shareLocation) {
+        setSubmissionStatus('Getting current location...');
+        try {
+          location = await getFreshLocation();
+        } catch (locationError) {
+          setSubmissionStatus('');
+          Alert.alert(
+            t('Current location required'),
+            t(locationError?.message || 'Unable to get your current location. Please enable GPS/Location and try again.'),
+            [
+              { text: t('Cancel'), style: 'cancel' },
+              {
+                text: t('Try Again'),
+                onPress: handleSubmit,
+              },
+              {
+                text: t('Open Settings'),
+                onPress: () => {
+                  openLocationSettings(locationError?.code).catch(() => {
+                    Alert.alert(t('Settings unavailable'), t('Please enable Location/GPS in your device settings and try again.'));
+                  });
+                },
+              },
+            ]
+          );
+          return;
+        }
+        setSubmissionStatus('Location captured');
+        logLocationSubmission('INCIDENT', location);
+      }
 
       const payload = new FormData();
       const safeEntries = {
         ...formData,
         description: formData.description.trim(),
-        location_name: formData.location_name || '',
+        latitude: location?.latitude ?? (shareLocation ? null : formData.latitude),
+        longitude: location?.longitude ?? (shareLocation ? null : formData.longitude),
+        location_accuracy: location?.accuracy ?? null,
+        location_timestamp: location?.timestamp == null ? null : new Date(location.timestamp).toISOString(),
+        location_name: location ? 'Current device location' : (shareLocation ? '' : formData.location_name),
         building: formData.building || '',
         room: formData.room || '',
         floor: formData.floor || '',
@@ -117,21 +161,22 @@ const ReportIncidentScreen = () => {
       dispatch(addIncident(incident));
 
       Alert.alert(
-        'Incident reported',
-        'Incident reported successfully. Security has been notified.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+        t('Incident reported'),
+        t('Incident reported successfully. Security has been notified.'),
+        [{ text: t('OK'), onPress: () => navigation.navigate('Home') }]
       );
     } catch (error) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to report incident. Please try again.';
-      Alert.alert('Error', message);
+      const message = error?.response?.data?.message || 'Failed to report incident. Please try again.';
+      Alert.alert(t('Error'), t(message));
     } finally {
       setSubmitting(false);
+      setSubmissionStatus('');
     }
   };
 
   const renderTypeSelector = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionLabel}>Incident Type *</Text>
+      <Text style={styles.sectionLabel}>{t('Incident Type *')}</Text>
       <View style={styles.optionsGrid}>
         {incidentTypes.map((type) => (
           <TouchableOpacity
@@ -148,7 +193,7 @@ const ReportIncidentScreen = () => {
                 formData.type === type.value && styles.optionTextSelected,
               ]}
             >
-              {type.label}
+              {t(type.label)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -158,7 +203,7 @@ const ReportIncidentScreen = () => {
 
   const renderSeveritySelector = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionLabel}>Severity</Text>
+      <Text style={styles.sectionLabel}>{t('Severity')}</Text>
       <View style={styles.optionsRow}>
         {severityOptions.map((option) => (
           <TouchableOpacity
@@ -179,7 +224,7 @@ const ReportIncidentScreen = () => {
                 formData.severity === option.value && styles.severityTextSelected,
               ]}
             >
-              {option.label}
+              {t(option.label)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -188,20 +233,20 @@ const ReportIncidentScreen = () => {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
             <Icon name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Report Incident</Text>
+          <Text style={styles.headerTitle}>{t('Report Incident')}</Text>
         </View>
 
         {renderTypeSelector()}
         {renderSeveritySelector()}
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Description *</Text>
+          <Text style={styles.sectionLabel}>{t('Description *')}</Text>
           <TextInput
             style={styles.descriptionInput}
             placeholder="Describe what happened..."
@@ -295,6 +340,7 @@ const ReportIncidentScreen = () => {
             <><Icon name="send" size={20} color="#FFFFFF" /><Text style={styles.submitButtonText}>Submit report</Text></>
           )}
         </TouchableOpacity>
+        {submissionStatus ? <Text accessibilityLiveRegion="polite" style={styles.locationStatus}>{submissionStatus}</Text> : null}
       </View>
     </ScrollView>
   );
@@ -457,6 +503,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  locationStatus: {
+    marginTop: 8,
+    color: colors.teal,
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
 

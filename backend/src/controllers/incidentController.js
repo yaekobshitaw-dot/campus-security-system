@@ -1,10 +1,12 @@
-﻿const { Alert, Incident, Response, User, sequelize } = require('../models');
+const { Alert, Incident, IncidentHistoryClear, Response, User, sequelize } = require('../models');
+const { attachCampusLocationMatches } = require('../services/campusLocationMatchingService');
+const { haversineDistanceMeters } = require('../utils/geoUtils');
 const { Op } = require('sequelize');
 const { processIncidentPhotos } = require('../services/uploadService');
 const { sendPushNotification } = require('../services/notificationService');
 const { sendSmsMessage } = require('../services/smsService');
 const { recordAudit } = require('../services/auditService');
-const { notifyUsers } = require('../services/notificationPersistence');
+const { getActiveAdmins, notifyUsers } = require('../services/notificationPersistence');
 const { getSetting } = require('../services/settingsService');
 const {
   canAccessIncidentEvidence,
@@ -14,18 +16,58 @@ const {
   resolveEvidencePath
 } = require('../services/evidenceService');
 
-const SUPPORTED_STATUSES = ['reported', 'investigating', 'resolved', 'dispatched', 'on_scene', 'closed'];
-const RESPONSE_STATUSES = ['responding', 'resolved', 'closed'];
+const SUPPORTED_STATUSES = ['reported', 'investigating', 'resolved', 'dispatched', 'on_scene', 'closed', 'cancelled'];
+const RESPONSE_STATUSES = ['responding', 'resolved', 'closed', 'cancelled'];
 const ACTIVE_ASSIGNMENT_STATUSES = ['reported', 'investigating', 'dispatched', 'on_scene'];
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const recentSOSRequests = new Map();
 const asBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
+const normalizeAvailabilityStatus = (status) => String(status || '').trim().toLowerCase();
+const isOfficiallyAvailable = (officer) => normalizeAvailabilityStatus(officer?.availability_status) === 'available';
+const hasActiveRespondingAssignment = async (userId, transaction = null) => {
+  const response = await Response.findOne({
+    where: {
+      responder_id: userId,
+      status: 'responding'
+    },
+    transaction: transaction || undefined
+  });
+  return Boolean(response);
+};
 const isValidCoordinate = (value, minimum, maximum) => {
   if (value === null || value === undefined || value === '') return true;
   const coordinate = Number(value);
   return Number.isFinite(coordinate) && coordinate >= minimum && coordinate <= maximum;
 };
+const isValidAccuracy = (value) => {
+  if (value === null || value === undefined || value === '') return true;
+  return (typeof value === 'number' || typeof value === 'string')
+    && String(value).trim() !== ''
+    && Number.isFinite(Number(value))
+    && Number(value) >= 0;
+};
+const isValidLocationTimestamp = (value) => (
+  value === null
+  || value === undefined
+  || value === ''
+  || (Number.isFinite(new Date(value).getTime()))
+);
 const toCoordinate = (value) => value === null || value === undefined || value === '' ? null : Number(value);
+const toOptionalNumber = (value) => value === null || value === undefined || value === '' ? null : Number(value);
+const toOptionalDate = (value) => value === null || value === undefined || value === '' ? null : new Date(value);
+const validateLocationMetadata = ({ latitude, longitude, location_accuracy: accuracy, location_timestamp: timestamp }) => {
+  if (!isValidCoordinate(latitude, -90, 90)) return 'Invalid latitude';
+  if (!isValidCoordinate(longitude, -180, 180)) return 'Invalid longitude';
+  if (!isValidAccuracy(accuracy)) return 'Invalid location accuracy';
+  if (!isValidLocationTimestamp(timestamp)) return 'Invalid location timestamp';
+  return null;
+};
+const isSecurityRole = (role) => ['security', 'security_officer'].includes(String(role || '').trim().toLowerCase());
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+const normalizeSecurityRoleList = (role) => isSecurityRole(role) ? ['security', 'security_officer'] : [normalizeRole(role)];
+const normalizeSecurityFilter = (role) => ({
+  [Op.or]: [{ role: 'security' }, { role: 'security_officer' }]
+});
 const normalizePhotos = (photos) => {
   if (Array.isArray(photos)) return photos.filter((photo) => typeof photo === 'string');
   if (typeof photos !== 'string' || !photos.trim()) return [];
@@ -36,16 +78,6 @@ const normalizePhotos = (photos) => {
     return [];
   }
 };
-const haversineDistanceMeters = (latitude1, longitude1, latitude2, longitude2) => {
-  const earthRadiusMeters = 6371000;
-  const radians = (degrees) => degrees * Math.PI / 180;
-  const deltaLatitude = radians(latitude2 - latitude1);
-  const deltaLongitude = radians(longitude2 - longitude1);
-  const a = Math.sin(deltaLatitude / 2) ** 2
-    + Math.cos(radians(latitude1)) * Math.cos(radians(latitude2)) * Math.sin(deltaLongitude / 2) ** 2;
-  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
 const findNearestAvailableOfficer = async (latitude, longitude) => {
   const incidentLatitude = toCoordinate(latitude);
   const incidentLongitude = toCoordinate(longitude);
@@ -53,9 +85,9 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
 
   const officers = await User.findAll({
     where: {
-      role: 'security',
       is_active: true,
-      availability_status: 'available'
+      availability_status: 'available',
+      [Op.or]: [{ role: 'security' }, { role: 'security_officer' }]
     },
     attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
   });
@@ -79,12 +111,15 @@ const findNearestAvailableOfficer = async (latitude, longitude) => {
     })[0] || null;
 };
 
-const emitProtected = (io, event, payload) => {
-  if (io) io.to('role:security').to('role:admin').emit(event, payload);
+const emitAssignmentEvent = (io, responderId, event, payload) => {
+  if (!io) return;
+  const recipients = io.to('role:admin');
+  if (responderId) recipients.to(`user:${responderId}`);
+  recipients.emit(event, payload);
 };
 const emitIncidentEvent = (io, incident, event, payload) => {
   if (!io) return;
-  const recipients = io.to('role:security').to('role:admin');
+  const recipients = io.to('role:admin');
   if (incident?.user_id) recipients.to(`user:${incident.user_id}`);
   recipients.emit(event, payload);
 };
@@ -93,6 +128,24 @@ const emitToIncidentOwner = (io, incident, event, payload) => {
 };
 
 exports.clearHistory = async (req, res) => {
+  const role = normalizeRole(req.user?.role);
+  if (role !== 'admin') {
+    try {
+      await IncidentHistoryClear.upsert({
+        user_id: req.user.user_id,
+        cleared_at: new Date()
+      });
+      return res.status(200).json({
+        success: true,
+        message: 'Your incident history was cleared successfully',
+        data: { cleared: true }
+      });
+    } catch (error) {
+      console.error('Unable to clear incident history:', error?.message || error);
+      return res.status(500).json({ success: false, message: 'Failed to clear incident history' });
+    }
+  }
+
   const transaction = await sequelize.transaction();
   try {
     const deletedCount = await Incident.destroy({ where: {}, transaction });
@@ -104,6 +157,7 @@ exports.clearHistory = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
+    console.error('Unable to clear system incident history:', error?.message || error);
     return res.status(500).json({ success: false, message: 'Failed to clear incident history' });
   }
 };
@@ -142,108 +196,60 @@ const assignIncidentToOfficer = async (incident, officer, assignedBy, transactio
     assigned_by: assignedBy || null,
     status: 'assigned'
   }, transaction ? { transaction } : undefined);
-  await incident.update({ status: 'dispatched' }, transaction ? { transaction } : undefined);
-  await officer.update({ availability_status: 'responding' }, transaction ? { transaction } : undefined);
   return response;
 };
 
-const assignmentPayload = (incident, officer, distanceMeters, assignedBy) => ({
+const assignmentPayload = (incident, officer, distanceMeters, assignedBy, assignmentStatus = 'pending', responseId = null) => ({
   incident_id: incident.incident_id,
   responder: { user_id: officer.user_id, name: officer.name, role: officer.role },
   assigned_by: assignedBy || null,
   distance_meters: Number.isFinite(distanceMeters) ? Math.round(distanceMeters) : null,
-  status: incident.status,
+  assignment_status: assignmentStatus,
+  response_id: responseId || null,
+  status: assignmentStatus === 'accepted' ? 'responding' : assignmentStatus === 'declined' ? 'assigned' : 'pending',
+  incident_status: incident.status,
   location_name: incident.location_name,
   latitude: incident.latitude,
   longitude: incident.longitude,
+  location_accuracy: incident.location_accuracy,
+  location_timestamp: incident.location_timestamp,
   created_at: incident.created_at
 });
 
-exports.createSOS = async (req, res) => {
-  const userId = req.user.user_id;
-  const now = Date.now();
-  const previousRequest = recentSOSRequests.get(userId);
-  const sosCooldownSeconds = await getSetting('emergency.sos_cooldown_seconds') || 30;
-
-  if (previousRequest && now - previousRequest < sosCooldownSeconds * 1000) {
-    return res.status(429).json({ success: false, message: 'Please wait before sending another SOS alert' });
-  }
-  recentSOSRequests.set(userId, now);
-
-  const { latitude = null, longitude = null } = req.body || {};
-  if (!isValidCoordinate(latitude, -90, 90) || !isValidCoordinate(longitude, -180, 180)) {
-    return res.status(400).json({ success: false, message: 'Invalid latitude or longitude' });
-  }
-
+exports.getPendingAssignments = async (req, res) => {
   try {
-    const incident = await Incident.create({
-      user_id: userId,
-      type: 'security_threat',
-      description: 'SOS emergency alert sent from the Campus Security mobile app.',
-      severity: 'critical',
-      status: 'reported',
-      location_name: latitude !== null && longitude !== null ? 'Current device location' : '',
-      latitude,
-      longitude,
-      is_sos: true,
-      is_anonymous: false,
-      photos: []
-    });
-    const nearestOfficer = await findNearestAvailableOfficer(latitude, longitude);
-    let assignment = null;
-    if (nearestOfficer) {
-      const response = await assignIncidentToOfficer(incident, nearestOfficer.officer, null);
-      assignment = assignmentPayload(incident, nearestOfficer.officer, nearestOfficer.distanceMeters, null);
-      assignment.response_id = response.response_id;
-    }
-    const alert = await Alert.create({
-      incident_id: incident.incident_id,
-      type: 'sos_alert',
-      title: 'SOS emergency reported',
-      message: 'A critical SOS emergency alert was reported.',
-      channel: 'dashboard',
-      sent_at: new Date()
-    });
-    await recordAudit(req, { action: 'sos_created', resourceType: 'incident', resourceId: incident.incident_id });
-    await notifyUsers(req, { type: 'sos_alert', title: 'SOS emergency reported', message: 'A critical SOS emergency alert was reported.', resourceType: 'incident', resourceId: incident.incident_id, link: `/incidents/${incident.incident_id}`, dedupeKey: `sos:${incident.incident_id}` });
+    const where = isSecurityRole(req.user.role)
+      ? { responder_id: req.user.user_id, assignment_status: { [Op.in]: ['pending', 'accepted'] }, status: { [Op.in]: ['assigned', 'responding'] } }
+      : { assignment_status: 'pending', status: 'assigned' };
 
-    const reporter = { user_id: req.user.user_id, name: req.user.name, role: req.user.role };
-    const sosPayload = {
-      incident_id: incident.incident_id,
-      type: incident.type,
-      severity: incident.severity,
-      status: incident.status,
-      is_sos: true,
-      location_name: incident.location_name,
-      latitude: incident.latitude,
-      longitude: incident.longitude,
-      created_at: incident.created_at,
-      reporter
-    };
-    const io = req.app.get('io');
-    if (io) {
-      io.to('role:security').to('role:admin').emit('sos_alert', sosPayload);
-      io.to('role:security').to('role:admin').emit('alert-received', alert.toJSON());
-      if (assignment) emitProtected(io, 'incident_assigned', assignment);
-      if (assignment) emitProtected(io, 'officer_assignment', assignment);
-    }
-
-    const recipients = await User.findAll({ where: { is_active: true, role: ['security', 'admin'] } });
-    await sendPushNotification(recipients, {
-      title: 'SOS emergency reported',
-      body: 'A critical SOS emergency alert was reported.',
-      data: { incident_id: incident.incident_id, is_sos: true }
+    const pendingAssignments = await Response.findAll({
+      where,
+      include: [{
+        model: Incident,
+        as: 'incident',
+        include: [{
+          model: User,
+          as: 'reporter',
+          attributes: ['user_id', 'name', 'role']
+        }]
+      }, {
+        model: User,
+        as: 'responder',
+        attributes: ['user_id', 'name', 'role', 'availability_status']
+      }],
+      order: [['created_at', 'DESC']]
     });
-    await notifySecurityBySms(req.user.user_id, recipients, `SOS ALERT: A critical security emergency was reported at ${incident.location_name || 'campus'} for incident #${incident.incident_id}.`);
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: 'SOS Alert Sent',
-      data: { ...incident.toJSON(), assignment }
+      data: pendingAssignments.map((response) => ({
+        ...response.toJSON(),
+        incident: response.incident ? response.incident.toJSON() : null,
+        responder: response.responder ? response.responder.toJSON() : null
+      }))
     });
   } catch (error) {
-    recentSOSRequests.delete(userId);
-    return res.status(500).json({ success: false, message: 'Failed to send SOS alert' });
+    return res.status(500).json({ success: false, message: 'Failed to load pending assignments' });
   }
 };
 
@@ -255,59 +261,93 @@ exports.assignIncident = async (req, res) => {
     return res.status(400).json({ success: false, message: 'incident_id and officer_id must be valid UUIDs' });
   }
 
-  const transaction = await sequelize.transaction();
+  let transaction;
   try {
-    const incident = await Incident.findByPk(incidentId, { transaction });
+    transaction = await sequelize.transaction();
+    const incident = await Incident.findByPk(incidentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
     if (!incident) {
       await transaction.rollback();
       return res.status(404).json({ success: false, message: 'Incident not found' });
     }
     if (!ACTIVE_ASSIGNMENT_STATUSES.includes(incident.status)) {
       await transaction.rollback();
-      return res.status(409).json({ success: false, message: 'Incident is not active and cannot be assigned' });
+      return res.status(409).json({ success: false, message: 'Incident is not active' });
     }
 
-    const existingResponse = await Response.findOne({ where: { incident_id: incidentId }, transaction });
-    if (existingResponse) {
+    const existingAssignment = await Response.findOne({
+      where: {
+        incident_id: incidentId,
+        assignment_status: { [Op.in]: ['pending', 'accepted'] }
+      },
+      transaction
+    });
+    if (existingAssignment) {
       await transaction.rollback();
-      return res.status(409).json({ success: false, message: 'Incident is already assigned' });
+      return res.status(409).json({
+        success: false,
+        message: 'Incident already has a pending or accepted assignment request'
+      });
     }
 
     const officer = await User.findOne({
-      where: { user_id: officerId, is_active: true },
-      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status', 'is_active'],
+      where: {
+        user_id: officerId,
+        is_active: true,
+        role: { [Op.in]: normalizeSecurityRoleList('security') }
+      },
+      attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status'],
       transaction
     });
     if (!officer) {
       await transaction.rollback();
-      const existingUser = await User.findByPk(officerId, { transaction });
-      if (existingUser && existingUser.role !== 'security') {
-        return res.status(400).json({ success: false, message: 'Selected user is not a security officer' });
-      }
       return res.status(404).json({ success: false, message: 'Security officer not found' });
     }
-    if (officer.role !== 'security') {
+    if (await hasActiveRespondingAssignment(officer.user_id, transaction)) {
       await transaction.rollback();
-      return res.status(400).json({ success: false, message: 'Selected user is not a security officer' });
+      return res.status(409).json({ success: false, message: 'Security officer is already responding to an incident' });
     }
-    if (officer.availability_status !== 'available') {
+    if (!isOfficiallyAvailable(officer)) {
       await transaction.rollback();
       return res.status(409).json({ success: false, message: 'Security officer is not available' });
     }
-    const distanceMeters = isValidCoordinate(incident.latitude, -90, 90)
+
+    const hasCoordinates = isValidCoordinate(incident.latitude, -90, 90)
       && isValidCoordinate(incident.longitude, -180, 180)
       && isValidCoordinate(officer.latitude, -90, 90)
       && isValidCoordinate(officer.longitude, -180, 180)
-      && incident.latitude !== null && incident.longitude !== null
-      && officer.latitude !== null && officer.longitude !== null
-      ? haversineDistanceMeters(Number(incident.latitude), Number(incident.longitude), Number(officer.latitude), Number(officer.longitude))
+      && [incident.latitude, incident.longitude, officer.latitude, officer.longitude]
+        .every((coordinate) => coordinate !== null && coordinate !== undefined && coordinate !== '');
+    const distanceMeters = hasCoordinates
+      ? haversineDistanceMeters(
+        Number(incident.latitude),
+        Number(incident.longitude),
+        Number(officer.latitude),
+        Number(officer.longitude)
+      )
       : null;
     const response = await assignIncidentToOfficer(incident, officer, req.user.user_id, transaction);
     await transaction.commit();
-    await recordAudit(req, { action: 'officer_assigned', resourceType: 'incident', resourceId: incidentId, details: `Assigned officer ${officer.user_id}.` });
-    await notifyUsers(req, { type: 'officer_assignment', title: 'Security officer assigned', message: `${officer.name} has been assigned to an incident.`, resourceType: 'incident', resourceId: incidentId, link: `/incidents/${incidentId}`, dedupeKey: `assignment:${incidentId}:${officer.user_id}` });
-    const payload = assignmentPayload(incident, officer, distanceMeters || 0, req.user.user_id);
-    payload.response_id = response.response_id;
+
+    await recordAudit(req, {
+      action: 'officer_assigned',
+      resourceType: 'incident',
+      resourceId: incidentId,
+      details: `Assigned officer ${officer.user_id}.`
+    });
+    const payload = assignmentPayload(incident, officer, distanceMeters, req.user.user_id, 'pending', response.response_id);
+    await notifyUsers(req, {
+      type: 'officer_assignment',
+      title: 'Security officer assigned',
+      message: `${officer.name} has been assigned to an incident.`,
+      resourceType: 'incident',
+      resourceId: incidentId,
+      link: `/incidents/${incidentId}`,
+      dedupeKey: `assignment:${incidentId}:${officer.user_id}`
+    }, [officer]);
+
     const updatedIncident = {
       ...incident.toJSON(),
       responses: [{
@@ -326,10 +366,12 @@ exports.assignIncident = async (req, res) => {
     const owner = incident.user_id
       ? await User.findOne({ where: { user_id: incident.user_id, is_active: true } })
       : null;
-    emitProtected(req.app.get('io'), 'incident_assigned', payload);
-    emitProtected(req.app.get('io'), 'officer_assignment', payload);
-    emitToIncidentOwner(req.app.get('io'), incident, 'incident-updated', updatedIncident);
-    if (ownerAlert) emitToIncidentOwner(req.app.get('io'), incident, 'alert-received', ownerAlert.toJSON());
+    const io = req.app.get('io');
+    emitAssignmentEvent(io, officer.user_id, 'incident_assigned', payload);
+    emitAssignmentEvent(io, officer.user_id, 'officer_assignment', payload);
+    emitAssignmentEvent(io, officer.user_id, 'assignment-requested', payload);
+    emitToIncidentOwner(io, incident, 'incident-updated', updatedIncident);
+    if (ownerAlert) emitToIncidentOwner(io, incident, 'alert-received', ownerAlert.toJSON());
     if (owner) {
       await sendPushNotification([owner], {
         title: 'Security officer assigned',
@@ -337,10 +379,113 @@ exports.assignIncident = async (req, res) => {
         data: { incident_id: incident.incident_id, status: incident.status, officer_id: officer.user_id }
       });
     }
-    return res.status(201).json({ success: true, message: 'Incident assigned successfully', data: updatedIncident, assignment: payload });
+    return res.status(201).json({
+      success: true,
+      message: 'Incident assigned successfully',
+      data: updatedIncident,
+      assignment: payload
+    });
   } catch (error) {
-    await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     return res.status(500).json({ success: false, message: 'Failed to assign incident' });
+  }
+};
+
+exports.acceptAssignment = async (req, res) => {
+  const { response_id: responseId } = req.params;
+  if (!responseId || !isUuid(responseId)) {
+    return res.status(400).json({ success: false, message: 'response_id must be a valid UUID' });
+  }
+
+  try {
+    const response = await Response.findByPk(responseId, {
+      include: [{
+        model: Incident,
+        as: 'incident'
+      }, {
+        model: User,
+        as: 'responder',
+        attributes: ['user_id', 'name', 'role', 'availability_status']
+      }]
+    });
+    if (!response) {
+      return res.status(404).json({ success: false, message: 'Assignment request not found' });
+    }
+    if (isSecurityRole(req.user.role) && response.responder_id !== req.user.user_id) {
+      return res.status(403).json({ success: false, message: 'Only the assigned officer can respond to this assignment' });
+    }
+    if (response.assignment_status !== 'pending') {
+      return res.status(409).json({ success: false, message: `Assignment request has already been ${response.assignment_status}` });
+    }
+
+    const incident = response.incident;
+    await response.update({ assignment_status: 'accepted', status: 'responding' });
+    if (incident) {
+      // "investigating" is the persisted status displayed as "In Progress".
+      await incident.update({ status: 'investigating' });
+    }
+    await User.update({ availability_status: 'responding' }, { where: { user_id: response.responder_id } });
+
+    const payload = assignmentPayload(
+      incident || { incident_id: response.incident_id, status: 'investigating', location_name: '', latitude: null, longitude: null },
+      response.responder || { user_id: response.responder_id, name: 'Officer', role: 'security' },
+      null,
+      null,
+      'accepted',
+      response.response_id
+    );
+    const io = req.app.get('io');
+    emitAssignmentEvent(io, response.responder_id, 'officer_assignment', payload);
+    if (incident) emitToIncidentOwner(io, incident, 'incident-updated', { ...incident.toJSON(), ...payload });
+    return res.status(200).json({ success: true, message: 'Assignment accepted successfully', data: payload });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to accept assignment' });
+  }
+};
+
+exports.declineAssignment = async (req, res) => {
+  const { response_id: responseId } = req.params;
+  if (!responseId || !isUuid(responseId)) {
+    return res.status(400).json({ success: false, message: 'response_id must be a valid UUID' });
+  }
+
+  try {
+    const response = await Response.findByPk(responseId, {
+      include: [{
+        model: Incident,
+        as: 'incident'
+      }, {
+        model: User,
+        as: 'responder',
+        attributes: ['user_id', 'name', 'role', 'availability_status']
+      }]
+    });
+    if (!response) {
+      return res.status(404).json({ success: false, message: 'Assignment request not found' });
+    }
+    if (isSecurityRole(req.user.role) && response.responder_id !== req.user.user_id) {
+      return res.status(403).json({ success: false, message: 'Only the assigned officer can respond to this assignment' });
+    }
+    if (response.assignment_status !== 'pending') {
+      return res.status(409).json({ success: false, message: `Assignment request has already been ${response.assignment_status}` });
+    }
+
+    await response.update({ assignment_status: 'declined', status: 'assigned' });
+    const incident = response.incident;
+    const payload = assignmentPayload(
+      incident || { incident_id: response.incident_id, status: 'reported', location_name: '', latitude: null, longitude: null },
+      response.responder || { user_id: response.responder_id, name: 'Officer', role: 'security' },
+      null,
+      null,
+      'declined',
+      response.response_id
+    );
+    const io = req.app.get('io');
+    emitAssignmentEvent(io, response.responder_id, 'officer_assignment', payload);
+    if (incident) emitToIncidentOwner(io, incident, 'incident-updated', { ...incident.toJSON(), ...payload });
+    return res.status(200).json({ success: true, message: 'Assignment declined successfully', data: payload });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to decline assignment' });
   }
 };
 
@@ -353,21 +498,49 @@ exports.updateResponseStatus = async (req, res) => {
 
   try {
     const incident = await Incident.findByPk(incidentId);
-    const response = await Response.findOne({ where: { incident_id: incidentId } });
+    const assignments = await Response.findAll({
+      where: { incident_id: incidentId },
+      order: [['created_at', 'DESC']]
+    });
+    const securityOfficer = isSecurityRole(req.user.role);
+    const response = assignments.find((assignment) => (
+      assignment.assignment_status === 'accepted'
+      && (!securityOfficer || assignment.responder_id === req.user.user_id)
+    )) || assignments.find((assignment) => (
+      !securityOfficer || assignment.responder_id === req.user.user_id
+    )) || assignments[0];
     if (!incident || !response) return res.status(404).json({ success: false, message: 'Assigned incident not found' });
-    if (req.user.role === 'security' && response.responder_id !== req.user.user_id) {
+    if (securityOfficer && response.responder_id !== req.user.user_id) {
       return res.status(403).json({ success: false, message: 'Only the assigned officer can update this response' });
     }
 
     const incidentStatus = status === 'responding' ? 'on_scene' : status;
-    await response.update({ status });
+    if (status === 'responding' && response.assignment_status !== 'accepted') {
+      return res.status(409).json({ success: false, message: 'Assignment must be accepted before recording arrival' });
+    }
+    if (['resolved', 'closed', 'cancelled'].includes(status) && response.assignment_status !== 'accepted') {
+      return res.status(409).json({ success: false, message: 'Assignment must be accepted before it can be resolved' });
+    }
+    const responseTimeSeconds = ['resolved', 'closed'].includes(status) && response.created_at
+      ? Math.max(0, Math.round((Date.now() - new Date(response.created_at).getTime()) / 1000))
+      : response.response_time_seconds;
+
+    await response.update({ status, response_time_seconds: responseTimeSeconds });
     await incident.update({ status: incidentStatus });
     await recordAudit(req, { action: 'response_status_changed', resourceType: 'incident', resourceId: incidentId, details: `Response status changed to ${status}.` });
-    await notifyUsers(req, { type: 'incident_status_changed', title: 'Incident status updated', message: `An incident is now ${incidentStatus}.`, resourceType: 'incident', resourceId: incidentId, link: `/incidents/${incidentId}`, dedupeKey: `status:${incidentId}:${incidentStatus}` });
-    if (status === 'resolved' || status === 'closed') {
+    const admins = await getActiveAdmins();
+    const assignedOfficer = await User.findOne({ where: { user_id: response.responder_id, is_active: true } });
+    await notifyUsers(req, { type: 'incident_status_changed', title: 'Incident status updated', message: `An incident is now ${incidentStatus}.`, resourceType: 'incident', resourceId: incidentId, link: `/incidents/${incidentId}`, dedupeKey: `status:${incidentId}:${incidentStatus}` }, [...admins, ...(assignedOfficer ? [assignedOfficer] : [])]);
+    if (['resolved', 'closed', 'cancelled'].includes(status)) {
       await User.update({ availability_status: 'available' }, { where: { user_id: response.responder_id } });
     }
-    const payload = { incident_id: incidentId, response_id: response.response_id, status, incident_status: incidentStatus };
+    const payload = {
+      incident_id: incidentId,
+      response_id: response.response_id,
+      status,
+      incident_status: incidentStatus,
+      response_time_seconds: responseTimeSeconds
+    };
     const updatedIncident = { ...incident.toJSON(), ...payload };
     const ownerAlert = incident.user_id ? await Alert.create({
       incident_id: incident.incident_id,
@@ -380,8 +553,8 @@ exports.updateResponseStatus = async (req, res) => {
     const owner = incident.user_id
       ? await User.findOne({ where: { user_id: incident.user_id, is_active: true } })
       : null;
-    emitProtected(req.app.get('io'), 'incident-updated', updatedIncident);
-    emitProtected(req.app.get('io'), 'officer_assignment', payload);
+    emitAssignmentEvent(req.app.get('io'), response.responder_id, 'incident-updated', updatedIncident);
+    emitAssignmentEvent(req.app.get('io'), response.responder_id, 'officer_assignment', payload);
     emitToIncidentOwner(req.app.get('io'), incident, 'incident-updated', updatedIncident);
     if (ownerAlert) emitToIncidentOwner(req.app.get('io'), incident, 'alert-received', ownerAlert.toJSON());
     if (owner) {
@@ -409,11 +582,22 @@ exports.create = async (req, res) => {
       floor,
       latitude,
       longitude,
+      location_accuracy,
+      location_timestamp,
       is_anonymous,
       is_sos
     } = req.body;
     if (!type) {
       return res.status(400).json({ success: false, message: 'Incident type is required' });
+    }
+    const locationValidationError = validateLocationMetadata({
+      latitude,
+      longitude,
+      location_accuracy,
+      location_timestamp
+    });
+    if (locationValidationError) {
+      return res.status(400).json({ success: false, message: locationValidationError });
     }
     let photoReferences = [];
     try {
@@ -440,11 +624,14 @@ exports.create = async (req, res) => {
       floor: floor || '',
       latitude: latitude === '' || latitude == null ? null : latitude,
       longitude: longitude === '' || longitude == null ? null : longitude,
+      location_accuracy: toOptionalNumber(location_accuracy),
+      location_timestamp: toOptionalDate(location_timestamp),
       is_sos: asBoolean(is_sos),
       photos,
       is_anonymous: asBoolean(is_anonymous),
       status: 'reported'
     });
+    const [incidentPayload] = await attachCampusLocationMatches([incident]);
 
     const alert = await Alert.create({
       incident_id: incident.incident_id,
@@ -455,25 +642,36 @@ exports.create = async (req, res) => {
       sent_at: new Date()
     });
 
+    const admins = await getActiveAdmins();
+    const isSOS = incident.is_sos;
     const io = req.app.get('io');
     if (io) {
-      emitIncidentEvent(io, incident, 'new-incident', incident.toJSON());
+      emitIncidentEvent(io, incident, isSOS ? 'sos_alert' : 'new-incident', incidentPayload);
       emitIncidentEvent(io, incident, 'alert-received', alert.toJSON());
     }
 
-    const recipients = await User.findAll({ where: { is_active: true, role: ['security', 'admin'] } });
+    const recipients = admins;
     await sendPushNotification(recipients, {
-      title: incident.is_sos ? 'SOS emergency reported' : 'New campus incident',
+      title: isSOS ? 'SOS emergency reported' : 'New campus incident',
       body: `${incident.type} incident reported${incident.location_name ? ` at ${incident.location_name}` : ''}`,
-      data: { incident_id: incident.incident_id, is_sos: incident.is_sos }
+      data: { incident_id: incident.incident_id, is_sos: isSOS }
     });
-    await notifySecurityBySms(req.user.user_id, recipients, `${incident.is_sos ? 'SOS ALERT' : 'INCIDENT ALERT'}: ${incident.type} reported${incident.location_name ? ` at ${incident.location_name}` : ''}.`);
+    await notifySecurityBySms(req.user.user_id, recipients, `${isSOS ? 'SOS ALERT' : 'INCIDENT ALERT'}: ${incident.type} reported${incident.location_name ? ` at ${incident.location_name}` : ''}.`);
+    await notifyUsers(req, {
+      type: isSOS ? 'sos_alert' : 'incident_reported',
+      title: isSOS ? 'SOS emergency reported' : 'New campus incident',
+      message: `${incident.type} incident reported${incident.location_name ? ` at ${incident.location_name}` : ''}`,
+      resourceType: 'incident',
+      resourceId: incident.incident_id,
+      link: `/incidents/${incident.incident_id}`,
+      dedupeKey: `${isSOS ? 'sos' : 'incident'}:${incident.incident_id}`
+    }, admins);
 
     res.status(201).json({
       success: true,
       message: 'Incident reported successfully',
       data: {
-        ...incident.toJSON(),
+        ...incidentPayload,
         photos: normalizePhotos(incident.photos)
           .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
           .filter(Boolean)
@@ -484,10 +682,111 @@ exports.create = async (req, res) => {
   }
 };
 
+exports.createSOS = async (req, res) => {
+  const userId = req.user.user_id;
+  const { latitude = null, longitude = null, location_accuracy, location_timestamp } = req.body || {};
+  const locationValidationError = validateLocationMetadata({
+    latitude,
+    longitude,
+    location_accuracy,
+    location_timestamp
+  });
+  if (locationValidationError) {
+    return res.status(400).json({ success: false, message: locationValidationError });
+  }
+
+  const now = Date.now();
+  const previousRequest = recentSOSRequests.get(userId);
+  const sosCooldownSeconds = await getSetting('emergency.sos_cooldown_seconds') || 30;
+  if (previousRequest && now - previousRequest < sosCooldownSeconds * 1000) {
+    return res.status(429).json({ success: false, message: 'Please wait before sending another SOS alert' });
+  }
+  recentSOSRequests.set(userId, now);
+
+  try {
+    const incident = await Incident.create({
+      user_id: userId,
+      type: 'security_threat',
+      description: 'SOS emergency alert sent from the Campus Security mobile app.',
+      severity: 'critical',
+      status: 'reported',
+      location_name: latitude !== null && longitude !== null ? 'Current device location' : '',
+      latitude: latitude === '' ? null : latitude,
+      longitude: longitude === '' ? null : longitude,
+      location_accuracy: toOptionalNumber(location_accuracy),
+      location_timestamp: toOptionalDate(location_timestamp),
+      is_sos: true,
+      is_anonymous: false,
+      photos: []
+    });
+    const [incidentPayload] = await attachCampusLocationMatches([incident]);
+    const autoAssignEnabled = await getSetting('emergency.sos_auto_assign_enabled');
+    const nearestOfficer = autoAssignEnabled
+      ? await findNearestAvailableOfficer(latitude, longitude)
+      : null;
+    let assignment = null;
+    if (nearestOfficer) {
+      const response = await assignIncidentToOfficer(incident, nearestOfficer.officer, null);
+      assignment = assignmentPayload(incident, nearestOfficer.officer, nearestOfficer.distanceMeters, null, 'pending', response.response_id);
+    }
+
+    const alert = await Alert.create({
+      incident_id: incident.incident_id,
+      type: 'sos_alert',
+      title: 'SOS emergency reported',
+      message: 'A critical SOS emergency alert was reported.',
+      channel: 'dashboard',
+      sent_at: new Date()
+    });
+    await recordAudit(req, { action: 'sos_created', resourceType: 'incident', resourceId: incident.incident_id });
+
+    const admins = await getActiveAdmins();
+    await notifyUsers(req, {
+      type: 'sos_alert',
+      title: 'SOS emergency reported',
+      message: 'A critical SOS emergency alert was reported.',
+      resourceType: 'incident',
+      resourceId: incident.incident_id,
+      link: `/incidents/${incident.incident_id}`,
+      dedupeKey: `sos:${incident.incident_id}`
+    }, admins);
+
+    const reporter = { user_id: userId, name: req.user.name, role: req.user.role };
+    const sosPayload = { ...incidentPayload, reporter, assignment };
+    const io = req.app.get('io');
+    if (io) {
+      emitIncidentEvent(io, incident, 'sos_alert', sosPayload);
+      emitIncidentEvent(io, incident, 'alert-received', alert.toJSON());
+      if (assignment) emitAssignmentEvent(io, nearestOfficer.officer.user_id, 'incident_assigned', assignment);
+      if (assignment) emitAssignmentEvent(io, nearestOfficer.officer.user_id, 'officer_assignment', assignment);
+    }
+
+    await sendPushNotification(admins, {
+      title: 'SOS emergency reported',
+      body: 'A critical SOS emergency alert was reported.',
+      data: { incident_id: incident.incident_id, is_sos: true }
+    });
+    await notifySecurityBySms(
+      userId,
+      admins,
+      `SOS ALERT: A critical security emergency was reported at ${incident.location_name || 'campus'} for incident #${incident.incident_id}.`
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'SOS Alert Sent',
+      data: { ...incidentPayload, assignment }
+    });
+  } catch (error) {
+    recentSOSRequests.delete(userId);
+    return res.status(500).json({ success: false, message: 'Failed to send SOS alert' });
+  }
+};
+
 exports.getAll = async (req, res) => {
   try {
-    const isPrivileged = ['security', 'admin'].includes(req.user.role);
-    const where = isPrivileged ? {} : { user_id: req.user.user_id };
+    const role = normalizeRole(req.user.role);
+    let where = role === 'admin' ? {} : { user_id: req.user.user_id };
 
     const incidents = await Incident.findAll({
       where,
@@ -507,10 +806,11 @@ exports.getAll = async (req, res) => {
       order: [['created_at', 'DESC']]
     });
 
+    const matchedIncidents = await attachCampusLocationMatches(incidents);
     return res.status(200).json({
       success: true,
-      data: incidents.map((incident) => ({
-        ...incident.toJSON(),
+      data: matchedIncidents.map((incident) => ({
+        ...incident,
         photos: normalizePhotos(incident.photos)
           .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
           .filter(Boolean)
@@ -521,11 +821,60 @@ exports.getAll = async (req, res) => {
   }
 };
 
+exports.getHistory = async (req, res) => {
+  try {
+    const role = normalizeRole(req.user.role);
+    const privilegedRole = role === 'admin' || isSecurityRole(role);
+    const where = privilegedRole ? {} : { user_id: req.user.user_id };
+    if (!privilegedRole) {
+      const clearedHistory = await IncidentHistoryClear.findByPk(req.user.user_id);
+      if (clearedHistory) where.created_at = { [Op.gt]: clearedHistory.cleared_at };
+    }
+
+    const incidents = await Incident.findAll({
+      where,
+      include: [{
+        model: Response,
+        as: 'responses',
+        include: [{
+          model: User,
+          as: 'responder',
+          attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
+        }]
+      }, {
+        model: User,
+        as: 'reporter',
+        attributes: ['user_id', 'name', 'role']
+      }],
+      order: [['created_at', 'DESC']]
+    });
+    const matchedIncidents = await attachCampusLocationMatches(incidents);
+    return res.status(200).json({
+      success: true,
+      data: matchedIncidents.map((incident) => ({
+        ...incident,
+        photos: normalizePhotos(incident.photos)
+          .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
+          .filter(Boolean)
+      }))
+    });
+  } catch (error) {
+    console.error('Unable to load incident history:', error?.message || error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch incident history' });
+  }
+};
+
 exports.serveEvidence = async (req, res) => {
   try {
     const incident = await Incident.findByPk(req.params.incident_id);
     const filename = req.params.filename;
-    if (!incident || !canAccessIncidentEvidence(req.user, incident) || !isStoredEvidence(incident, filename)) {
+    const role = normalizeRole(req.user?.role);
+    const assignedOfficer = isSecurityRole(role)
+      ? await Response.findOne({
+        where: { incident_id: req.params.incident_id, responder_id: req.user.user_id }
+      })
+      : null;
+    if (!incident || (!canAccessIncidentEvidence(req.user, incident) && !assignedOfficer) || !isStoredEvidence(incident, filename)) {
       return res.status(404).json({ success: false, message: 'Evidence not found' });
     }
 
@@ -571,14 +920,18 @@ exports.updateStatus = async (req, res) => {
 
     await incident.update({ status });
     await recordAudit(req, { action: 'incident_status_changed', resourceType: 'incident', resourceId: incident_id, details: `Incident status changed to ${status}.` });
-    await notifyUsers(req, { type: 'incident_status_changed', title: 'Incident status updated', message: `An incident is now ${status}.`, resourceType: 'incident', resourceId: incident_id, link: `/incidents/${incident_id}`, dedupeKey: `status-direct:${incident_id}:${status}` });
     const assignedResponse = await Response.findOne({ where: { incident_id } });
+    const admins = await getActiveAdmins();
+    const assignedOfficer = assignedResponse
+      ? await User.findOne({ where: { user_id: assignedResponse.responder_id, is_active: true } })
+      : null;
+    await notifyUsers(req, { type: 'incident_status_changed', title: 'Incident status updated', message: `An incident is now ${status}.`, resourceType: 'incident', resourceId: incident_id, link: `/incidents/${incident_id}`, dedupeKey: `status-direct:${incident_id}:${status}` }, [...admins, ...(assignedOfficer ? [assignedOfficer] : [])]);
     if (assignedResponse) {
       const responseStatus = status === 'on_scene' ? 'responding' : status === 'dispatched' ? 'assigned' : status;
       if (['assigned', 'responding', 'resolved', 'closed'].includes(responseStatus)) {
         await assignedResponse.update({ status: responseStatus });
       }
-      if (status === 'resolved' || status === 'closed') {
+      if (['resolved', 'closed', 'cancelled'].includes(status)) {
         await User.update({ availability_status: 'available' }, { where: { user_id: assignedResponse.responder_id } });
       }
     }
@@ -592,12 +945,10 @@ exports.updateStatus = async (req, res) => {
       sent_at: new Date()
     });
     await recordAudit(req, { action: 'incident_created', resourceType: 'incident', resourceId: incident.incident_id, details: incident.photos?.length ? 'Incident created with evidence.' : null });
-    await notifyUsers(req, { type: incident.is_sos ? 'sos_alert' : 'incident_reported', title: incident.is_sos ? 'SOS emergency reported' : 'New incident reported', message: `${incident.type} incident reported${incident.location_name ? ` at ${incident.location_name}` : ''}`, resourceType: 'incident', resourceId: incident.incident_id, link: `/incidents/${incident.incident_id}`, dedupeKey: `incident:${incident.incident_id}` });
-
     const io = req.app.get('io');
     if (io) {
-      emitProtected(io, 'incident-updated', incident.toJSON());
-      emitProtected(io, 'alert-received', alert.toJSON());
+      emitAssignmentEvent(io, assignedResponse?.responder_id, 'incident-updated', incident.toJSON());
+      emitAssignmentEvent(io, assignedResponse?.responder_id, 'alert-received', alert.toJSON());
       emitToIncidentOwner(io, incident, 'incident-updated', incident.toJSON());
       emitToIncidentOwner(io, incident, 'alert-received', alert.toJSON());
     }

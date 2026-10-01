@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const CampusLocation = sequelize.define('CampusLocation', {
   location_id: { type: DataTypes.UUID, defaultValue: uuidv4, primaryKey: true },
-  name: { type: DataTypes.STRING(150), allowNull: false, unique: true },
+  name: { type: DataTypes.STRING(150), allowNull: false },
   type: {
     type: DataTypes.ENUM('university', 'administration', 'classroom', 'seminar', 'building/block', 'gate', 'security_post', 'dormitory', 'library', 'clinic', 'cafeteria', 'parking', 'sports', 'emergency_point', 'other'),
     allowNull: false,
@@ -21,7 +21,12 @@ const CampusLocation = sequelize.define('CampusLocation', {
   tableName: 'campus_locations',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  indexes: [{
+    name: 'uq_campus_locations_name',
+    unique: true,
+    fields: ['name']
+  }]
 });
 
 module.exports = CampusLocation;

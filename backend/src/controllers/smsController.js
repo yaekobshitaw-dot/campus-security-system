@@ -39,8 +39,9 @@ const summarizeResults = (records) => {
 const getAdminSmsRecipients = async (req, res) => {
   try {
     const role = String(req.query.role || 'all').trim().toLowerCase();
-    const roles = role === 'all' ? ['student', 'faculty', 'staff', 'security', 'admin'] : [role];
-    if (!roles.every((value) => ['student', 'faculty', 'staff', 'security', 'admin'].includes(value))) {
+    const supportedRoles = ['student', 'faculty', 'staff', 'security', 'security_officer', 'admin'];
+    const roles = role === 'all' ? supportedRoles : [role];
+    if (!roles.every((value) => supportedRoles.includes(value))) {
       return res.status(400).json({ success: false, message: 'Invalid recipient role filter.' });
     }
 

@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Icon } from '../components/ui';
 
 const SafetyResourcesScreen = () => (
   <ScrollView style={styles.container} contentContainerStyle={styles.content}>

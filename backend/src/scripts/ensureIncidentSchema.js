@@ -4,6 +4,8 @@ const { sequelize } = require('../models');
 const requiredColumns = {
   latitude: 'DECIMAL(10,7) NULL',
   longitude: 'DECIMAL(10,7) NULL',
+  location_accuracy: 'DECIMAL(10,2) NULL',
+  location_timestamp: 'DATETIME(3) NULL',
   is_sos: 'BOOLEAN NOT NULL DEFAULT FALSE',
   floor: 'VARCHAR(20) NULL',
   photos: 'JSON NULL'
@@ -82,6 +84,9 @@ async function ensureIncidentSchema() {
   }
   if (!responseColumns.some((column) => column.Field === 'status')) {
     await sequelize.query("ALTER TABLE responses ADD COLUMN status ENUM('assigned','responding','resolved','closed') NOT NULL DEFAULT 'assigned'");
+  }
+  if (!responseColumns.some((column) => column.Field === 'assignment_status')) {
+    await sequelize.query("ALTER TABLE responses ADD COLUMN assignment_status ENUM('pending','accepted','declined') NOT NULL DEFAULT 'pending'");
   }
 
   const alertColumns = await sequelize.query('SHOW COLUMNS FROM alerts', { type: QueryTypes.SELECT });

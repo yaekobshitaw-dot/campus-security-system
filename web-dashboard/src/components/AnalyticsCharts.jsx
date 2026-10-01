@@ -1,6 +1,5 @@
 ﻿// src/components/AnalyticsCharts.jsx
 import { useMemo } from 'react';
-import './analytics.css';
 
 const SEVERITIES = ['low', 'medium', 'high', 'critical'];
 const STATUSES = ['reported', 'in_progress', 'acknowledged', 'dispatched', 'on_scene', 'resolved', 'closed', 'cancelled'];

@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: light;
-  font-family: "Aptos", "Segoe UI", sans-serif;
+  font-family: "Inter", "Noto Sans Ethiopic", sans-serif;
   /* Shared brand tokens used by the Home navbar and Dashboard stylesheet. */
   --navy-950: #061426;
   --navy-900: #0a1d35;
@@ -12,13 +12,33 @@
   --primary-blue-hover: #1c6da8;
   --primary-blue-accent: #a7ddec;
   --primary-blue-border: rgb(167 221 236 / 0.28);
+  --button-primary-bg: #155a91;
+  --button-primary-text: #ffffff;
+  --button-primary-hover: #1c6da8;
+  --button-primary-active: #0f4778;
+  --button-secondary-bg: #a7ddec;
+  --button-secondary-text: #0f4778;
+  --button-secondary-hover: #8ccfe3;
+  --button-secondary-border: #155a91;
+  --button-success-bg: #16803c;
+  --button-success-hover: #126b32;
+  --button-danger-bg: #c62828;
+  --button-danger-hover: #a61f1f;
+  --button-warning-bg: #b77900;
+  --button-warning-hover: #956200;
+  --button-neutral-bg: #64748b;
+  --button-neutral-hover: #475569;
+  --status-success: #16a34a;
+  --status-warning: #f59e0b;
+  --status-critical: #dc2626;
+  --status-information: #155a91;
   --cyan-500: #16b9d4;
   --cyan-600: #0891b2;
-  --ink-900: #10233d;
-  --ink-600: #52657d;
+  --ink-900: #172b3a;
+  --ink-600: #64748b;
   --line: #d9e3ee;
   --surface: #ffffff;
-  --page: #eef4f8;
+  --page: #f5f7fa;
 }
 
 *,
@@ -39,8 +59,12 @@ body,
 
 body {
   @apply m-0 text-gray-900 antialiased;
-  font-family: "Aptos", "Segoe UI", sans-serif;
+  font-family: "Inter", "Noto Sans Ethiopic", sans-serif;
   overflow-x: hidden;
+}
+
+.dashboard-app[lang="am"] {
+  font-family: "Noto Sans Ethiopic", "Inter", sans-serif;
 }
 
 @keyframes slideIn {

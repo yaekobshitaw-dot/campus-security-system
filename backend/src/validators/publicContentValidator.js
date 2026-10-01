@@ -34,4 +34,39 @@ const validatePublicContentPayload = (payload = {}, { partial = false } = {}) =>
   return values;
 };
 
-module.exports = { validatePublicContentPayload };
+const validateContactInformationPayload = (payload = {}) => {
+  const phone = normalize(payload.phone, 'phone', 32, true);
+  const email = normalize(payload.email, 'email', 255, true);
+  const location = normalize(payload.location, 'location', 255, true);
+
+  if (!/^\+?[\d\s().-]+$/.test(phone) || phone.replace(/\D/g, '').length < 7 || phone.replace(/\D/g, '').length > 15) {
+    throw new Error('phone must be a valid phone number');
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('email must be valid');
+
+  return { phone, email, location };
+};
+
+const validateContactMessagePayload = (payload = {}) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Contact message must be an object');
+  }
+
+  const name = normalize(payload.name, 'name', 255, true);
+  const email = normalize(payload.email, 'email', 255, true);
+  const topic = normalize(payload.topic, 'topic', 50, true);
+  const message = normalize(payload.message, 'message', 10000, true);
+
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('email must be valid');
+  if (!['platform_information', 'campus_partnership', 'technical_support'].includes(topic)) {
+    throw new Error('topic must be a supported Contact Us topic');
+  }
+
+  return { name, email, topic, message };
+};
+
+module.exports = {
+  validatePublicContentPayload,
+  validateContactInformationPayload,
+  validateContactMessagePayload,
+};

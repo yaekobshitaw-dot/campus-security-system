@@ -15,6 +15,7 @@ const originalIncidentCount = Incident.count;
 const originalAlertFindAll = Alert.findAll;
 const originalResponseFindAll = Response.findAll;
 const originalAxiosPost = axios.post;
+const originalRetryDelay = process.env.OLLAMA_RETRY_DELAY_MS;
 
 const makeResponse = () => ({
   statusCode: null,
@@ -63,6 +64,7 @@ const configureReadMocks = () => {
 test.beforeEach(() => {
   configureReadMocks();
   process.env.OLLAMA_MODEL = 'qwen2.5-coder:3b';
+  process.env.OLLAMA_RETRY_DELAY_MS = '0';
   axios.post = async () => ({ data: { message: { content: 'Safe assistant answer.' } } });
 });
 
@@ -73,6 +75,8 @@ test.afterEach(() => {
   Response.findAll = originalResponseFindAll;
   axios.post = originalAxiosPost;
   delete process.env.OLLAMA_MODEL;
+  if (originalRetryDelay === undefined) delete process.env.OLLAMA_RETRY_DELAY_MS;
+  else process.env.OLLAMA_RETRY_DELAY_MS = originalRetryDelay;
 });
 
 test('rejects an unauthenticated assistant request', () => {
@@ -90,6 +94,16 @@ test('allows every supported authenticated role', async () => {
     assert.equal(response.payload.success, true);
     assert.equal(response.payload.source, 'ollama');
   }
+});
+
+test('assistant endpoint returns the Ollama response', async () => {
+  const response = makeResponse();
+  await assistantController.chat({ body: { message: 'What are the current incident statistics?' }, user: { user_id: 'admin-a', role: 'admin' } }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload.success, true);
+  assert.equal(response.payload.source, 'ollama');
+  assert.equal(response.payload.message, 'Safe assistant answer.');
 });
 
 test('rejects missing, empty, and oversized messages', async () => {
@@ -135,11 +149,19 @@ test('rejects unsupported roles through existing authorization', () => {
 });
 
 test('returns a safe fallback when Ollama is unavailable', async () => {
-  axios.post = async () => { throw new Error('connection refused'); };
+  let attempts = 0;
+  axios.post = async () => {
+    attempts += 1;
+    const error = new Error('connection refused');
+    error.code = 'ECONNREFUSED';
+    throw error;
+  };
   const response = makeResponse();
   await assistantController.chat({ body: { message: 'What does In Progress mean?' }, user: { user_id: 'student-a', role: 'student' } }, response);
 
+  assert.equal(attempts, 3);
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.source, 'fallback');
   assert.equal(response.payload.message, fallbackMessage);
+  assert.doesNotMatch(response.payload.message, /ECONNREFUSED|stack|secret|token/i);
 });

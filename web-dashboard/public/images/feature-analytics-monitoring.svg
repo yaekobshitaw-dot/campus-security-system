@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Security analytics and monitoring dashboard</title>
+  <desc id="desc">A campus safety analytics dashboard with charts and monitoring metrics.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#edf7ff"/>
+      <stop offset="100%" stop-color="#dfeeff"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="420" fill="url(#bg)"/>
+  <rect x="64" y="78" width="472" height="264" rx="30" fill="#f9fbff" stroke="#d5e8ff" stroke-width="2"/>
+  <rect x="90" y="104" width="160" height="206" rx="18" fill="#edf5ff"/>
+  <rect x="110" y="126" width="52" height="52" rx="12" fill="#d5eaff"/>
+  <rect x="174" y="126" width="52" height="52" rx="12" fill="#d5eaff"/>
+  <rect x="110" y="194" width="116" height="10" rx="5" fill="#bfdcff"/>
+  <rect x="110" y="214" width="84" height="10" rx="5" fill="#dfeeff"/>
+  <rect x="110" y="234" width="96" height="10" rx="5" fill="#dfeeff"/>
+  <rect x="286" y="106" width="210" height="110" rx="18" fill="#ffffff" stroke="#d8eaff" stroke-width="2"/>
+  <path d="M310 190l38-30 35 20 50-52 46 32 22-18" fill="none" stroke="#2d75d9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="310" cy="190" r="7" fill="#2d75d9"/>
+  <circle cx="348" cy="160" r="7" fill="#2d75d9"/>
+  <circle cx="383" cy="180" r="7" fill="#2d75d9"/>
+  <circle cx="433" cy="128" r="7" fill="#2d75d9"/>
+  <circle cx="479" cy="160" r="7" fill="#2d75d9"/>
+  <circle cx="501" cy="142" r="7" fill="#2d75d9"/>
+  <rect x="286" y="236" width="94" height="54" rx="14" fill="#ffffff" stroke="#d8eaff" stroke-width="2"/>
+  <circle cx="326" cy="256" r="18" fill="#8ec5ff"/>
+  <path d="M319 256h14" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M326 249v14" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <rect x="394" y="236" width="102" height="54" rx="14" fill="#ffffff" stroke="#d8eaff" stroke-width="2"/>
+  <rect x="410" y="252" width="58" height="10" rx="5" fill="#dfeeff"/>
+  <rect x="410" y="270" width="44" height="8" rx="4" fill="#c2dcff"/>
+  <path d="M254 322h114" stroke="#a9caef" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+</svg>

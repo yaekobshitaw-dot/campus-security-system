@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Student reporting an incident on a smartphone</title>
+  <desc id="desc">A student in a campus setting holding a phone to report an incident.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#f2f8ff"/>
+      <stop offset="100%" stop-color="#dfeeff"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eef5ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="420" fill="url(#bg)"/>
+  <rect x="32" y="52" width="536" height="292" rx="26" fill="url(#card)"/>
+  <path d="M0 270 C140 225, 200 320, 320 276 S520 220, 600 248 V420 H0 Z" fill="#c7e3ff"/>
+  <circle cx="168" cy="160" r="52" fill="#7cb7ff" opacity="0.22"/>
+  <rect x="290" y="108" width="196" height="136" rx="18" fill="#ffffff" stroke="#b7d2f5" stroke-width="3"/>
+  <rect x="304" y="122" width="168" height="106" rx="10" fill="#eaf3ff"/>
+  <circle cx="403" cy="170" r="18" fill="#ffb703"/>
+  <path d="M390 170l8 10 22-26" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="318" y="202" width="140" height="12" rx="6" fill="#c6dcff"/>
+  <rect x="318" y="220" width="90" height="9" rx="4.5" fill="#d8e9ff"/>
+  <rect x="112" y="140" width="122" height="170" rx="22" fill="#132a50"/>
+  <rect x="124" y="156" width="98" height="126" rx="14" fill="#ffffff"/>
+  <rect x="150" y="188" width="46" height="46" rx="12" fill="#7ac2ff" opacity="0.9"/>
+  <path d="M167 200l12 12 20-26" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="149" y="248" width="48" height="9" rx="4.5" fill="#e0ecff"/>
+  <circle cx="182" cy="112" r="34" fill="#f6b8a9"/>
+  <path d="M160 95c5-24 26-37 43-37 18 0 32 11 37 30-9-7-18-11-27-11-15 0-30 8-53 18Z" fill="#1d3557"/>
+  <path d="M156 142c8-16 22-20 34-20s25 7 35 22l11 25h-94l14-27Z" fill="#2f6ed7"/>
+  <path d="M150 282h78" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.7"/>
+  <path d="M348 84l30-28" stroke="#2f6ed7" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="377" cy="52" r="8" fill="#2f6ed7"/>
+</svg>

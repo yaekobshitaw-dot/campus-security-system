@@ -10,6 +10,10 @@ const {
 const managementRoles = new Set(['admin']);
 
 const isAdmin = (user) => user?.role === 'admin';
+const audienceRoleForUser = (role) => role === 'security_officer' ? 'security' : role;
+const userRolesForAudiences = (audienceRoles) => [...new Set(audienceRoles.flatMap((role) =>
+  role === 'security' ? ['security', 'security_officer'] : [role]
+))];
 
 const announcementInclude = (user, includeRead = true) => [
   {
@@ -17,7 +21,7 @@ const announcementInclude = (user, includeRead = true) => [
     as: 'audiences',
     attributes: ['role'],
     required: !isAdmin(user),
-    ...(isAdmin(user) ? {} : { where: { role: user.role } })
+    ...(isAdmin(user) ? {} : { where: { role: audienceRoleForUser(user.role) } })
   },
   ...(includeRead ? [{
     model: AnnouncementRead,
@@ -219,6 +223,8 @@ const getUnreadCount = async (user) => {
 
 module.exports = {
   managementRoles,
+  audienceRoleForUser,
+  userRolesForAudiences,
   toSafeAnnouncement,
   listAnnouncements,
   getAnnouncement,

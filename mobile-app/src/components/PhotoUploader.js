@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Alert, Image, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { colors } from './ui';
+import { Icon, colors } from './ui';
 
 const getImageMimeType = (photo, fileName) => {
   if (typeof photo?.type === 'string' && photo.type.startsWith('image/')) {
@@ -131,7 +130,7 @@ const PhotoUploader = ({ onPhotosSelected, maxPhotos = 5 }) => {
         <TouchableOpacity style={styles.action} onPress={takePhoto} disabled={photos.length >= maxPhotos}><Icon name="photo-camera" size={21} color={colors.teal} /><Text style={styles.actionText}>Camera</Text></TouchableOpacity>
         <TouchableOpacity style={styles.action} onPress={chooseFromGallery} disabled={photos.length >= maxPhotos}><Icon name="photo-library" size={21} color={colors.teal} /><Text style={styles.actionText}>Gallery</Text></TouchableOpacity>
       </View>
-      <View style={styles.previewRow}>{photos.map((photo, index) => <View key={`${photo.uri}-${index}`} style={styles.preview}><Image source={{ uri: photo.uri }} style={styles.image} /><TouchableOpacity style={styles.remove} onPress={() => updatePhotos(photos.filter((_, photoIndex) => photoIndex !== index))} accessibilityLabel="Remove photo"><Icon name="close" size={16} color="#FFF" /></TouchableOpacity></View>)}</View>
+      <View style={styles.previewRow}>{photos.map((photo, index) => <View key={`${photo.uri}-${index}`} style={styles.preview}><Image source={{ uri: photo.uri }} style={styles.image} /><TouchableOpacity style={styles.remove} onPress={() => updatePhotos(photos.filter((_, photoIndex) => photoIndex !== index))} accessibilityRole="button" accessibilityLabel="Remove photo"><Icon name="close" size={16} color="#FFF" /></TouchableOpacity></View>)}</View>
       <Text style={styles.hint}>{photos.length}/{maxPhotos} attached. Photos are previewed here and included in the request payload.</Text>
     </View>
   );

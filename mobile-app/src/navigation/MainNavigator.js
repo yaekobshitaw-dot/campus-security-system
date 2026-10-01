@@ -1,7 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import AlertDetailScreen from '../screens/AlertDetailScreen';
 import AnnouncementDetailScreen from '../screens/AnnouncementDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -15,6 +14,7 @@ import IncidentsScreen from '../screens/IncidentsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReportIncidentScreen from '../screens/ReportIncidentScreen';
 import SafetyResourcesScreen from '../screens/SafetyResourcesScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import SOSScreen from '../screens/SOSScreen';
 
 const Tab = createBottomTabNavigator();
@@ -58,6 +58,7 @@ const ProfileStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ProfileRoot" component={ProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="SafetyResources" component={SafetyResourcesScreen} />
       <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
       <Stack.Screen name="Incidents" component={IncidentsScreen} />

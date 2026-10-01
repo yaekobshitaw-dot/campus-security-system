@@ -9,10 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { AlertCard } from '../components/AlertCard';
-import { colors } from '../components/ui';
+import { Icon, colors } from '../components/ui';
 import { fetchAlerts, markAlertAsRead, markAllAlertsAsRead } from '../store/alertSlice';
 
 const AlertsScreen = () => {

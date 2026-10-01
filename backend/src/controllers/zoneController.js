@@ -1,4 +1,4 @@
-const { Zone } = require('../models');
+const { CampusLocation, Zone } = require('../models');
 const { validateZonePayload } = require('../validators/zoneValidator');
 
 const zoneFields = [
@@ -94,9 +94,27 @@ exports.deleteZone = async (req, res) => {
   try {
     const zone = await Zone.findByPk(req.params.id);
     if (!zone) return res.status(404).json({ success: false, message: 'Zone not found' });
+
+    const campusLocationCount = await CampusLocation.count({ where: { zone_id: zone.zone_id } });
+    if (campusLocationCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'This zone cannot be deleted while campus locations are assigned to it. Reassign or unassign those locations first.',
+      });
+    }
+
     await zone.destroy();
     return res.json({ success: true, message: 'Zone deleted successfully' });
   } catch (error) {
+    if (error?.name === 'SequelizeForeignKeyConstraintError'
+      || error?.original?.code === 'ER_ROW_IS_REFERENCED_2'
+      || error?.original?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY'
+      || error?.original?.code === '23503') {
+      return res.status(409).json({
+        success: false,
+        message: 'This zone cannot be deleted while it is referenced by other records. Reassign or remove those references first.',
+      });
+    }
     return sendServerError(res, 'Unable to delete zone', error);
   }
 };

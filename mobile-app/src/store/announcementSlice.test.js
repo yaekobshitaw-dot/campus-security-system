@@ -44,6 +44,7 @@ describe('announcement mobile state', () => {
     const store = createStore();
     await store.dispatch(fetchAnnouncements());
     const item = store.getState().announcements.announcements[0];
+    expect(item.status).toBe('published');
     expect(item.title).toBe('Campus closure');
     expect(item.content).toBe('The library closes early today.');
     expect(item.priority).toBe('high');

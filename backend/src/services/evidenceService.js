@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const uploadDirectory = path.resolve(__dirname, '../../uploads');
-const privilegedRoles = new Set(['security', 'admin']);
+const privilegedRoles = new Set(['admin', 'security', 'security_officer']);
 
 const normalizePhotos = (photos) => {
   if (Array.isArray(photos)) return photos.filter((photo) => typeof photo === 'string');

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { authorize } = require('../src/middleware/auth');
 const announcementController = require('../src/controllers/announcementController');
 const announcementService = require('../src/services/announcementService');
-const { Alert, Announcement, AnnouncementAudience, AnnouncementRead, sequelize } = require('../src/models');
+const { Alert, Announcement, AnnouncementAudience, AnnouncementRead, Notification, User, sequelize } = require('../src/models');
 
 const adminId = '11111111-1111-4111-8111-111111111111';
 const studentId = '22222222-2222-4222-8222-222222222222';
@@ -14,6 +14,7 @@ const ids = {
   student: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   faculty: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   security: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  admin: '77777777-7777-4777-8777-777777777777',
   draft: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
   unpublished: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
   expired: '99999999-9999-4999-8999-999999999999',
@@ -29,6 +30,8 @@ const original = {
   audienceBulkCreate: AnnouncementAudience.bulkCreate,
   audienceDestroy: AnnouncementAudience.destroy,
   readFindOrCreate: AnnouncementRead.findOrCreate,
+  notificationFindOrCreate: Notification.findOrCreate,
+  userFindAll: User.findAll,
   alertFindAll: Alert.findAll,
   alertCreate: Alert.create
 };
@@ -36,6 +39,14 @@ const original = {
 let records;
 let reads;
 let nextId = 0;
+let notificationRecipients;
+let notificationsCreated;
+
+const notificationUsers = ['student', 'faculty', 'staff', 'security', 'security_officer', 'admin'].map((role) => ({
+  user_id: `${role}-recipient`,
+  role,
+  is_active: true
+}));
 
 const now = new Date('2026-09-10T12:00:00.000Z');
 const makeRecord = (id, overrides = {}) => ({
@@ -56,7 +67,8 @@ const makeRecord = (id, overrides = {}) => ({
 });
 
 const cloneRecord = (record, user, admin = false) => {
-  const targetRoles = admin ? record.target_roles : record.target_roles.filter((role) => role === user.role);
+  const audienceRole = user.role === 'security_officer' ? 'security' : user.role;
+  const targetRoles = admin ? record.target_roles : record.target_roles.filter((role) => role === audienceRole);
   const readAt = reads.get(`${record.announcement_id}:${user.user_id}`) || null;
   return {
     ...record,
@@ -95,6 +107,7 @@ const configureMocks = () => {
     [ids.student, makeRecord(ids.student, { target_roles: ['student'] })],
     [ids.faculty, makeRecord(ids.faculty, { target_roles: ['faculty'] })],
     [ids.security, makeRecord(ids.security, { target_roles: ['security'] })],
+    [ids.admin, makeRecord(ids.admin, { target_roles: ['admin'] })],
     [ids.draft, makeRecord(ids.draft, { status: 'draft', target_roles: ['student'] })],
     [ids.unpublished, makeRecord(ids.unpublished, { status: 'unpublished', target_roles: ['student'] })],
     [ids.expired, makeRecord(ids.expired, { expires_at: '2026-09-09T12:00:00.000Z', target_roles: ['student'] })],
@@ -102,6 +115,8 @@ const configureMocks = () => {
   ]);
   reads = new Map();
   nextId = 0;
+  notificationRecipients = [];
+  notificationsCreated = [];
 
   sequelize.transaction = async (callback) => callback({ transaction: true });
   Announcement.findOne = async (options = {}) => {
@@ -154,6 +169,24 @@ const configureMocks = () => {
     };
     return [read, false];
   };
+  User.findAll = async (options = {}) => {
+    const roles = Array.isArray(options.where?.role) ? options.where.role : [options.where?.role];
+    notificationRecipients = notificationUsers
+      .filter((candidate) => candidate.is_active && roles.includes(candidate.role))
+      .map(({ user_id }) => ({ user_id }));
+    return notificationRecipients;
+  };
+  Notification.findOrCreate = async ({ defaults }) => {
+    const notification = {
+      notification_id: `notification-${defaults.user_id}`,
+      ...defaults,
+      toJSON() {
+        return { ...this, toJSON: undefined };
+      }
+    };
+    notificationsCreated.push(notification);
+    return [notification, true];
+  };
 };
 
 const response = () => ({
@@ -190,6 +223,8 @@ test.afterEach(() => {
   AnnouncementAudience.bulkCreate = original.audienceBulkCreate;
   AnnouncementAudience.destroy = original.audienceDestroy;
   AnnouncementRead.findOrCreate = original.readFindOrCreate;
+  Notification.findOrCreate = original.notificationFindOrCreate;
+  User.findAll = original.userFindAll;
   Alert.findAll = original.alertFindAll;
   Alert.create = original.alertCreate;
 });
@@ -210,6 +245,72 @@ test('admin publishes an announcement', async () => {
   const result = await call('publish', { user: user('admin', adminId), params: { id: ids.draft }, body: {} });
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.status, 'published');
+  assert.ok(result.payload.data.published_at);
+  assert.equal(records.get(ids.draft).status, 'published');
+});
+
+test('publishing notifies only active users in the selected audience, including security role aliases', async () => {
+  const cases = [
+    {
+      roles: ['student', 'faculty', 'staff', 'security', 'admin'],
+      expected: ['student-recipient', 'faculty-recipient', 'staff-recipient', 'security-recipient', 'security_officer-recipient', 'admin-recipient']
+    },
+    { roles: ['student'], expected: ['student-recipient'] },
+    { roles: ['security'], expected: ['security-recipient', 'security_officer-recipient'] },
+    { roles: ['admin'], expected: ['admin-recipient'] }
+  ];
+
+  for (const { roles, expected } of cases) {
+    configureMocks();
+    records.get(ids.draft).target_roles = roles;
+    const emitted = [];
+    const io = { to: (room) => ({ emit: (event, payload) => emitted.push({ room, event, payload }) }) };
+    const result = await call('publish', {
+      user: user('admin', adminId),
+      params: { id: ids.draft },
+      body: {},
+      app: { get: (key) => key === 'io' ? io : undefined }
+    });
+
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(notificationsCreated.map(({ user_id }) => user_id).sort(), [...expected].sort());
+    assert.deepEqual(emitted.map(({ room }) => room).sort(), expected.map((id) => `user:${id}`).sort());
+  }
+});
+
+test('published announcements flow from saved audiences into the matching user feeds', async () => {
+  const cases = [
+    {
+      roles: ['student', 'faculty', 'staff', 'security', 'admin'],
+      canFetch: ['student', 'security', 'security_officer', 'admin'],
+      cannotFetch: []
+    },
+    { roles: ['student'], canFetch: ['student'], cannotFetch: ['security', 'security_officer'] },
+    { roles: ['security'], canFetch: ['security', 'security_officer'], cannotFetch: ['student'] },
+    { roles: ['admin'], canFetch: ['admin'], cannotFetch: ['student', 'security', 'security_officer'] }
+  ];
+
+  for (const { roles, canFetch, cannotFetch } of cases) {
+    configureMocks();
+    records.get(ids.draft).target_roles = roles;
+    const published = await call('publish', {
+      user: user('admin', adminId),
+      params: { id: ids.draft },
+      body: {}
+    });
+    assert.equal(published.statusCode, 200);
+    assert.equal(records.get(ids.draft).status, 'published');
+    assert.ok(records.get(ids.draft).published_at);
+
+    for (const role of canFetch) {
+      const feed = await call('list', { user: user(role, `${role}-feed-user`) });
+      assert.ok(feed.payload.data.some((item) => item.announcement_id === ids.draft), `${role} should receive the announcement`);
+    }
+    for (const role of cannotFetch) {
+      const feed = await call('list', { user: user(role, `${role}-feed-user`) });
+      assert.ok(!feed.payload.data.some((item) => item.announcement_id === ids.draft), `${role} should not receive the announcement`);
+    }
+  }
 });
 
 test('admin unpublishes an announcement', async () => {
@@ -241,6 +342,11 @@ test('student can see all-campus and student-targeted announcements', async () =
   assert.ok(visible.includes(ids.student));
 });
 
+test('security staff can see all-campus announcements', async () => {
+  const result = await call('list', { user: user('security', securityId) });
+  assert.ok(result.payload.data.some((item) => item.announcement_id === ids.all));
+});
+
 test('student cannot see faculty-only announcements', async () => {
   const result = await call('list', { user: user('student', studentId) });
   assert.ok(!result.payload.data.some((item) => item.announcement_id === ids.faculty));
@@ -254,6 +360,31 @@ test('faculty cannot see student-only announcements', async () => {
 test('security can see security-targeted announcements', async () => {
   const result = await call('list', { user: user('security', securityId) });
   assert.ok(result.payload.data.some((item) => item.announcement_id === ids.security));
+});
+
+test('security_officer users can see security-targeted announcements', async () => {
+  const result = await call('list', { user: user('security_officer', 'security-officer-id') });
+  assert.ok(result.payload.data.some((item) => item.announcement_id === ids.security));
+});
+
+test('admin-targeted announcements remain available to admins, not students', async () => {
+  const admin = await call('getById', { user: user('admin', adminId), params: { id: ids.admin } });
+  const student = await call('getById', { user: user('student', studentId), params: { id: ids.admin } });
+  assert.equal(admin.statusCode, 200);
+  assert.equal(admin.payload.data.target_roles.includes('admin'), true);
+  assert.equal(student.statusCode, 404);
+});
+
+test('student-only and security-only announcements are isolated by audience', async () => {
+  const student = await call('list', { user: user('student', studentId) });
+  const security = await call('list', { user: user('security', securityId) });
+  const securityOfficer = await call('list', { user: user('security_officer', 'security-officer-id') });
+  assert.ok(student.payload.data.some((item) => item.announcement_id === ids.student));
+  assert.ok(!security.payload.data.some((item) => item.announcement_id === ids.student));
+  assert.ok(!securityOfficer.payload.data.some((item) => item.announcement_id === ids.student));
+  assert.ok(security.payload.data.some((item) => item.announcement_id === ids.security));
+  assert.ok(securityOfficer.payload.data.some((item) => item.announcement_id === ids.security));
+  assert.ok(!student.payload.data.some((item) => item.announcement_id === ids.security));
 });
 
 test('draft, unpublished, expired, and deleted announcements are hidden from non-admin users', async () => {

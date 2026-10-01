@@ -1,16 +1,19 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { authenticate, authorize } = require('../middleware/auth');
-const { PublicContent, CONTENT_TYPES } = require('../models/PublicContent');
+const { PublicContent, CONTENT_TYPES, ensureDefaultPublicContent } = require('../models/PublicContent');
 const { validatePublicContentPayload } = require('../validators/publicContentValidator');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
+const contactInformationController = require('../controllers/contactInformationController');
+const contactMessageController = require('../controllers/contactMessageController');
 
 const router = express.Router();
 const sendError = (res, error, fallback) => res.status(error.statusCode || 400).json({ success: false, message: error.message || fallback });
 
 router.get('/public-content', async (req, res) => {
   try {
+    await ensureDefaultPublicContent();
     const type = req.query.type ? String(req.query.type) : null;
     if (type && !CONTENT_TYPES.includes(type)) return res.status(400).json({ success: false, message: 'Invalid content type.' });
     const where = { is_active: true, ...(type ? { type } : {}) };
@@ -21,10 +24,17 @@ router.get('/public-content', async (req, res) => {
   }
 });
 
+router.get('/public-content/contact', contactInformationController.getPublicContactInformation);
+router.post('/contact-messages', contactMessageController.submit);
+
 router.use(authenticate, authorize('admin'));
+
+router.get('/content/contact', contactInformationController.getContactInformation);
+router.put('/content/contact', contactInformationController.updateContactInformation);
 
 router.get('/content', async (req, res) => {
   try {
+    await ensureDefaultPublicContent();
     const type = req.query.type ? String(req.query.type) : null;
     const query = String(req.query.q || '').trim();
     if (type && !CONTENT_TYPES.includes(type)) return res.status(400).json({ success: false, message: 'Invalid content type.' });
