@@ -1,4 +1,4 @@
-﻿import {
+import {
   CheckCircleOutline,
   Close,
   ErrorOutline,
@@ -286,7 +286,7 @@ const normalizeNotification = (item) => {
     incident_id: item.incident_id ?? data.incident_id,
     alert_id: item.alert_id ?? data.alert_id,
     link: item.link ?? item.target_url ?? data.link ?? data.target_url,
-    title: item.title || (type === 'sos' ? '🚨 SOS Emergency Alert' : type === 'incident' ? 'New incident reported' : 'New alert'),
+    title: item.title || (type === 'sos' ? '🚨 SOS Emergency' : type === 'incident' ? 'New incident reported' : 'New alert'),
     message: item.message || data.message || 'A new security notification has been received.',
     type,
     severity: item.severity || data.severity || (type === 'sos' ? 'critical' : 'high'),
@@ -375,7 +375,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const canViewOperations = ['security', 'security_officer', 'admin'].includes(String(user.role || '').toLowerCase());
   const canViewMap = ['security', 'security_officer', 'admin'].includes(String(user.role || '').trim().toLowerCase());
   const canReviewAssignments = ['security', 'security_officer', 'admin'].includes(String(user.role || '').toLowerCase());
-  const showAssignmentRequests = canReviewAssignments && String(user.role || '').toLowerCase() !== 'admin';
+  const showAssignmentRequests = canReviewAssignments && String(user.role || '').trim().toLowerCase() !== 'admin';
   const canCreateIncidents = ['student', 'faculty', 'staff'].includes(String(user.role || '').trim().toLowerCase());
   const canViewCampusLocations = ['faculty', 'staff', 'security', 'security_officer', 'admin'].includes(String(user.role || '').trim().toLowerCase());
   const canReportIncident = canCreateIncidents;
@@ -546,7 +546,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
         || (isSOS && !userPreferences.sosNotifications)
         || (!isSOS && type === 'alert' && !userPreferences.alertNotifications)
         || (!isSOS && type !== 'alert' && !userPreferences.incidentNotifications)) return;
-      const title = isSOS ? '🚨 SOS Emergency Alert' : notificationType === 'alert' ? payload?.title || 'New alert' : 'New incident reported';
+      const title = isSOS ? '🚨 SOS Emergency' : notificationType === 'alert' ? payload?.title || 'New alert' : '🚨 New Incident Report';
       const message = isSOS
         ? 'An SOS emergency has been reported.'
         : notificationType === 'alert' ? payload?.message || 'A new security alert has been received.' : 'A new security incident has been reported.';
@@ -848,20 +848,6 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
         arrivedAssignment,
         ...current.filter((item) => item.response_id !== assignment.response_id),
       ]);
-      setIncidents((current) => current.map((incident) => (
-        String(incident.incident_id) === String(arrivedAssignment.incident?.incident_id)
-          ? {
-              ...incident,
-              status: arrivedAssignment.incident?.status || 'on_scene',
-              responses: [
-                arrivedAssignment,
-                ...(incident.responses || []).filter(
-                  (item) => item.response_id !== arrivedAssignment.response_id,
-                ),
-              ],
-            }
-          : incident
-      )));
     } catch (requestError) {
       setAssignmentError(requestError.response?.data?.message || 'Unable to record arrival.');
     } finally {
@@ -1173,7 +1159,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
               </tbody>
             </table>
           </div>
-          {selectedUser && <section className="dashboard-panel border-slate-200/80 bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><div className="flex flex-wrap items-start gap-5"><UserAvatar user={selectedUser} size="h-28 w-28" /><div><p className="dashboard-eyebrow">User profile</p><h3 className="mt-1 text-xl font-black text-[#0b1f3a]">{selectedUser.name}</h3><p className="mt-1 text-sm text-slate-500">{selectedUser.email}</p><p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{titleCase(selectedUser.role)} Â· {selectedUser.is_active ? 'Active' : 'Inactive'}</p></div><button type="button" className="table-action ml-auto" onClick={() => setSelectedUser(null)}>Close</button></div><form className="mt-5 grid gap-4 border-t border-slate-200 pt-5 sm:grid-cols-2" onSubmit={updateSelectedUser}><label className="form-field"><span>Name</span><input value={selectedUser.name || ''} onChange={(event) => setSelectedUser({ ...selectedUser, name: event.target.value })} required /></label><label className="form-field"><span>Phone</span><input value={selectedUser.phone || ''} onChange={(event) => setSelectedUser({ ...selectedUser, phone: event.target.value })} /></label><label className="form-field"><span>Role</span><select value={selectedUser.role} onChange={(event) => setSelectedUser({ ...selectedUser, role: event.target.value })}><option value="student">Student</option><option value="faculty">Faculty</option><option value="staff">Staff</option><option value="security">Security</option><option value="admin">Administrator</option></select></label><button type="submit" className="dashboard-button primary self-end" disabled={userUpdateLoading}>{userUpdateLoading ? 'Saving...' : 'Save user changes'}</button></form><ProfilePhotoEditor user={selectedUser} onUpdated={updateUserPhoto} /></section>}
+          {selectedUser && <section className="dashboard-panel border-slate-200/80 bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><div className="flex flex-wrap items-start gap-5"><UserAvatar user={selectedUser} size="h-28 w-28" /><div><p className="dashboard-eyebrow">User profile</p><h3 className="mt-1 text-xl font-black text-[#0b1f3a]">{selectedUser.name}</h3><p className="mt-1 text-sm text-slate-500">{selectedUser.email}</p><p className="mt-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{titleCase(selectedUser.role)} · {selectedUser.is_active ? 'Active' : 'Inactive'}</p></div><button type="button" className="table-action ml-auto" onClick={() => setSelectedUser(null)}>Close</button></div><form className="mt-5 grid gap-4 border-t border-slate-200 pt-5 sm:grid-cols-2" onSubmit={updateSelectedUser}><label className="form-field"><span>Name</span><input value={selectedUser.name || ''} onChange={(event) => setSelectedUser({ ...selectedUser, name: event.target.value })} required /></label><label className="form-field"><span>Phone</span><input value={selectedUser.phone || ''} onChange={(event) => setSelectedUser({ ...selectedUser, phone: event.target.value })} /></label><label className="form-field"><span>Role</span><select value={selectedUser.role} onChange={(event) => setSelectedUser({ ...selectedUser, role: event.target.value })}><option value="student">Student</option><option value="faculty">Faculty</option><option value="staff">Staff</option><option value="security">Security</option><option value="admin">Administrator</option></select></label><button type="submit" className="dashboard-button primary self-end" disabled={userUpdateLoading}>{userUpdateLoading ? 'Saving...' : 'Save user changes'}</button></form><ProfilePhotoEditor user={selectedUser} onUpdated={updateUserPhoto} /></section>}
         </>
       ) : <EmptyState icon={PeopleAltOutlined} title="No users returned" message="User management data is unavailable or empty." />}
     </div>
@@ -1258,4 +1244,3 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
 const Detail = ({ label, value, wide }) => <div className={wide ? 'sm:col-span-2' : ''}><dt className="text-xs font-bold uppercase tracking-[0.12em] text-sky-700">{label}</dt><dd className="mt-2 text-sm font-normal leading-6 text-slate-700">{value}</dd></div>;
 
 export default Dashboard;
-

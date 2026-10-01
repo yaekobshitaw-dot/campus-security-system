@@ -1338,7 +1338,9 @@
   background: rgb(85 199 229 / 0.08);
 }
 
-.campus-map-wrapper { min-height: 24rem; }
+.campus-map-wrapper {
+  min-height: 0;
+}
 
 .campus-map-container {
   position: relative;
@@ -3087,20 +3089,3 @@
   min-height: 420px;
 }
 
-
-.campus-map-wrapper {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  width: 100%;
-  height: clamp(24rem, 65vh, 48rem);
-  min-height: 24rem;
-  min-width: 0;
-}
-.campus-map-container {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-}

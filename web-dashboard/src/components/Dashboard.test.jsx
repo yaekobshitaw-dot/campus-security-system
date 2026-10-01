@@ -1011,7 +1011,7 @@ describe('Dashboard', () => {
       return Promise.resolve({ data: { success: true } });
     });
 
-    const { container } = render(<MemoryRouter initialEntries={['/dashboard']}><Dashboard user={{ role: 'admin', name: 'Admin Test' }} /></MemoryRouter>);
+    const { container } = render(<MemoryRouter initialEntries={['/dashboard']}><Dashboard user={{ role: 'security', name: 'Security Test' }} /></MemoryRouter>);
 
     expect((await screen.findAllByText(incident.description)).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole('button', { name: 'Decline' }));

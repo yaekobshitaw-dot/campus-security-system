@@ -1,4 +1,4 @@
-﻿import 'leaflet/dist/leaflet.css';
+import 'leaflet/dist/leaflet.css';
 import './SecurityMap.css';
 import L from 'leaflet';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
@@ -504,16 +504,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
 
       </div>
 
-      <div
-        ref={mapFullscreenRef}
-        className="campus-map-wrapper campus-map-fullscreen-container"
-        style={!fullscreenActive ? {
-          display: 'grid',
-          gridTemplateRows: 'auto minmax(0, 1fr)',
-          height: 'clamp(24rem, 65vh, 48rem)',
-          minHeight: '24rem',
-        } : undefined}
-      >
+      <div ref={mapFullscreenRef} className="campus-map-wrapper campus-map-fullscreen-container">
         <div className="campus-map-map-controls" aria-label="Map controls">
           <section aria-label="Map Controls">
             <h3 className="text-xs font-black uppercase tracking-wide text-slate-500">Map Controls</h3>

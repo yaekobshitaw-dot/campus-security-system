@@ -1,4 +1,4 @@
-import {
+﻿import {
   DashboardOutlined,
   DescriptionOutlined,
   EventNoteOutlined,
@@ -188,12 +188,12 @@ export function DashboardLayout({
       notificationsInitialized.current = true;
       if (!newestNotification?.realtimeOnly) return undefined;
     }
-    if (!newestNotification || newestNotification.type === 'sos') return undefined;
+    if (!newestNotification || newestNotification.type === 'sos' || notificationsOpen) return undefined;
 
     setRealtimeNotification(newestNotification);
     window.clearTimeout(notificationToastTimeout.current);
     notificationToastTimeout.current = window.setTimeout(() => setRealtimeNotification(null), 5000);
-  }, [notifications, notificationsReady]);
+  }, [notifications, notificationsReady, notificationsOpen]);
 
   useEffect(() => () => window.clearTimeout(notificationToastTimeout.current), []);
 
@@ -299,7 +299,7 @@ export function DashboardLayout({
                   className="dashboard-language-select h-10 max-w-[96px] rounded-xl border px-2 text-xs font-black shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                 >
                   <option value="en">English</option>
-                  <option value="am">አማርኛ</option>
+                  <option value="am">áŠ áˆ›áˆ­áŠ›</option>
                 </select>
                 {!notificationsOpen && <button
                   type="button"
@@ -341,7 +341,7 @@ export function DashboardLayout({
                     setNotificationsOpen(false);
                     if (onNotificationOpen) onNotificationOpen(notification);
                     else navigateFromLayout(notification.link || (notification.incident_id ? `/incidents/${notification.incident_id}` : '/alerts'));
-                  }} className={cn('dashboard-notification-action block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-emerald-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} · ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` · ${notification.location_name}` : ''} · {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}                  </div> : <p className="px-2 py-5 text-center text-xs text-slate-500">{notificationsError || (!notificationsReady ? t('Loading notifications...') : t('No new notifications'))}</p>}
+                  }} className={cn('dashboard-notification-action block w-full border-b border-slate-100 px-2 py-3 text-left last:border-0 hover:bg-slate-50', !notification.read && 'bg-emerald-50/50')}><span className="block text-xs font-black text-[#0b1f3a]">{notification.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{notification.message}</span><span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">{notification.incident_type ? `${notification.incident_type.replace(/_/g, ' ')} Â· ` : ''}{notification.severity || 'unknown'}{notification.location_name ? ` Â· ${notification.location_name}` : ''} Â· {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></button>)}                  </div> : <p className="px-2 py-5 text-center text-xs text-slate-500">{notificationsError || (!notificationsReady ? t('Loading notifications...') : t('No new notifications'))}</p>}
                 </div>}
                 {realtimeNotification && <div className="fixed left-1/2 top-[4.5rem] z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-sky-200 bg-white p-4 shadow-xl ring-1 ring-sky-100" role="region" aria-label={t('Realtime notification')} aria-live="polite">
                   <button type="button" className="block w-full text-left" onClick={() => {

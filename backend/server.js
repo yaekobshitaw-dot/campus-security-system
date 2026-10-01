@@ -25,13 +25,13 @@ async function startServer() {
     // without this migration the dashboard requests fail with unknown-column SQL errors.
     await ensureIncidentSchema();
     await CampusLocation.sync({ alter: true });
+    await ensureAdminSchema();
     await Notification.sync();
     await IncidentHistoryClear.sync();
     await AuditLog.sync();
     await SystemSetting.sync();
     await PublicContent.sync();
     await ensureDefaultSettings();
-    await ensureAdminSchema();
     await ensureAuthSchema();
     const emailReady = await verifyEmailTransporter().catch((error) => {
       console.warn('Password reset email transporter verification failed:', formatEmailError(error));
@@ -82,3 +82,4 @@ async function startServer() {
 }
 
 startServer();
+

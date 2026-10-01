@@ -1,4 +1,4 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 const notificationController = require('../src/controllers/notificationController');
 const { AuditLog, Incident, Notification, User } = require('../src/models');
@@ -31,34 +31,31 @@ const makeResponse = () => ({
   json(payload) { this.payload = payload; return payload; }
 });
 
-test('list returns only notifications owned by the authenticated Admin or Officer', async (t) => {
-  const sample = [
-    { notification_id: 'admin-n', user_id: 'admin-a', message: 'Admin update', is_read: false },
-    { notification_id: 'officer-a-n', user_id: 'officer-a', message: 'Officer A assignment', is_read: false },
-    { notification_id: 'officer-b-n', user_id: 'officer-b', message: 'Officer B assignment', is_read: false },
-  ];
-  let query;
-  Notification.findAll = async (options) => {
-    query = options;
-    return sample.filter((notification) => notification.user_id === options.where.user_id);
-  };
+for (const [userId, expectedIndex] of [
+  ['admin-a', 0],
+  ['officer-a', 1],
+  ['officer-b', 2],
+]) {
+  test(`${userId} sees only their own notifications`, async () => {
+    const sample = [
+      { notification_id: 'admin-n', user_id: 'admin-a', message: 'Admin update', is_read: false },
+      { notification_id: 'officer-a-n', user_id: 'officer-a', message: 'Officer A assignment', is_read: false },
+      { notification_id: 'officer-b-n', user_id: 'officer-b', message: 'Officer B assignment', is_read: false },
+    ];
 
-  for (const [userId, expected] of [
-    ['admin-a', [sample[0]]],
-    ['officer-a', [sample[1]]],
-    ['officer-b', [sample[2]]],
-  ]) {
-    await t.test(`${userId} sees only their own notifications`, async () => {
-      const req = { user: { user_id: userId } };
-      const res = makeResponse();
-      await notificationController.list(req, res);
-      assert.equal(res.statusCode, 200);
-      assert.deepEqual(query.where, { user_id: userId });
-      assert.deepEqual(res.payload.data, expected);
-    });
-  }
-});
+    Notification.findAll = async (options) => {
+      return sample.filter((notification) => notification.user_id === options.where.user_id);
+    };
 
+    const req = { user: { user_id: userId } };
+    const res = makeResponse();
+
+    await notificationController.list(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.payload.data, [sample[expectedIndex]]);
+  });
+}
 test('default notifications target Admins only while explicit audiences remain supported', async () => {
   let userQuery;
   const notifiedRooms = [];
@@ -174,3 +171,6 @@ test('markAllRead updates only the authenticated user unread notifications', asy
   assert.equal(res.statusCode, 200);
   assert.deepEqual(query.where, { user_id: 'officer-a', is_read: false });
 });
+
+
+

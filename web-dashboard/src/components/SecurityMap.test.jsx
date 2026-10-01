@@ -360,16 +360,24 @@ describe('SecurityMap Phase 1 features', () => {
       const mapOnlyWrapper = container.querySelector('.campus-map-fullscreen-container');
       const mapControls = mapOnlyWrapper.querySelector('.campus-map-map-controls');
       const mapContainer = mapOnlyWrapper.querySelector('.campus-map-container');
+      const searchAndFilters = container.querySelector('.campus-map-toolbar');
+      const legend = container.querySelector('.campus-map-legend');
 
       expect(mapOnlyWrapper).toContainElement(mapContainer.querySelector('.leaflet-container'));
       expect(mapOnlyWrapper).toContainElement(mapControls);
       expect(Array.from(mapOnlyWrapper.children)).toEqual([mapControls, mapContainer]);
-      expect(container.querySelector('.campus-map-toolbar')).not.toBeInTheDocument();
-      expect(container.querySelector('.campus-map-legend')).not.toBeInTheDocument();
+      expect(searchAndFilters).toBeInTheDocument();
+      expect(searchAndFilters).not.toHaveAttribute('hidden');
+      expect(mapOnlyWrapper).not.toContainElement(searchAndFilters);
+      expect(legend).toBeInTheDocument();
+      expect(legend).not.toHaveAttribute('hidden');
+      expect(mapOnlyWrapper).not.toContainElement(legend);
       fireEvent.click(screen.getByRole('button', { name: 'Open fullscreen map' }));
 
       await waitFor(() => expect(requestFullscreen).toHaveBeenCalledTimes(1));
       expect(requestedElement).toBe(mapOnlyWrapper);
+      await waitFor(() => expect(searchAndFilters).toHaveAttribute('hidden'));
+      expect(legend).toHaveAttribute('hidden');
     } finally {
       if (requestFullscreenDescriptor) {
         Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', requestFullscreenDescriptor);
