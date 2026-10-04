@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -25,6 +25,11 @@ const { corsOrigin } = require('./config/cors');
 const path = require('path');
 
 const app = express();
+
+// Railway runs behind a reverse proxy and forwards the client IP
+// through X-Forwarded-For. Trust the first proxy hop so
+// express-rate-limit can safely determine the client IP.
+app.set('trust proxy', 1);
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
