@@ -1,34 +1,39 @@
-﻿// src/services/emailService.js
-const axios = require('axios');
+﻿const nodemailer = require('nodemailer');
 
 const hasUsableValue = (value) =>
   Boolean(value) &&
   !String(value).startsWith('change_me_') &&
   !String(value).startsWith('YOUR_');
 
-const getResendConfig = () => {
-  const apiKey = String(process.env.RESEND_API_KEY || '').trim();
-  const from = String(
-    process.env.RESEND_FROM || 'onboarding@resend.dev'
-  ).trim();
+const getSmtpConfig = () => {
+  const host = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = String(process.env.SMTP_PASS || '').trim();
+  const from = String(process.env.SMTP_FROM || user).trim();
 
   return {
-    apiKey,
+    host,
+    port,
+    user,
+    pass,
     from,
     configured: Boolean(
-      hasUsableValue(apiKey) &&
+      hasUsableValue(host) &&
+      hasUsableValue(user) &&
+      hasUsableValue(pass) &&
       hasUsableValue(from)
     )
   };
 };
 
 const getEmailServiceStatus = () => {
-  const config = getResendConfig();
+  const config = getSmtpConfig();
 
   return {
     configured: config.configured,
-    provider: 'resend',
-    apiKeyConfigured: Boolean(hasUsableValue(config.apiKey)),
+    provider: 'gmail-smtp',
+    apiKeyConfigured: false,
     senderConfigured: Boolean(hasUsableValue(config.from)),
     frontendUrlConfigured: Boolean(
       hasUsableValue(process.env.FRONTEND_URL)
@@ -36,84 +41,132 @@ const getEmailServiceStatus = () => {
   };
 };
 
-const verifyEmailTransporter = async () => {
-  const config = getResendConfig();
+const createTransporter = () => {
+  const config = getSmtpConfig();
 
   if (!config.configured) {
-    console.warn(
-      'Password reset email service is not configured. Set RESEND_API_KEY and RESEND_FROM.'
+    throw new Error(
+      'Gmail SMTP email service is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM.'
+    );
+  }
+
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    },
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000
+  });
+};
+
+const verifyEmailTransporter = async () => {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+
+    console.log('✅ Gmail SMTP transporter verified');
+    return true;
+  } catch (error) {
+    console.error(
+      '❌ Gmail SMTP verification failed:',
+      error.code || 'unknown',
+      error.message || 'Unknown SMTP error'
     );
     return false;
   }
-
-  return true;
 };
 
 const getEmailTransportDiagnostic = async () => {
-  const config = getResendConfig();
+  const config = getSmtpConfig();
 
-  return {
-    ...getEmailServiceStatus(),
-    hostReachable: config.configured,
-    authentication: config.configured ? 'not_tested' : 'not_checked',
-    tlsConnection: 'not_applicable',
-    errorCode: null,
-    errorMessage: null
-  };
+  if (!config.configured) {
+    return {
+      ...getEmailServiceStatus(),
+      hostReachable: false,
+      authentication: 'not_checked',
+      tlsConnection: 'not_checked',
+      errorCode: 'NOT_CONFIGURED',
+      errorMessage: 'SMTP configuration is incomplete'
+    };
+  }
+
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+
+    return {
+      ...getEmailServiceStatus(),
+      hostReachable: true,
+      authentication: 'verified',
+      tlsConnection: 'verified',
+      errorCode: null,
+      errorMessage: null
+    };
+  } catch (error) {
+    return {
+      ...getEmailServiceStatus(),
+      hostReachable: false,
+      authentication: 'failed',
+      tlsConnection: 'failed',
+      errorCode: error.code || null,
+      errorMessage: String(
+        error.message || 'SMTP connection failed'
+      ).slice(0, 240)
+    };
+  }
 };
 
 const formatEmailError = (error) => {
-  const message =
+  return String(
+    error?.response?.body ||
     error?.response?.data?.message ||
     error?.message ||
-    'Email delivery failed';
-
-  return String(message)
+    'Email delivery failed'
+  )
     .replace(/\s+/g, ' ')
     .slice(0, 240);
 };
 
 const sendEmail = async (to, subject, html) => {
-  const config = getResendConfig();
+  const config = getSmtpConfig();
+
+  if (!config.configured) {
+    throw new Error(
+      'Gmail SMTP email service is not configured'
+    );
+  }
+
+  const transporter = createTransporter();
 
   try {
-    if (!config.configured) {
-      throw new Error(
-        'Password reset email service is not configured'
-      );
-    }
-
-    const response = await axios.post(
-      'https://api.resend.com/emails',
-      {
-        from: config.from,
-        to: [to],
-        subject,
-        html
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000
-      }
-    );
+    const info = await transporter.sendMail({
+      from: config.from,
+      to,
+      subject,
+      html
+    });
 
     console.log(
-      'Email sent through Resend:',
-      response.data?.id || 'unknown'
+      'Email sent through Gmail SMTP:',
+      info.messageId || 'unknown'
     );
 
-    return response.data;
+    return info;
   } catch (error) {
     console.error(
       'Email delivery failed:',
-      error.response?.status || error.code || 'unknown',
+      error.code || 'unknown',
       formatEmailError(error)
     );
 
     throw error;
+  } finally {
+    transporter.close();
   }
 };
 
@@ -144,12 +197,12 @@ module.exports = {
   sendEmail,
   sendIncidentAlert,
   verifyEmailTransporter,
-  getEmailServiceConfig: getResendConfig,
+  getEmailServiceConfig: getSmtpConfig,
   getEmailServiceStatus,
   getEmailTransportDiagnostic,
   formatEmailError,
 
   get emailServiceConfigured() {
-    return getResendConfig().configured;
+    return getSmtpConfig().configured;
   }
 };
