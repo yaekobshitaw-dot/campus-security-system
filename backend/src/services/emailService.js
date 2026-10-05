@@ -1,88 +1,201 @@
-﻿const nodemailer = require('nodemailer');
+﻿const axios = require('axios');
+
+const GMAIL_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GMAIL_SEND_URL =
+  'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 
 const hasUsableValue = (value) =>
   Boolean(value) &&
   !String(value).startsWith('change_me_') &&
   !String(value).startsWith('YOUR_');
 
-const getSmtpConfig = () => {
-  const host = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = String(process.env.SMTP_USER || '').trim();
-  const pass = String(process.env.SMTP_PASS || '').trim();
-  const from = String(process.env.SMTP_FROM || user).trim();
+const getGmailConfig = () => {
+  const clientId = String(process.env.GMAIL_CLIENT_ID || '').trim();
+  const clientSecret = String(process.env.GMAIL_CLIENT_SECRET || '').trim();
+  const refreshToken = String(process.env.GMAIL_REFRESH_TOKEN || '').trim();
+  const sender = String(
+    process.env.GMAIL_SENDER || 'yaekobshitaw@gmail.com'
+  ).trim();
 
   return {
-    host,
-    port,
-    user,
-    pass,
-    from,
+    clientId,
+    clientSecret,
+    refreshToken,
+    sender,
     configured: Boolean(
-      hasUsableValue(host) &&
-      hasUsableValue(user) &&
-      hasUsableValue(pass) &&
-      hasUsableValue(from)
+      hasUsableValue(clientId) &&
+      hasUsableValue(clientSecret) &&
+      hasUsableValue(refreshToken) &&
+      hasUsableValue(sender)
     )
   };
 };
 
 const getEmailServiceStatus = () => {
-  const config = getSmtpConfig();
+  const config = getGmailConfig();
 
   return {
     configured: config.configured,
-    provider: 'gmail-smtp',
+    provider: 'gmail-api',
     apiKeyConfigured: false,
-    senderConfigured: Boolean(hasUsableValue(config.from)),
+    senderConfigured: Boolean(hasUsableValue(config.sender)),
     frontendUrlConfigured: Boolean(
       hasUsableValue(process.env.FRONTEND_URL)
     )
   };
 };
 
-const createTransporter = () => {
-  const config = getSmtpConfig();
+const getAccessToken = async () => {
+  const config = getGmailConfig();
 
   if (!config.configured) {
     throw new Error(
-      'Gmail SMTP email service is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM.'
+      'Gmail API email service is not configured. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN and GMAIL_SENDER.'
     );
   }
 
-  return nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.port === 465,
-    auth: {
-      user: config.user,
-      pass: config.pass
-    },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000
+  try {
+    const response = await axios.post(
+      GMAIL_TOKEN_URL,
+      new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        refresh_token: config.refreshToken,
+        grant_type: 'refresh_token'
+      }).toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 30000
+      }
+    );
+
+    if (!response.data?.access_token) {
+      throw new Error(
+        'Google OAuth response did not contain an access token'
+      );
+    }
+
+    return response.data.access_token;
+  } catch (error) {
+    const message =
+      error?.response?.data?.error_description ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'Unable to obtain Gmail access token';
+
+    throw new Error(
+      `Gmail OAuth token request failed: ${message}`
+    );
+  }
+};
+
+const base64UrlEncode = (value) => {
+  return Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+};
+
+const createRawEmail = ({ from, to, subject, html }) => {
+  const normalizedHtml = String(html || '').replace(
+    /\r?\n/g,
+    '\r\n'
+  );
+
+  const message = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    normalizedHtml
+  ].join('\r\n');
+
+  return base64UrlEncode(message);
+};
+
+const formatEmailError = (error) => {
+  return String(
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.error_description ||
+    error?.response?.data?.message ||
+    error?.message ||
+    'Email delivery failed'
+  )
+    .replace(/\s+/g, ' ')
+    .slice(0, 240);
+};
+
+const sendEmail = async (to, subject, html) => {
+  const config = getGmailConfig();
+
+  if (!config.configured) {
+    throw new Error(
+      'Gmail API email service is not configured'
+    );
+  }
+
+  const accessToken = await getAccessToken();
+
+  const raw = createRawEmail({
+    from: config.sender,
+    to,
+    subject,
+    html
   });
+
+  try {
+    const response = await axios.post(
+      GMAIL_SEND_URL,
+      { raw },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+
+    console.log(
+      'Email sent through Gmail API:',
+      response.data?.id || 'unknown'
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Gmail API email delivery failed:',
+      error?.response?.status || 'unknown',
+      formatEmailError(error)
+    );
+
+    throw error;
+  }
 };
 
 const verifyEmailTransporter = async () => {
   try {
-    const transporter = createTransporter();
-    await transporter.verify();
+    await getAccessToken();
 
-    console.log('✅ Gmail SMTP transporter verified');
+    console.log('Gmail API authorization verified');
     return true;
   } catch (error) {
     console.error(
-      '❌ Gmail SMTP verification failed:',
-      error.code || 'unknown',
-      error.message || 'Unknown SMTP error'
+      'Gmail API verification failed:',
+      formatEmailError(error)
     );
     return false;
   }
 };
 
 const getEmailTransportDiagnostic = async () => {
-  const config = getSmtpConfig();
+  const config = getGmailConfig();
 
   if (!config.configured) {
     return {
@@ -91,13 +204,12 @@ const getEmailTransportDiagnostic = async () => {
       authentication: 'not_checked',
       tlsConnection: 'not_checked',
       errorCode: 'NOT_CONFIGURED',
-      errorMessage: 'SMTP configuration is incomplete'
+      errorMessage: 'Gmail API configuration is incomplete'
     };
   }
 
   try {
-    const transporter = createTransporter();
-    await transporter.verify();
+    await getAccessToken();
 
     return {
       ...getEmailServiceStatus(),
@@ -112,65 +224,16 @@ const getEmailTransportDiagnostic = async () => {
       ...getEmailServiceStatus(),
       hostReachable: false,
       authentication: 'failed',
-      tlsConnection: 'failed',
-      errorCode: error.code || null,
-      errorMessage: String(
-        error.message || 'SMTP connection failed'
-      ).slice(0, 240)
+      tlsConnection: 'verified',
+      errorCode:
+        error?.response?.data?.error ||
+        error?.code ||
+        null,
+      errorMessage: formatEmailError(error)
     };
   }
 };
 
-const formatEmailError = (error) => {
-  return String(
-    error?.response?.body ||
-    error?.response?.data?.message ||
-    error?.message ||
-    'Email delivery failed'
-  )
-    .replace(/\s+/g, ' ')
-    .slice(0, 240);
-};
-
-const sendEmail = async (to, subject, html) => {
-  const config = getSmtpConfig();
-
-  if (!config.configured) {
-    throw new Error(
-      'Gmail SMTP email service is not configured'
-    );
-  }
-
-  const transporter = createTransporter();
-
-  try {
-    const info = await transporter.sendMail({
-      from: config.from,
-      to,
-      subject,
-      html
-    });
-
-    console.log(
-      'Email sent through Gmail SMTP:',
-      info.messageId || 'unknown'
-    );
-
-    return info;
-  } catch (error) {
-    console.error(
-      'Email delivery failed:',
-      error.code || 'unknown',
-      formatEmailError(error)
-    );
-
-    throw error;
-  } finally {
-    transporter.close();
-  }
-};
-
-// Send incident alert email
 const sendIncidentAlert = async (incident, userEmail) => {
   const html =
     '<h1>Incident Alert</h1>' +
@@ -197,12 +260,12 @@ module.exports = {
   sendEmail,
   sendIncidentAlert,
   verifyEmailTransporter,
-  getEmailServiceConfig: getSmtpConfig,
+  getEmailServiceConfig: getGmailConfig,
   getEmailServiceStatus,
   getEmailTransportDiagnostic,
   formatEmailError,
 
   get emailServiceConfigured() {
-    return getSmtpConfig().configured;
+    return getGmailConfig().configured;
   }
 };
