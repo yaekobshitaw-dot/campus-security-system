@@ -1,5 +1,6 @@
 const { Alert, Incident, IncidentHistoryClear, Response, User, sequelize } = require('../models');
 const { attachCampusLocationMatches } = require('../services/campusLocationMatchingService');
+const { predictRiskLevel } = require('../services/mlService');
 const { haversineDistanceMeters } = require('../utils/geoUtils');
 const { Op } = require('sequelize');
 const { processIncidentPhotos } = require('../services/uploadService');
@@ -613,11 +614,45 @@ exports.create = async (req, res) => {
       ? (await processIncidentPhotos(req.files, undefined)).map((photo) => `${req.protocol}://${req.get('host')}${photo}`)
       : photoReferences.filter((photo) => typeof photo === 'string');
 
+    const requestedSeverity = ['low', 'medium', 'high', 'critical'].includes(
+      String(severity || '').trim().toLowerCase()
+    )
+      ? String(severity).trim().toLowerCase()
+      : 'medium';
+
+    let incidentSeverity = requestedSeverity;
+
+    if (!asBoolean(is_sos)) {
+      try {
+        const prediction = await predictRiskLevel({
+          type,
+          description: description || '',
+          severity: requestedSeverity,
+          location_name: location_name || '',
+          building: building || '',
+          room: room || ''
+        });
+
+        const predictedSeverity = String(prediction?.risk_level || '')
+          .trim()
+          .toLowerCase();
+
+        if (['low', 'medium', 'high', 'critical'].includes(predictedSeverity)) {
+          incidentSeverity = predictedSeverity;
+        }
+      } catch (error) {
+        console.warn(
+          'Incident risk prediction failed; using submitted severity:',
+          error?.message || error
+        );
+      }
+    }
+
     const incident = await Incident.create({
       user_id: asBoolean(is_anonymous) ? null : req.user.user_id,
       type,
       description: description || '',
-      severity: severity || 'medium',
+      severity: incidentSeverity,
       location_name: location_name || '',
       building: building || '',
       room: room || '',
