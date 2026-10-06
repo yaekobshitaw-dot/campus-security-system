@@ -8,13 +8,19 @@ import { vi } from 'vitest';
 import SecurityMap from './SecurityMap';
 
 const sampleCampus = [
-  { location_id: 'l1', name: 'Main Library', latitude: 10.9855, longitude: 39.2632, type: 'library' },
-  { location_id: 'l2', name: 'Main Gate', latitude: 10.9860, longitude: 39.2638, type: 'gate' }
+  { location_id: 'l1', name: 'Main Library', latitude: 10.9855, longitude: 39.2632, type: 'library', is_active: true },
+  { location_id: 'l2', name: 'Main Gate', latitude: 10.9860, longitude: 39.2638, type: 'gate', is_active: true }
 ];
 
 const sampleIncidents = [
-  { incident_id: 'i1', latitude: 10.9856, longitude: 39.2633, is_sos: false, type: 'theft', status: 'open', severity: 2, responses: [] },
-  { incident_id: 's1', latitude: 10.9845, longitude: 39.2625, is_sos: true, type: 'sos', status: 'open', severity: 3, responses: [] }
+  { incident_id: 'i1', campus_location_id: 'l1', latitude: 10.9856, longitude: 39.2633, is_sos: false, type: 'theft', status: 'open', severity: 2, responses: [] },
+  { incident_id: 's1', campus_location_id: 'l2', latitude: 10.9845, longitude: 39.2625, is_sos: true, type: 'sos', status: 'open', severity: 3, responses: [] }
+];
+
+const campusValidationLocations = [
+  { location_id: 'university', name: 'Mekdela Amba University', latitude: 10.9854535, longitude: 39.2631819, is_active: true },
+  { location_id: 'library', name: 'Library', latitude: 10.9855, longitude: 39.2632, type: 'library', is_active: true },
+  { location_id: 'inactive', name: 'Inactive Location', latitude: 10.986, longitude: 39.264, is_active: false },
 ];
 
 const sampleOfficers = [
@@ -122,7 +128,7 @@ describe('SecurityMap Phase 1 features', () => {
   });
 
   test('Incident filters work', async () => {
-    render(<SecurityMap incidents={sampleIncidents} officers={[]} zones={[]} campusLocations={[]} />);
+    render(<SecurityMap incidents={sampleIncidents} officers={[]} zones={[]} campusLocations={sampleCampus} />);
 
     // severity filter to 3 should hide severity 2 incident
     const severitySelect = screen.getByLabelText('Severity');
@@ -139,9 +145,43 @@ describe('SecurityMap Phase 1 features', () => {
     await waitFor(() => expect(screen.queryByTestId('marker-incident-i1')).not.toBeInTheDocument());
   });
 
+  test.each([
+    ['valid campus_location_id', { incident_id: 'valid-id', campus_location_id: 'library', latitude: 10.9, longitude: 39.2 }],
+    ['valid nested campus location id', { incident_id: 'valid-nested-id', campus_location: { location_id: 'library' }, latitude: 10.9, longitude: 39.2 }],
+    ['null campus location', { incident_id: 'null-location', campus_location_id: null, latitude: 10.9855, longitude: 39.2632 }],
+    ['Unknown Location', { incident_id: 'unknown-location', location_name: 'Unknown Location', latitude: 10.9855, longitude: 39.2632 }],
+    ['Unmatched location', { incident_id: 'unmatched-location', location_name: 'Unmatched', latitude: 10.9855, longitude: 39.2632 }],
+    ['GPS-only incident', { incident_id: 'gps-only', latitude: 10.9855, longitude: 39.2632 }],
+    ['Current device location without validation', { incident_id: 'device-only', location_name: 'Current device location', latitude: 10.9855, longitude: 39.2632 }],
+    ['Library location', { incident_id: 'library-location', campus_location_id: 'library', latitude: 10.9855, longitude: 39.2632 }],
+  ])('handles %s incident validation', async (label, incident) => {
+    render(<SecurityMap incidents={[incident]} officers={[]} zones={[]} campusLocations={campusValidationLocations} />);
+
+    if (label === 'valid campus_location_id' || label === 'valid nested campus location id' || label === 'Library location') {
+      expect(await screen.findByTestId(`marker-incident-${incident.incident_id}`)).toBeInTheDocument();
+    } else {
+      expect(screen.queryByTestId(`marker-incident-${incident.incident_id}`)).not.toBeInTheDocument();
+    }
+  });
+
+  test('uses the validated campus location for Current device location incidents', async () => {
+    const incident = {
+      incident_id: 'device-with-campus-location',
+      campus_location_id: 'library',
+      location_name: 'Current device location',
+      latitude: null,
+      longitude: null,
+    };
+
+    render(<SecurityMap incidents={[incident]} officers={[]} zones={[]} campusLocations={campusValidationLocations} />);
+
+    expect(await screen.findByTestId('marker-incident-device-with-campus-location')).toBeInTheDocument();
+  });
+
   test('focuses and opens the popup for the selected incident despite existing filters', async () => {
     const selectedIncident = {
       incident_id: 'focused-1',
+      campus_location_id: 'l1',
       latitude: 10.9856,
       longitude: 39.2633,
       type: 'theft',
@@ -149,12 +189,12 @@ describe('SecurityMap Phase 1 features', () => {
       severity: 2,
       responses: [],
     };
-    render(<SecurityMap incidents={[selectedIncident]} officers={[]} zones={[]} campusLocations={[]} focusedIncidentId="focused-1" />);
+    render(<SecurityMap incidents={[selectedIncident]} officers={[]} zones={[]} campusLocations={sampleCampus} focusedIncidentId="focused-1" />);
 
     expect(screen.getByTestId('marker-incident-focused-1')).toBeInTheDocument();
     await waitFor(() => {
-      expect(window._map_last_setView.pos[0]).toBeCloseTo(10.9856, 4);
-      expect(window._map_last_setView.pos[1]).toBeCloseTo(39.2633, 4);
+      expect(window._map_last_setView.pos[0]).toBeCloseTo(10.9855, 4);
+      expect(window._map_last_setView.pos[1]).toBeCloseTo(39.2632, 4);
     });
     expect(document.querySelector('.leaflet-popup-content')).toHaveTextContent('Type: theft');
   });

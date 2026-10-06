@@ -138,6 +138,27 @@ const distanceMeters = (from, to) => {
 
 const formatDistance = (meters) => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 
+const isActiveCampusLocation = (location) => (
+  location?.is_active === true
+  || location?.is_active === 1
+  || location?.is_active === '1'
+  || location?.is_active === 'true'
+);
+
+const validatedCampusLocationFor = (incident, campusLocations) => {
+  const incidentLocationIds = [incident?.campus_location_id, incident?.campus_location?.location_id]
+    .filter((locationId) => locationId !== null && locationId !== undefined && String(locationId).trim() !== '')
+    .map((locationId) => String(locationId));
+  if (!incidentLocationIds.length) return null;
+
+  return (Array.isArray(campusLocations) ? campusLocations : []).find((location) => (
+    isActiveCampusLocation(location)
+    && location?.location_id !== null
+    && location?.location_id !== undefined
+    && incidentLocationIds.includes(String(location.location_id))
+  )) || null;
+};
+
 function FitMapToData({ campusLocations, incidents, officers, zones }) {
   const map = useMap();
   const fittedKey = useRef('');
@@ -162,7 +183,8 @@ function FitMapToData({ campusLocations, incidents, officers, zones }) {
     });
     if (!bounds.length) {
       incidents.forEach((incident) => {
-        const position = coordinatesFor(incident.latitude, incident.longitude);
+        const location = validatedCampusLocationFor(incident, campusLocations);
+        const position = location ? coordinatesFor(location.latitude, location.longitude) : null;
         if (position) bounds.push(position);
       });
       officers.forEach((officer) => {
@@ -312,7 +334,8 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
 
   // Derived filtered incident and officer lists according to layer toggles and filters
   const filteredIncidents = useMemo(() => incidents.filter((incident) => {
-    const pos = coordinatesFor(incident.latitude, incident.longitude);
+    const campusLocation = validatedCampusLocationFor(incident, campusLocations);
+    const pos = campusLocation ? coordinatesFor(campusLocation.latitude, campusLocation.longitude) : null;
     if (!pos) return false;
     if (focusedIncidentId && String(incident.incident_id) === String(focusedIncidentId)) return true;
     if (['resolved', 'closed', 'cancelled'].includes(String(incident.status || '').toLowerCase())) return false;
@@ -326,19 +349,20 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
     // Severity filter
     if (incidentFilters.severity !== 'all' && incident.severity && incidentFilters.severity !== String(incident.severity)) return false;
     return true;
-  }), [incidents, incidentFilters, layers, focusedIncidentId]);
+  }), [campusLocations, incidents, incidentFilters, layers, focusedIncidentId]);
 
   const focusedIncident = focusedIncidentId
     ? filteredIncidents.find((incident) => String(incident.incident_id) === String(focusedIncidentId))
     : null;
   useEffect(() => {
     if (!map || !focusedIncident) return;
-    const position = coordinatesFor(focusedIncident.latitude, focusedIncident.longitude);
+    const campusLocation = validatedCampusLocationFor(focusedIncident, campusLocations);
+    const position = campusLocation ? coordinatesFor(campusLocation.latitude, campusLocation.longitude) : null;
     if (!position) return;
     map.setView(position, Math.max(map.getZoom(), 17));
     const marker = markerRefs.current[`incident-${focusedIncident.incident_id}`];
     marker?.openPopup?.();
-  }, [focusRequestKey, focusedIncident, map]);
+  }, [campusLocations, focusRequestKey, focusedIncident, map]);
 
   const filteredOfficers = useMemo(() => officers.filter((officer) => {
     const pos = coordinatesFor(officer.latitude, officer.longitude);
@@ -553,7 +577,8 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             />}
 
           {filteredIncidents.map((incident) => {
-            const position = coordinatesFor(incident.latitude, incident.longitude);
+            const campusLocation = validatedCampusLocationFor(incident, campusLocations);
+            const position = campusLocation ? coordinatesFor(campusLocation.latitude, campusLocation.longitude) : null;
             if (!position) return null;
             const assigned = incident.responses?.[0]?.responder;
             const incidentIcon = markerIcon(incident.is_sos ? '#991b1b' : '#d9534f', incident.is_sos ? 'SOS' : '!', `marker-incident-${incident.incident_id}`);
