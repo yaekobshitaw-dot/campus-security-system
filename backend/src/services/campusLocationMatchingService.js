@@ -2,6 +2,13 @@ const { CampusLocation } = require('../models');
 const { CAMPUS_LOCATION_MATCH_RADIUS_METERS } = require('../config/locationMatching');
 const { coordinatesFor, haversineDistanceMeters } = require('../utils/geoUtils');
 
+const isActiveCampusLocation = (location) => (
+  location?.is_active === true
+  || location?.is_active === 1
+  || location?.is_active === '1'
+  || location?.is_active === 'true'
+);
+
 const findNearestCampusLocation = (
   latitude,
   longitude,
@@ -13,7 +20,7 @@ const findNearestCampusLocation = (
 
   let nearestMatch = null;
   for (const location of Array.isArray(campusLocations) ? campusLocations : []) {
-    if (location?.is_active !== true) continue;
+    if (!isActiveCampusLocation(location)) continue;
     const locationCoordinates = coordinatesFor(location.latitude, location.longitude);
     if (!locationCoordinates) continue;
 

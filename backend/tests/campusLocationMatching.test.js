@@ -67,6 +67,27 @@ test('ignores inactive campus locations', () => {
   assert.equal(findNearestCampusLocation(campusCenter.latitude, campusCenter.longitude, locations), null);
 });
 
+test('matches string GPS coordinates for a numeric active campus location', async () => {
+  const location = {
+    location_id: 'numeric-active-campus',
+    name: 'Mekdela Amba University',
+    latitude: String(campusCenter.latitude),
+    longitude: String(campusCenter.longitude),
+    is_active: 1
+  };
+
+  CampusLocation.findAll = async () => [location];
+  const [matchedIncident] = await attachCampusLocationMatches([{
+    incident_id: 'numeric-active-incident',
+    latitude: String(campusCenter.latitude),
+    longitude: String(campusCenter.longitude)
+  }]);
+
+  assert.equal(matchedIncident.campus_location_id, 'numeric-active-campus');
+  assert.equal(matchedIncident.campus_location.location_id, 'numeric-active-campus');
+  assert.equal(matchedIncident.campus_location.distance_meters, 0);
+});
+
 test('missing incident coordinates produce no match without querying campus locations', async () => {
   CampusLocation.findAll = async () => {
     throw new Error('location lookup should be skipped');
