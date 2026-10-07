@@ -11,8 +11,16 @@ const locationTypeLabels = {
   cafeteria: 'Cafeteria', clinic: 'Health / clinic', gate: 'Main gate', security_post: 'Security post',
   parking: 'Parking', sports: 'Sports / recreation', emergency_point: 'Emergency point', other: 'Campus place'
 };
-const hiddenLocationNames = new Set(['unknown location', 'unknown', 'unmatched']);
-const hasVisibleLocationName = (location) => !hiddenLocationNames.has(String(location?.name || '').trim().toLowerCase());
+const hiddenLocationNames = new Set([
+  'unknown location',
+  'unknown',
+  'unmatched',
+  'fenta abnew',
+  'mau administration bd',
+  'administration building',
+]);
+const normalizeLocationName = (name) => String(name || '').trim().toLowerCase();
+const hasVisibleLocationName = (location) => !hiddenLocationNames.has(normalizeLocationName(location?.name));
 // Test environment detection (Vite / Vitest friendly). Use to enable test-only instrumentation.
 const IS_TEST = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.MODE === 'test') || (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test');
 
@@ -155,6 +163,7 @@ const validatedCampusLocationFor = (incident, campusLocations) => {
 
   return (Array.isArray(campusLocations) ? campusLocations : []).find((location) => (
     isActiveCampusLocation(location)
+    && hasVisibleLocationName(location)
     && location?.location_id !== null
     && location?.location_id !== undefined
     && incidentLocationIds.includes(String(location.location_id))
@@ -167,7 +176,7 @@ function FitMapToData({ campusLocations, incidents, officers, zones }) {
 
   useEffect(() => {
     const bounds = [];
-    campusLocations.forEach((location) => {
+    campusLocations.filter(hasVisibleLocationName).forEach((location) => {
       const position = coordinatesFor(location.latitude, location.longitude);
       if (position) bounds.push(position);
     });
@@ -326,12 +335,12 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
     }
   };
   const campusBounds = useMemo(() => [
-    ...campusLocations.map((location) => coordinatesFor(location.latitude, location.longitude)).filter(Boolean),
+    ...displayableCampusLocations.map((location) => coordinatesFor(location.latitude, location.longitude)).filter(Boolean),
     ...effectiveZones.flatMap((zone) => {
       const polygon = polygonCoordinatesFor(zone.coordinates);
       return polygon ? polygon.flat() : [zoneCenter(zone)].filter(Boolean);
     })
-  ], [campusLocations, effectiveZones]);
+  ], [displayableCampusLocations, effectiveZones]);
   const invalidSOSCount = incidents.filter((incident) => incident.is_sos && !coordinatesFor(incident.latitude, incident.longitude)).length;
   const unavailableOfficerCount = officers.filter((officer) => !coordinatesFor(officer.latitude, officer.longitude)).length;
 

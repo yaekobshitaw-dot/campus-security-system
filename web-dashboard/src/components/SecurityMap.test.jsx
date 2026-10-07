@@ -198,6 +198,35 @@ describe('SecurityMap Phase 1 features', () => {
     });
   });
 
+  test('hides excluded campus locations and incidents while keeping allowed locations visible', async () => {
+    const locations = [
+      { location_id: 'fenta', name: '    ', latitude: 10.985, longitude: 39.263, is_active: true },
+      { location_id: 'mau-admin', name:  ', latitude: 10.986, longitude: 39.264, is_active: true },
+      { location_id: 'admin-building', name: ' ADMINISTRATION BUILDING ', latitude: 10.987, longitude: 39.265, is_active: true },
+      { location_id: 'administration', name: 'Administration', latitude: 10.988, longitude: 39.266, is_active: true },
+      { location_id: 'library', name: 'Library', latitude: 10.989, longitude: 39.267, is_active: true },
+      { location_id: 'university', name: 'Mekdela Amba University', latitude: 10.990, longitude: 39.268, is_active: true },
+    ];
+    const excludedIncident = { incident_id: 'excluded-incident', campus_location_id: 'fenta', type: 'theft', status: 'open' };
+
+    render(<SecurityMap incidents={[excludedIncident]} officers={[]} zones={[]} campusLocations={locations} />);
+
+    expect(screen.queryByTestId('marker-place-fenta')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('marker-place-mau-admin')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('marker-place-admin-building')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('marker-incident-excluded-incident')).not.toBeInTheDocument();
+    expect(screen.getByTestId('marker-place-administration')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-place-library')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-place-university')).toBeInTheDocument();
+
+    const search = screen.getByPlaceholderText('Library, gate, block...');
+    fireEvent.change(search, { target: { value: 'administration' } });
+    expect(screen.queryByTestId('search-result-fenta')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('search-result-mau-admin')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('search-result-admin-building')).not.toBeInTheDocument();
+    expect(screen.getByTestId('search-result-administration')).toBeInTheDocument();
+  });
+
   test('focuses and opens the popup for the selected incident despite existing filters', async () => {
     const selectedIncident = {
       incident_id: 'focused-1',
