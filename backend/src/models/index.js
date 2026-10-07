@@ -14,6 +14,8 @@ const AnnouncementRead = require('./AnnouncementRead');
 const CampusLocation = require('./CampusLocation');
 const Notification = require('./Notification');
 const AuditLog = require('./AuditLog');
+const SecuritySession = require('./SecuritySession');
+const MfaRecoveryCode = require('./MfaRecoveryCode');
 const SystemSetting = require('./SystemSetting');
 const { PublicContent, CONTENT_TYPES } = require('./PublicContent');
 
@@ -36,6 +38,10 @@ User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(AuditLog, { foreignKey: 'actor_id', as: 'auditLogs', constraints: false });
 AuditLog.belongsTo(User, { foreignKey: 'actor_id', as: 'actor', constraints: false });
+User.hasMany(SecuritySession, { foreignKey: 'user_id', as: 'securitySessions', constraints: false });
+SecuritySession.belongsTo(User, { foreignKey: 'user_id', as: 'user', constraints: false });
+User.hasMany(MfaRecoveryCode, { foreignKey: 'user_id', as: 'mfaRecoveryCodes', constraints: false });
+MfaRecoveryCode.belongsTo(User, { foreignKey: 'user_id', as: 'user', constraints: false });
 Announcement.hasMany(AnnouncementAudience, { foreignKey: 'announcement_id', as: 'audiences' });
 AnnouncementAudience.belongsTo(Announcement, { foreignKey: 'announcement_id', as: 'announcement' });
 Announcement.hasMany(AnnouncementRead, { foreignKey: 'announcement_id', as: 'reads' });
@@ -58,6 +64,8 @@ module.exports = {
 	CampusLocation,
 	Notification,
 	AuditLog,
+	SecuritySession,
+	MfaRecoveryCode,
 	SystemSetting,
 	PublicContent,
 	CONTENT_TYPES

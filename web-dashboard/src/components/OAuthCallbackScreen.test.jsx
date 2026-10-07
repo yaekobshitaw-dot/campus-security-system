@@ -17,7 +17,7 @@ describe('OAuthCallbackScreen', () => {
 
   it('reads a ticket from the query string and exchanges it exactly once', async () => {
     const onLogin = vi.fn();
-    api.post.mockResolvedValue({ data: { data: { user: { user_id: 'u1' }, accessToken: 'tok' } } });
+    api.post.mockResolvedValue({ data: { data: { user: { user_id: 'u1' }, accessToken: 'tok', refreshToken: 'refresh-tok' } } });
     window.history.replaceState({}, '', '/oauth/callback?ticket=test-ticket-123');
 
     render(
@@ -31,13 +31,14 @@ describe('OAuthCallbackScreen', () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/auth/oauth/exchange', { ticket: 'test-ticket-123' }));
     await waitFor(() => expect(localStorage.getItem('token')).toBe('tok'));
+    expect(localStorage.getItem('refreshToken')).toBe('refresh-tok');
     expect(onLogin).toHaveBeenCalledTimes(1);
     expect(window.location.search).toBe('');
   });
 
   it('does not make a second exchange when StrictMode mounts twice', async () => {
     const onLogin = vi.fn();
-    api.post.mockResolvedValue({ data: { data: { user: { user_id: 'u1' }, accessToken: 'tok' } } });
+    api.post.mockResolvedValue({ data: { data: { user: { user_id: 'u1' }, accessToken: 'tok', refreshToken: 'refresh-tok' } } });
     window.history.replaceState({}, '', '/oauth/callback?ticket=strict-ticket');
 
     render(

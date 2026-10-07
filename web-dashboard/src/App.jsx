@@ -70,6 +70,7 @@ function App() {
   useEffect(() => {
     const handleUnauthorized = () => {
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       setUser(null);
       if (location.pathname !== '/login') navigate('/login', { replace: true });
@@ -122,10 +123,14 @@ function App() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    if (location.pathname !== '/login') navigate('/login', { replace: true });
+    const refreshToken = localStorage.getItem('refreshToken');
+    api.post('/auth/logout', refreshToken ? { refreshToken } : {}).catch(() => undefined).finally(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      setUser(null);
+      if (location.pathname !== '/login') navigate('/login', { replace: true });
+    });
   };
 
   if (loading) return <div className="app-loading">Loading Campus Security...</div>;

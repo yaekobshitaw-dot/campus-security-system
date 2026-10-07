@@ -19,6 +19,7 @@ const campusLocationRoutes = require('./routes/campusLocationRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 const systemRoutes = require('./routes/systemRoutes');
+const securityRoutes = require('./routes/securityRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter, assistantLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { corsOrigin } = require('./config/cors');
@@ -32,8 +33,8 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  crossOriginOpenerPolicy: { policy: 'unsafe-none' }
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: { policy: 'unsafe-none' }
 }));
 app.use(cors({ origin: corsOrigin }));
 app.use(compression());
@@ -41,13 +42,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use('/uploads/profile-photos', express.static(path.resolve(__dirname, '../uploads/profile-photos'), {
-  fallthrough: false,
-  index: false,
-  maxAge: '1h'
+    fallthrough: false,
+    index: false,
+    maxAge: '1h'
 }));
 app.use('/api', apiLimiter);
 app.use('/api/system', systemRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/security', securityRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/alerts', alertRoutes);
@@ -62,7 +64,7 @@ app.use('/api/campus-locations', campusLocationRoutes);
 app.use('/api', contentRoutes);
 app.use('/api', adminRoutes);
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 app.use(errorHandler);
 

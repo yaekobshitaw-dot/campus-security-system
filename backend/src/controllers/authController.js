@@ -7,9 +7,10 @@ const { Op } = require('sequelize');
 const { sendEmail, getEmailServiceConfig, formatEmailError } = require('../services/emailService');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
-const { exchangeLoginTicket } = require('../services/oauthService');
+const oauthService = require('../services/oauthService');
 const { withAdminAccountsLocked, assertAdminCapacity } = require('../services/adminAccountPolicy');
 const { logger } = require('../utils/logger');
+const securityService = require('../services/securityService');
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -91,11 +92,12 @@ exports.register = async (req, res) => {
     });
 
     const token = generateToken(user);
+    const session = await securityService.createRefreshSession(user, req);
 
     return res.status(201).json({
       success: true,
       message: 'Registration successful',
-      data: { user: user.toJSON(), accessToken: token }
+      data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken }
     });
   } catch (error) {
     const message = error.message === 'JWT_SECRET is not configured'
@@ -256,16 +258,28 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ where: { email: normalizedEmail } });
     if (!user || !user.is_active) {
       logger.warn(`Auth login failed (invalid user or inactive): ${normalizedEmail} from ${req.ip}`);
+      await recordAudit(req, { action: 'login_failed', resourceType: 'user', success: false, metadata: { reason: 'invalid_credentials' } });
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
     const isValid = await user.comparePassword(password);
     if (!isValid) {
       logger.warn(`Auth login failed (bad password): ${normalizedEmail} from ${req.ip}`);
+      await recordAudit({ ...req, user: null }, { action: 'login_failed', resourceType: 'user', resourceId: user.user_id, success: false });
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
+    if (user.mfa_enabled) {
+      await recordAudit({ ...req, user }, { action: 'login_password_verified', resourceType: 'user', resourceId: user.user_id });
+      return res.status(200).json({
+        success: true,
+        message: 'MFA verification required',
+        data: { mfaRequired: true, challengeToken: securityService.signMfaChallenge(user) }
+      });
+    }
+
     const token = generateToken(user);
+    const session = await securityService.createRefreshSession(user, req);
     if (isSecurityRole(user.role)) {
       await user.update({ availability_status: 'available' });
     }
@@ -275,11 +289,12 @@ exports.login = async (req, res) => {
     }
 
     logger.info(`Auth login success: ${normalizedEmail} from ${req.ip}`);
+    await recordAudit({ ...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
 
     return res.status(200).json({
       success: true,
       message: 'Login successful',
-      data: { user: user.toJSON(), accessToken: token }
+      data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken }
     });
   } catch (error) {
     const message = error.message === 'JWT_SECRET is not configured'
@@ -288,6 +303,44 @@ exports.login = async (req, res) => {
 
     logger.error('Auth login error', { error: error && error.message });
     return res.status(500).json({ success: false, message });
+  }
+};
+
+exports.verifyMfaLogin = async (req, res) => {
+  try {
+    const challenge = securityService.verifyMfaChallenge(req.body?.challengeToken);
+    const user = await User.findByPk(challenge.user_id);
+    if (!user || !user.is_active || !user.mfa_enabled) throw new Error('MFA verification unavailable');
+    let valid = false;
+    try {
+      valid = securityService.verifyTotp(securityService.decryptSecret(user.mfa_secret_hash), req.body?.code);
+    } catch { valid = false; }
+    if (!valid) {
+      valid = await securityService.consumeRecoveryCodeAtomic(user.user_id, req.body?.recoveryCode);
+    }
+    if (!valid) {
+      await recordAudit({ ...req, user }, { action: 'mfa_login_failed', resourceType: 'user', resourceId: user.user_id, success: false });
+      return res.status(401).json({ success: false, message: 'Invalid MFA code' });
+    }
+    const token = generateToken(user);
+    const session = await securityService.createRefreshSession(user, req);
+    await recordAudit({ ...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
+    return res.json({ success: true, message: 'Login successful', data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken } });
+  } catch {
+    return res.status(401).json({ success: false, message: 'MFA verification failed' });
+  }
+};
+
+exports.refreshSession = async (req, res) => {
+  try {
+    const current = await securityService.rotateRefreshSession(req.body?.refreshToken);
+    if (!current) return res.status(401).json({ success: false, message: 'Refresh token is invalid or expired' });
+    const user = await User.findByPk(current.user_id);
+    if (!user || !user.is_active) return res.status(401).json({ success: false, message: 'User not found or inactive' });
+    const session = await securityService.createRefreshSession(user, req);
+    return res.json({ success: true, data: { user: user.toJSON(), accessToken: generateToken(user), refreshToken: session.refreshToken } });
+  } catch {
+    return res.status(401).json({ success: false, message: 'Unable to refresh session' });
   }
 };
 
@@ -369,9 +422,11 @@ exports.resetPassword = async (req, res) => {
 
 exports.logout = async (req, res) => {
   try {
+    if (req.body?.refreshToken) await securityService.revokeRefreshSession(req.body.refreshToken);
     if (req.user && isSecurityRole(req.user.role)) {
       await req.user.update({ availability_status: 'offline' });
     }
+    await recordAudit(req, { action: 'logout', resourceType: 'user', resourceId: req.user?.user_id });
     return res.status(200).json({
       success: true,
       message: 'Logout successful'
@@ -386,12 +441,14 @@ exports.logout = async (req, res) => {
 
 exports.oauthExchange = async (req, res) => {
   try {
-    const user = await exchangeLoginTicket(req.body.ticket);
+    const user = await oauthService.exchangeLoginTicket(req.body.ticket);
     const token = generateToken(user);
+    const session = await securityService.createRefreshSession(user, req);
+    await recordAudit({ ...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
     return res.status(200).json({
       success: true,
       message: 'Login successful',
-      data: { user: user.toJSON(), accessToken: token }
+      data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken }
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message || 'Unable to complete provider sign-in' });

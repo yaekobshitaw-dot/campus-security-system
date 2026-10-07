@@ -123,6 +123,9 @@ export function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [mfaChallenge, setMfaChallenge] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaMode, setMfaMode] = useState('totp');
 
   useEffect(() => {
     // Show a transient success message passed via navigation state (e.g., after reset password)
@@ -144,8 +147,13 @@ export function LoginScreen({ onLogin }) {
     // changing backend behavior if phone number is not supported server-side.
     const payload = { email: form.email, password: form.password };
     const response = await api.post('/auth/login', payload);
-    const { user, accessToken } = response.data.data;
+    if (response.data.data?.mfaRequired) {
+      setMfaChallenge(response.data.data.challengeToken);
+      return;
+    }
+    const { user, accessToken, refreshToken } = response.data.data;
     localStorage.setItem('token', accessToken);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
     onLogin(user);
     navigate('/dashboard', { replace: true });
@@ -153,6 +161,28 @@ export function LoginScreen({ onLogin }) {
     setError(requestError.response?.data?.message || 'Unable to sign in. Please check your details.');
     } finally {
     setLoading(false);
+    }
+  };
+
+  const verifyMfa = async (event) => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/mfa/verify', {
+        challengeToken: mfaChallenge,
+        ...(mfaMode === 'totp' ? { code: mfaCode } : { recoveryCode: mfaCode })
+      });
+      const { user, accessToken, refreshToken } = response.data.data;
+      localStorage.setItem('token', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify(user));
+      onLogin(user);
+      navigate('/dashboard', { replace: true });
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to verify MFA code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -171,13 +201,17 @@ export function LoginScreen({ onLogin }) {
         </div>
       )}
       {error && <div className="form-error" role="alert">{error}</div>}
-      <form className="auth-form" onSubmit={submit}>
+      {mfaChallenge ? <form className="auth-form" onSubmit={verifyMfa}>
+        <label>{mfaMode === 'totp' ? t('Authenticator code') : t('Recovery code')}<input required inputMode={mfaMode === 'totp' ? 'numeric' : 'text'} pattern={mfaMode === 'totp' ? '[0-9]{6}' : undefined} maxLength={mfaMode === 'totp' ? 6 : 32} value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} autoComplete={mfaMode === 'totp' ? 'one-time-code' : 'off'} /></label>
+        <button type="button" className="auth-help-link" onClick={() => { setMfaMode(mfaMode === 'totp' ? 'recovery' : 'totp'); setMfaCode(''); }}>{mfaMode === 'totp' ? t('Use recovery code') : t('Use authenticator code')}</button>
+        <button className="button button-primary auth-submit" disabled={loading}>{loading ? t('Please wait...') : t('Verify and sign in')}</button>
+      </form> : <form className="auth-form" onSubmit={submit}>
         <label>{t('Campus email')}<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" /></label>
         <label>{t('Phone Number')}<input name="phone" type="tel" placeholder={t('Enter your phone number')} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
         <PasswordInput label={t('Password')} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="current-password" />
         <Link className="auth-help-link" to="/forgot-password">{t('Forgot Password?')}</Link>
         <button className="button button-primary auth-submit" disabled={loading}>{loading ? t('Please wait...') : t('Sign in to dashboard')}</button>
-      </form>
+      </form>}
       <OAuthButtons continueLabel={t('Continue with Google')} connectingLabel={t('Connecting...')} dividerLabel={t('OR')} />
       <p className="auth-switch">{t('New to CampusSecure?')} <Link to="/register">{t('Create an account')}</Link></p>
     </AuthShell>
@@ -223,8 +257,9 @@ export function OAuthCallbackScreen({ onLogin }) {
 
     const exchangeRequest = api.post('/auth/oauth/exchange', { ticket })
       .then((response) => {
-        const { user, accessToken } = response.data.data;
+        const { user, accessToken, refreshToken } = response.data.data;
         localStorage.setItem('token', accessToken);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('user', JSON.stringify(user));
         onLogin(user);
         clearOAuthCallbackUrl();

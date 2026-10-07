@@ -42,12 +42,23 @@ router.patch('/notifications/read-all', async (req, res) => {
 router.get('/audit-logs', async (req, res) => {
   try {
     const query = String(req.query.q || '').trim();
+    const actorId = String(req.query.actor_id || '').trim();
+    const success = String(req.query.success || '').trim().toLowerCase();
+    const parsedFrom = req.query.from ? new Date(req.query.from) : null;
+    const parsedTo = req.query.to ? new Date(req.query.to) : null;
+    if ((req.query.from && Number.isNaN(parsedFrom.getTime())) || (req.query.to && Number.isNaN(parsedTo.getTime()))) {
+      return res.status(400).json({ success: false, message: 'Audit date filters must be valid dates' });
+    }
+    if (success && !['true', 'false', '1', '0'].includes(success)) {
+      return res.status(400).json({ success: false, message: 'Audit success filter must be true or false' });
+    }
     const where = {
       ...(query ? { [Op.or]: [{ action: { [Op.like]: `%${query}%` } }, { resource_type: { [Op.like]: `%${query}%` } }, { details: { [Op.like]: `%${query}%` } }] } : {}),
-      ...(req.query.actor_id ? { actor_id: req.query.actor_id } : {}),
+      ...(actorId ? { actor_id: actorId } : {}),
       ...(req.query.action ? { action: req.query.action } : {}),
       ...(req.query.resource_type ? { resource_type: req.query.resource_type } : {}),
-      ...(req.query.from || req.query.to ? { created_at: { ...(req.query.from ? { [Op.gte]: new Date(req.query.from) } : {}), ...(req.query.to ? { [Op.lte]: new Date(req.query.to) } : {}) } } : {})
+      ...(success ? { success: ['true', '1'].includes(success) } : {}),
+      ...(req.query.from || req.query.to ? { created_at: { ...(req.query.from ? { [Op.gte]: parsedFrom } : {}), ...(req.query.to ? { [Op.lte]: parsedTo } : {}) } } : {})
     };
     const items = await AuditLog.findAll({ where, limit: 250, order: [['created_at', 'DESC']], include: [{ model: User, as: 'actor', attributes: ['user_id', 'name', 'role'], required: false }] });
     return res.json({ success: true, data: items });

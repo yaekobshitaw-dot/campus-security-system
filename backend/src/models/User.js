@@ -68,6 +68,19 @@ const User = sequelize.define('User', {
   reset_token_expires_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  mfa_enabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  },
+  mfa_secret_hash: {
+    type: DataTypes.STRING(128),
+    allowNull: true
+  },
+  mfa_recovery_codes_hash: {
+    type: DataTypes.JSON,
+    allowNull: true
   }
 }, {
   tableName: 'users',
@@ -119,6 +132,8 @@ User.prototype.toJSON = function () {
   delete values.push_token;
   delete values.reset_token_hash;
   delete values.reset_token_expires_at;
+  delete values.mfa_secret_hash;
+  delete values.mfa_recovery_codes_hash;
   return values;
 };
 
