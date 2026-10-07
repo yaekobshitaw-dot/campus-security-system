@@ -248,6 +248,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
   const [zoneActionError, setZoneActionError] = useState('');
   const [zoneActionSuccess, setZoneActionSuccess] = useState('');
   const [deletingZone, setDeletingZone] = useState(false);
+  const [removedOfficerIds, setRemovedOfficerIds] = useState(() => new Set());
   const mapFullscreenRef = useRef(null);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [fullscreenFallback, setFullscreenFallback] = useState(false);
@@ -334,6 +335,14 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
       setDeletingZone(false);
     }
   };
+  const removeOfficerFromMap = (officer) => {
+    if (!officer?.user_id || !window.confirm(`Remove ${officer.name || 'this officer'} from the Live Map?`)) return;
+    setRemovedOfficerIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(String(officer.user_id));
+      return nextIds;
+    });
+  };
   const campusBounds = useMemo(() => [
     ...displayableCampusLocations.map((location) => coordinatesFor(location.latitude, location.longitude)).filter(Boolean),
     ...effectiveZones.flatMap((zone) => {
@@ -377,12 +386,13 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
   }, [campusLocations, focusRequestKey, focusedIncident, map]);
 
   const filteredOfficers = useMemo(() => officers.filter((officer) => {
+    if (removedOfficerIds.has(String(officer.user_id))) return false;
     const pos = coordinatesFor(officer.latitude, officer.longitude);
     if (!pos) return false;
     if (!layers.officers) return false;
     if (officerAvailability !== 'all' && (officer.availability_status || 'offline') !== officerAvailability) return false;
     return true;
-  }), [officers, officerAvailability, layers]);
+  }), [officers, officerAvailability, layers, removedOfficerIds]);
 
   const handleSelectLocation = (location) => {
     const position = coordinatesFor(location.latitude, location.longitude);
@@ -633,6 +643,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
                   {incidentPosition && <><br />Distance: {formatDistance(distanceMeters(position, incidentPosition))}</>}
                   <br />Last update: {officer.location_updated_at ? new Date(officer.location_updated_at).toLocaleString() : 'Unavailable'}
                   {onAssign && <><br /><button type="button" onClick={() => onAssign(officer.user_id)}>Assign selected incident</button></>}
+                  <br /><button type="button" onClick={() => removeOfficerFromMap(officer)}>Remove Officer</button>
                 </Popup>
               </Marker>
             );

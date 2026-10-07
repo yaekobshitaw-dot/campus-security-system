@@ -200,8 +200,8 @@ describe('SecurityMap Phase 1 features', () => {
 
   test('hides excluded campus locations and incidents while keeping allowed locations visible', async () => {
     const locations = [
-      { location_id: 'fenta', name: '    ', latitude: 10.985, longitude: 39.263, is_active: true },
-      { location_id: 'mau-admin', name:  ', latitude: 10.986, longitude: 39.264, is_active: true },
+      { location_id: 'fenta', name: '  Fenta Abnew  ', latitude: 10.985, longitude: 39.263, is_active: true },
+      { location_id: 'mau-admin', name: 'mAu AdMiNiStRaTiOn Bd', latitude: 10.986, longitude: 39.264, is_active: true },
       { location_id: 'admin-building', name: ' ADMINISTRATION BUILDING ', latitude: 10.987, longitude: 39.265, is_active: true },
       { location_id: 'administration', name: 'Administration', latitude: 10.988, longitude: 39.266, is_active: true },
       { location_id: 'library', name: 'Library', latitude: 10.989, longitude: 39.267, is_active: true },
@@ -246,6 +246,35 @@ describe('SecurityMap Phase 1 features', () => {
       expect(window._map_last_setView.pos[1]).toBeCloseTo(39.2632, 4);
     });
     expect(document.querySelector('.leaflet-popup-content')).toHaveTextContent('Type: theft');
+  });
+
+  test('security officers can be removed from the Live Map without changing other markers', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<SecurityMap incidents={sampleIncidents} officers={sampleOfficers} zones={sampleZones} campusLocations={sampleCampus} />);
+
+    expect(screen.getByTestId('marker-officer-o1')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-officer-o2')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('marker-officer-o1'));
+    expect(await screen.findByRole('button', { name: 'Remove Officer' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('marker-officer-o2'));
+    expect(await screen.findByRole('button', { name: 'Remove Officer' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('marker-officer-o1'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Officer' }));
+
+    await waitFor(() => expect(screen.queryByTestId('marker-officer-o1')).not.toBeInTheDocument());
+    expect(screen.getByTestId('marker-officer-o2')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-zone-zone-1')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-place-l1')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-incident-i1')).toBeInTheDocument();
+    expect(confirm).toHaveBeenCalledWith('Remove Officer One from the Live Map?');
+    confirm.mockRestore();
+  });
+
+  test('officers without valid GPS remain unavailable and are not rendered as markers', () => {
+    render(<SecurityMap officers={[{ user_id: 'no-gps', name: 'No GPS Officer', latitude: null, longitude: null }]} />);
+
+    expect(screen.queryByTestId('marker-officer-no-gps')).not.toBeInTheDocument();
+    expect(screen.getByText('1 officer location unavailable')).toBeInTheDocument();
   });
 
   test('Officer availability filter works', async () => {
