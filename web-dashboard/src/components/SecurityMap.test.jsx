@@ -150,7 +150,10 @@ describe('SecurityMap Phase 1 features', () => {
     ['valid nested campus location id', { incident_id: 'valid-nested-id', campus_location: { location_id: 'library' }, latitude: 10.9, longitude: 39.2 }],
     ['null campus location', { incident_id: 'null-location', campus_location_id: null, latitude: 10.9855, longitude: 39.2632 }],
     ['Unknown Location', { incident_id: 'unknown-location', location_name: 'Unknown Location', latitude: 10.9855, longitude: 39.2632 }],
+    ['Unknown', { incident_id: 'unknown-title', location_name: 'Unknown', latitude: 10.9855, longitude: 39.2632 }],
     ['Unmatched location', { incident_id: 'unmatched-location', location_name: 'Unmatched', latitude: 10.9855, longitude: 39.2632 }],
+    ['lowercase unknown', { incident_id: 'lowercase-unknown', location_name: 'unknown', latitude: 10.9855, longitude: 39.2632 }],
+    ['lowercase unmatched', { incident_id: 'lowercase-unmatched', location_name: 'unmatched', latitude: 10.9855, longitude: 39.2632 }],
     ['GPS-only incident', { incident_id: 'gps-only', latitude: 10.9855, longitude: 39.2632 }],
     ['Current device location without validation', { incident_id: 'device-only', location_name: 'Current device location', latitude: 10.9855, longitude: 39.2632 }],
     ['Library location', { incident_id: 'library-location', campus_location_id: 'library', latitude: 10.9855, longitude: 39.2632 }],
@@ -176,6 +179,23 @@ describe('SecurityMap Phase 1 features', () => {
     render(<SecurityMap incidents={[incident]} officers={[]} zones={[]} campusLocations={campusValidationLocations} />);
 
     expect(await screen.findByTestId('marker-incident-device-with-campus-location')).toBeInTheDocument();
+  });
+
+  test('hides unknown campus location names from place markers and search text', () => {
+    const unknownLocations = ['Unknown Location', 'Unknown', 'Unmatched', 'unknown', 'unmatched'].map((name, index) => ({
+      location_id: `hidden-${index}`,
+      name,
+      latitude: 10.9855 + index / 10000,
+      longitude: 39.2632,
+      is_active: true,
+    }));
+
+    render(<SecurityMap incidents={[]} officers={[]} zones={[]} campusLocations={unknownLocations} />);
+
+    unknownLocations.forEach((location) => {
+      expect(screen.queryByTestId(`marker-place-${location.location_id}`)).not.toBeInTheDocument();
+      expect(screen.queryByText(location.name, { exact: true })).not.toBeInTheDocument();
+    });
   });
 
   test('focuses and opens the popup for the selected incident despite existing filters', async () => {

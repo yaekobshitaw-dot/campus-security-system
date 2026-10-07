@@ -11,6 +11,8 @@ const locationTypeLabels = {
   cafeteria: 'Cafeteria', clinic: 'Health / clinic', gate: 'Main gate', security_post: 'Security post',
   parking: 'Parking', sports: 'Sports / recreation', emergency_point: 'Emergency point', other: 'Campus place'
 };
+const hiddenLocationNames = new Set(['unknown location', 'unknown', 'unmatched']);
+const hasVisibleLocationName = (location) => !hiddenLocationNames.has(String(location?.name || '').trim().toLowerCase());
 // Test environment detection (Vite / Vitest friendly). Use to enable test-only instrumentation.
 const IS_TEST = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.MODE === 'test') || (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test');
 
@@ -267,12 +269,13 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
     setOfficerAvailability(defaultOfficerAvailability);
   }, [defaultOfficerAvailability]);
 
-  const visibleLocations = useMemo(() => campusLocations.filter((location) => locationMatches(location, query, type)), [campusLocations, query, type]);
+  const displayableCampusLocations = useMemo(() => campusLocations.filter(hasVisibleLocationName), [campusLocations]);
+  const visibleLocations = useMemo(() => displayableCampusLocations.filter((location) => locationMatches(location, query, type)), [displayableCampusLocations, query, type]);
   const effectiveZones = useMemo(() => zones
     .filter((zone) => zone && zone.is_active !== false)
     .map((zone) => ({
       ...zone,
-      buildings: campusLocations
+      buildings: displayableCampusLocations
         .filter((location) => location && (
           location.zone_id === zone.zone_id
           || location.zone === zone.name
@@ -287,7 +290,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
           longitude: location.longitude,
           placed: coordinatesFor(location.latitude, location.longitude) !== null,
         })),
-    })), [campusLocations, zones]);
+    })), [displayableCampusLocations, zones]);
   const selectedZone = effectiveZones.find((zone) => zone.zone_id === selectedZoneId);
   const selectedBackendZone = selectedZone && !String(selectedZone.zone_id).startsWith('group-');
 
