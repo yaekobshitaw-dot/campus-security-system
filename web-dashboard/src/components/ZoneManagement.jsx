@@ -160,7 +160,7 @@ function ZoneForm({ zone, submitting, onClose, onSubmit }) {
   };
 
   return (
-    <div className="dashboard-modal-below-header z-50 flex items-center justify-center bg-[#06162b]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="zone-form-title">
+    <div className="dashboard-modal-below-header z-50 flex items-start justify-center bg-[#06162b]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="zone-form-title">
       <form className="dashboard-modal-dialog w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(8,29,53,0.28)]" onSubmit={submit}>
         <div className="flex items-start justify-between gap-4">
           <div><p className="dashboard-eyebrow">Zone management</p><h2 id="zone-form-title" className="mt-2 text-2xl font-black tracking-tight text-[#0b1f3a]">{zone ? 'Edit zone' : 'Create zone'}</h2><p className="mt-1 text-sm text-slate-500">Define a circle or GeoJSON polygon for campus coverage.</p></div>
