@@ -42,14 +42,14 @@ api.interceptors.response.use(
         return response;
     },
     async(error) => {
-        if (['SYSTEM_DEACTIVATED', 'SYSTEM_STATUS_UNAVAILABLE'].includes(error.response ? .data ? .code)) {
+        if (['SYSTEM_DEACTIVATED', 'SYSTEM_STATUS_UNAVAILABLE'].includes(error.response?.data?.code)) {
             window.dispatchEvent(new CustomEvent('campus-security:system-status', {
                 detail: { active: error.response.data.code === 'SYSTEM_DEACTIVATED' ? false : null },
             }));
         }
         const originalRequest = error.config || {};
         const isRefreshRequest = String(originalRequest.url || '').includes('/auth/refresh');
-        if (error.response ? .status === 401 && !isRefreshRequest && !originalRequest._retry) {
+        if (error.response?.status === 401 && !isRefreshRequest && !originalRequest._retry) {
             const refreshToken = localStorage.getItem('refreshToken');
             if (refreshToken) {
                 originalRequest._retry = true;
@@ -57,7 +57,7 @@ api.interceptors.response.use(
                     headers: { 'Content-Type': 'application/json' },
                     timeout: api.defaults.timeout
                 }).then((response) => {
-                    const data = response.data ? .data || {};
+                    const data = response.data?.data || {};
                     if (!data.accessToken || !data.refreshToken) throw new Error('Refresh response is incomplete');
                     localStorage.setItem('token', data.accessToken);
                     localStorage.setItem('refreshToken', data.refreshToken);
