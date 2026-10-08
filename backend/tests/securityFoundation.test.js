@@ -67,8 +67,7 @@ const middlewareResponse = () => ({
     json(payload) { this.payload = payload; return payload; }
 });
 
-const accessToken = (sessionId = 'session-1') => jwt.sign(
-    { user_id: 'user-1', sid: sessionId },
+const accessToken = (sessionId = 'session-1') => jwt.sign({ user_id: 'user-1', sid: sessionId },
     process.env.JWT_SECRET
 );
 
@@ -114,7 +113,10 @@ test('logout revokes only the submitted refresh token and works without access a
     const request = {
         body: { refreshToken: 'valid-refresh-token' },
         get: () => 'test-agent',
-        app: { get: () => ({ sockets: { sockets: new Map([['a', sessionASocket], ['b', sessionBSocket]]) } }) }
+        app: { get: () => ({ sockets: { sockets: new Map([
+                        ['a', sessionASocket],
+                        ['b', sessionBSocket]
+                    ]) } }) }
     };
     await authController.logout(request, response);
 
@@ -125,7 +127,7 @@ test('logout revokes only the submitted refresh token and works without access a
     assert.equal(sessionBSocket.disconnected, false);
 
     const invalidResponse = authResponse();
-    await authController.logout({ ...request, body: { refreshToken: 'wrong-refresh-token' } }, invalidResponse);
+    await authController.logout({...request, body: { refreshToken: 'wrong-refresh-token' } }, invalidResponse);
     assert.equal(invalidResponse.statusCode, 401);
 });
 
@@ -135,6 +137,14 @@ test('MFA secrets encrypt and decrypt without exposing the original storage valu
 
     assert.notEqual(encrypted, secret);
     assert.equal(securityService.decryptSecret(encrypted), secret);
+});
+
+test('pending MFA setup reuses the encrypted secret until enable completes', async() => {
+    const firstUser = { mfa_secret_hash: null, update: async(values) => { firstUser.mfa_secret_hash = values.mfa_secret_hash; } };
+    const firstSecret = await securityService.getPendingMfaSecret(firstUser);
+    const secondUser = { mfa_secret_hash: firstUser.mfa_secret_hash, update: async() => { throw new Error('pending setup must not rotate'); } };
+
+    assert.equal(await securityService.getPendingMfaSecret(secondUser), firstSecret);
 });
 
 test('recovery codes are hashed and consumed only once', () => {

@@ -20,6 +20,13 @@ const generateBase32Secret = (length = 20) => {
     return secret;
 };
 
+const getPendingMfaSecret = async(user) => {
+    if (user.mfa_secret_hash) return decryptSecret(user.mfa_secret_hash);
+    const secret = generateBase32Secret();
+    await user.update({ mfa_secret_hash: encryptSecret(secret) });
+    return secret;
+};
+
 const decodeBase32 = (value) => {
     const normalized = String(value || '').replace(/=+$/g, '').toUpperCase();
     let bits = '';
@@ -99,11 +106,24 @@ const rotateRefreshSession = async(refreshToken) => {
     if (!refreshToken) return null;
     const refreshTokenHash = hash(refreshToken);
     const lastActiveAt = new Date();
-    const [updatedCount] = await SecuritySession.update({ revoked_at: lastActiveAt, last_active_at: lastActiveAt }, { where: { refresh_token_hash: refreshTokenHash, revoked_at: null, expires_at: {
-                [Op.gt]: lastActiveAt } } });
+    const [updatedCount] = await SecuritySession.update({ revoked_at: lastActiveAt, last_active_at: lastActiveAt }, {
+        where: {
+            refresh_token_hash: refreshTokenHash,
+            revoked_at: null,
+            expires_at: {
+                [Op.gt]: lastActiveAt
+            }
+        }
+    });
     if (updatedCount !== 1) return null;
-    return SecuritySession.findOne({ where: { refresh_token_hash: refreshTokenHash, revoked_at: {
-                [Op.ne]: null } } });
+    return SecuritySession.findOne({
+        where: {
+            refresh_token_hash: refreshTokenHash,
+            revoked_at: {
+                [Op.ne]: null
+            }
+        }
+    });
 };
 
 const revokeRefreshSession = async(refreshToken) => {
@@ -130,6 +150,7 @@ module.exports = {
     decryptSecret,
     encryptSecret,
     generateBase32Secret,
+    getPendingMfaSecret,
     hash,
     hashRecoveryCodes,
     rotateRefreshSession,

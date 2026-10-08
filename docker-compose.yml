@@ -35,6 +35,7 @@
       DB_DIALECT: ${DB_DIALECT:-mysql}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the environment}
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?Set REFRESH_TOKEN_SECRET in the environment}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?Set MFA_ENCRYPTION_KEY in the environment}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:5001}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}

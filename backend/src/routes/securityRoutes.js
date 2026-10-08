@@ -15,11 +15,10 @@ router.post('/mfa/setup', mfaLimiter, async(req, res) => {
         if (req.user.mfa_enabled) {
             return res.status(409).json({ success: false, message: 'Disable MFA before creating a new MFA configuration' });
         }
-        const secret = securityService.generateBase32Secret();
-        await req.user.update({ mfa_secret_hash: securityService.encryptSecret(secret) });
+        const secret = await securityService.getPendingMfaSecret(req.user);
         const issuer = encodeURIComponent(process.env.MFA_ISSUER || 'Campus Security');
         const label = encodeURIComponent(req.user.email);
-        return res.json({ success: true, data: { otpauthUrl: `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}` } });
+        return res.json({ success: true, data: { otpauthUrl: `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30` } });
     } catch (error) {
         logger.error('MFA setup failed', { error: error?.message || 'Unknown error' });
         return res.status(503).json({ success: false, message: 'MFA is not configured. Please contact an administrator.' });
@@ -72,10 +71,19 @@ router.post('/mfa/disable', mfaLimiter, async(req, res) => {
 });
 
 router.get('/sessions', async(req, res) => {
-    const sessions = await SecuritySession.findAll({ where: { user_id: req.user.user_id, revoked_at: null, expires_at: {
-                [Op.gt]: new Date() } }, attributes: ['session_id', 'device_label', 'ip_address', 'last_active_at', 'created_at', 'expires_at'], order: [
+    const sessions = await SecuritySession.findAll({
+        where: {
+            user_id: req.user.user_id,
+            revoked_at: null,
+            expires_at: {
+                [Op.gt]: new Date()
+            }
+        },
+        attributes: ['session_id', 'device_label', 'ip_address', 'last_active_at', 'created_at', 'expires_at'],
+        order: [
             ['last_active_at', 'DESC']
-        ] });
+        ]
+    });
     return res.json({ success: true, data: sessions });
 });
 
