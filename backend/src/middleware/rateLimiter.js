@@ -13,6 +13,7 @@ const createLimiter = (max) => rateLimit({
 
 const apiLimiter = createLimiter(parseInt(process.env.API_RATE_LIMIT_MAX, 10) || 1000);
 const authLimiter = createLimiter(parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10) || parseInt(process.env.RATE_LIMIT_MAX, 10) || 100);
+const mfaLimiter = createLimiter(parseInt(process.env.MFA_RATE_LIMIT_MAX, 10) || 20);
 const assistantLimiter = createLimiter(parseInt(process.env.ASSISTANT_RATE_LIMIT_MAX, 10) || 30);
 
-module.exports = { apiLimiter, assistantLimiter, authLimiter };
+module.exports = { apiLimiter, assistantLimiter, authLimiter, mfaLimiter };

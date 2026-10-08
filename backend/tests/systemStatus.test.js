@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'system-status-test-secret';
 
-const { SystemSetting, User } = require('../src/models');
+const { SecuritySession, SystemSetting, User } = require('../src/models');
 const { isSystemActive } = require('../src/services/settingsService');
 const { authenticate } = require('../src/middleware/auth');
 const { initSocket } = require('../src/config/socket');
@@ -13,9 +13,11 @@ const app = require('../src/app');
 
 const originalFindByPkSetting = SystemSetting.findByPk;
 const originalFindByPkUser = User.findByPk;
+const originalSessionFindOne = SecuritySession.findOne;
 test.afterEach(() => {
   SystemSetting.findByPk = originalFindByPkSetting;
   User.findByPk = originalFindByPkUser;
+  SecuritySession.findOne = originalSessionFindOne;
 });
 
 const response = () => ({
@@ -26,7 +28,9 @@ const response = () => ({
 });
 
 const authenticateRequest = async (role) => {
-  const token = jwt.sign({ user_id: `${role}-1` }, process.env.JWT_SECRET);
+  const userId = `${role}-1`;
+  SecuritySession.findOne = async () => ({ session_id: 'session-1', user_id: userId, revoked_at: null, expires_at: new Date(Date.now() + 60000) });
+  const token = jwt.sign({ user_id: userId, sid: 'session-1' }, process.env.JWT_SECRET);
   const req = { headers: { authorization: `Bearer ${token}` } };
   const res = response();
   let nextCalled = false;
@@ -100,12 +104,13 @@ test('authentication fails closed when system availability cannot be read', asyn
 test('socket authentication blocks non-admin connections while deactivated', async () => {
   User.findByPk = async () => ({ user_id: 'student-1', role: 'student', is_active: true });
   SystemSetting.findByPk = async () => ({ value: 'false' });
+  SecuritySession.findOne = async () => ({ session_id: 'session-1', user_id: 'student-1', revoked_at: null, expires_at: new Date(Date.now() + 60000) });
   const io = {
     use(handler) { this.authentication = handler; },
     on() {},
   };
   initSocket(io);
-  const socket = { handshake: { auth: { token: jwt.sign({ user_id: 'student-1' }, process.env.JWT_SECRET) } } };
+  const socket = { handshake: { auth: { token: jwt.sign({ user_id: 'student-1', sid: 'session-1' }, process.env.JWT_SECRET) } } };
   let authError;
 
   await io.authentication(socket, (error) => { authError = error; });
@@ -117,12 +122,13 @@ test('socket authentication blocks non-admin connections while deactivated', asy
 test('socket authentication preserves Admin connections while deactivated', async () => {
   User.findByPk = async () => ({ user_id: 'admin-1', role: 'admin', is_active: true });
   SystemSetting.findByPk = async () => ({ value: 'false' });
+  SecuritySession.findOne = async () => ({ session_id: 'session-1', user_id: 'admin-1', revoked_at: null, expires_at: new Date(Date.now() + 60000) });
   const io = {
     use(handler) { this.authentication = handler; },
     on() {},
   };
   initSocket(io);
-  const socket = { handshake: { auth: { token: jwt.sign({ user_id: 'admin-1' }, process.env.JWT_SECRET) } } };
+  const socket = { handshake: { auth: { token: jwt.sign({ user_id: 'admin-1', sid: 'session-1' }, process.env.JWT_SECRET) } } };
   let authError;
 
   await io.authentication(socket, (error) => { authError = error; });

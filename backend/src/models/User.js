@@ -5,136 +5,136 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 const User = sequelize.define('User', {
-  user_id: {
-    type: DataTypes.UUID,
-    defaultValue: uuidv4,
-    primaryKey: true
-  },
-  email: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-    unique: true,
-    validate: { isEmail: true }
-  },
-  name: {
-    type: DataTypes.STRING(255),
-    allowNull: false
-  },
-  role: {
-    type: DataTypes.ENUM('student', 'faculty', 'staff', 'security', 'security_officer', 'admin'),
-    defaultValue: 'student'
-  },
-  password_hash: {
-    type: DataTypes.STRING(255),
-    allowNull: false
-  },
-  phone: {
-    type: DataTypes.STRING(32),
-    allowNull: true
-  },
-  profile_photo_url: {
-    type: DataTypes.STRING(500),
-    allowNull: true
-  },
-  is_active: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true
-  },
-  push_token: {
-    type: DataTypes.STRING(255),
-    allowNull: true
-  },
-  latitude: {
-    type: DataTypes.DECIMAL(10, 7),
-    allowNull: true
-  },
-  longitude: {
-    type: DataTypes.DECIMAL(10, 7),
-    allowNull: true
-  },
-  location_updated_at: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  availability_status: {
-    type: DataTypes.ENUM('available', 'responding', 'busy', 'offline'),
-    allowNull: false,
-    defaultValue: 'offline'
-  },
-  reset_token_hash: {
-    type: DataTypes.STRING(64),
-    allowNull: true
-  },
-  reset_token_expires_at: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  mfa_enabled: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false
-  },
-  mfa_secret_hash: {
-    type: DataTypes.STRING(128),
-    allowNull: true
-  },
-  mfa_recovery_codes_hash: {
-    type: DataTypes.JSON,
-    allowNull: true
-  }
-}, {
-  tableName: 'users',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
-  hooks: {
-    beforeCreate: async (user) => {
-      if (user.role === 'security' && !user.availability_status) {
-        user.availability_status = 'available';
-      }
-      if (user.password_hash) {
-        const salt = await bcrypt.genSalt(10);
-        user.password_hash = await bcrypt.hash(user.password_hash, salt);
-      }
+    user_id: {
+        type: DataTypes.UUID,
+        defaultValue: uuidv4,
+        primaryKey: true
+    },
+    email: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+        unique: true,
+        validate: { isEmail: true }
+    },
+    name: {
+        type: DataTypes.STRING(255),
+        allowNull: false
+    },
+    role: {
+        type: DataTypes.ENUM('student', 'faculty', 'staff', 'security', 'security_officer', 'admin'),
+        defaultValue: 'student'
+    },
+    password_hash: {
+        type: DataTypes.STRING(255),
+        allowNull: false
+    },
+    phone: {
+        type: DataTypes.STRING(32),
+        allowNull: true
+    },
+    profile_photo_url: {
+        type: DataTypes.STRING(500),
+        allowNull: true
+    },
+    is_active: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+    },
+    push_token: {
+        type: DataTypes.STRING(255),
+        allowNull: true
+    },
+    latitude: {
+        type: DataTypes.DECIMAL(10, 7),
+        allowNull: true
+    },
+    longitude: {
+        type: DataTypes.DECIMAL(10, 7),
+        allowNull: true
+    },
+    location_updated_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    availability_status: {
+        type: DataTypes.ENUM('available', 'responding', 'busy', 'offline'),
+        allowNull: false,
+        defaultValue: 'offline'
+    },
+    reset_token_hash: {
+        type: DataTypes.STRING(64),
+        allowNull: true
+    },
+    reset_token_expires_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    mfa_enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    },
+    mfa_secret_hash: {
+        type: DataTypes.STRING(128),
+        allowNull: true
+    },
+    mfa_recovery_codes_hash: {
+        type: DataTypes.JSON,
+        allowNull: true
     }
-  }
+}, {
+    tableName: 'users',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+    hooks: {
+        beforeCreate: async(user) => {
+            if (user.role === 'security' && !user.availability_status) {
+                user.availability_status = 'available';
+            }
+            if (user.password_hash) {
+                const salt = await bcrypt.genSalt(10);
+                user.password_hash = await bcrypt.hash(user.password_hash, salt);
+            }
+        }
+    }
 });
 
-User.prototype.comparePassword = async function (candidatePassword) {
-  if (!candidatePassword || !this.password_hash) {
-    return false;
-  }
+User.prototype.comparePassword = async function(candidatePassword) {
+    if (!candidatePassword || !this.password_hash) {
+        return false;
+    }
 
-  const storedPassword = String(this.password_hash);
+    const storedPassword = String(this.password_hash);
 
-  if (storedPassword.startsWith('$2') || storedPassword.startsWith('$2a') || storedPassword.startsWith('$2b')) {
-    const isMatch = await bcrypt.compare(candidatePassword, storedPassword);
-    if (isMatch) {
-      return true;
+    if (storedPassword.startsWith('$2') || storedPassword.startsWith('$2a') || storedPassword.startsWith('$2b')) {
+        const isMatch = await bcrypt.compare(candidatePassword, storedPassword);
+        if (isMatch) {
+            return true;
+        }
+
+        return false;
+    }
+
+    const isLegacyMatch = storedPassword === String(candidatePassword);
+    if (isLegacyMatch) {
+        const newHash = await bcrypt.hash(String(candidatePassword), await bcrypt.genSalt(10));
+        await this.update({ password_hash: newHash }).catch(() => undefined);
+        return true;
     }
 
     return false;
-  }
-
-  const isLegacyMatch = storedPassword === String(candidatePassword);
-  if (isLegacyMatch) {
-    const newHash = await bcrypt.hash(String(candidatePassword), await bcrypt.genSalt(10));
-    await this.update({ password_hash: newHash }).catch(() => undefined);
-    return true;
-  }
-
-  return false;
 };
 
-User.prototype.toJSON = function () {
-  const values = { ...this.get() };
-  delete values.password_hash;
-  delete values.push_token;
-  delete values.reset_token_hash;
-  delete values.reset_token_expires_at;
-  delete values.mfa_secret_hash;
-  delete values.mfa_recovery_codes_hash;
-  return values;
+User.prototype.toJSON = function() {
+    const values = {...this.get() };
+    delete values.password_hash;
+    delete values.push_token;
+    delete values.reset_token_hash;
+    delete values.reset_token_expires_at;
+    delete values.mfa_secret_hash;
+    delete values.mfa_recovery_codes_hash;
+    return values;
 };
 
 module.exports = User;

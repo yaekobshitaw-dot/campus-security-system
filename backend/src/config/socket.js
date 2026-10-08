@@ -1,5 +1,6 @@
 ﻿const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { Op } = require('sequelize');
+const { SecuritySession, User } = require('../models');
 const { isSystemActive } = require('../services/settingsService');
 
 function initSocket(io) {
@@ -12,12 +13,23 @@ function initSocket(io) {
       const token = socket.handshake.auth?.token;
       if (!token || !process.env.JWT_SECRET) return next(new Error('Authentication required'));
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (!decoded.user_id || !decoded.sid) return next(new Error('Authentication required'));
       const user = await User.findByPk(decoded.user_id);
       if (!user || !user.is_active) return next(new Error('Authentication required'));
+      const session = await SecuritySession.findOne({
+        where: {
+          session_id: decoded.sid,
+          user_id: decoded.user_id,
+          revoked_at: null,
+          expires_at: { [Op.gt]: new Date() }
+        }
+      });
+      if (!session) return next(new Error('Authentication required'));
       if (String(user.role || '').trim().toLowerCase() !== 'admin' && !(await isSystemActive())) {
         return next(new Error('The campus security system is temporarily deactivated'));
       }
       socket.user = user;
+      socket.sessionId = decoded.sid;
       return next();
     } catch (error) {
       return next(new Error('Invalid socket token'));
@@ -86,4 +98,11 @@ function initSocket(io) {
   });
 }
 
-module.exports = { initSocket };
+const disconnectSessionSockets = (io, sessionId) => {
+  const sockets = io?.sockets?.sockets;
+  for (const socket of sockets?.values() || []) {
+    if (socket.sessionId === sessionId) socket.disconnect(true);
+  }
+};
+
+module.exports = { disconnectSessionSockets, initSocket };

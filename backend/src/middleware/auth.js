@@ -1,5 +1,6 @@
 ﻿const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { Op } = require('sequelize');
+const { SecuritySession, User } = require('../models');
 const { isSystemActive } = require('../services/settingsService');
 
 const normalizeRole = (role) => String(role || '').trim().toLowerCase();
@@ -18,24 +19,31 @@ const getTokenFromHeader = (req) => {
   return null;
 };
 
+const getAuthenticatedUser = async(req) => {
+  const token = getTokenFromHeader(req);
+  if (!token) throw new Error('Authentication required');
+  if (!jwtSecret) throw new Error('Authentication is not configured correctly');
+
+  const decoded = jwt.verify(token, jwtSecret);
+  if (!decoded.user_id || !decoded.sid) throw new Error('Invalid token');
+  const user = await User.findByPk(decoded.user_id);
+  if (!user || !user.is_active) throw new Error('User not found or inactive');
+
+  const session = await SecuritySession.findOne({
+    where: {
+      session_id: decoded.sid,
+      user_id: decoded.user_id,
+      revoked_at: null,
+      expires_at: { [Op.gt]: new Date() }
+    }
+  });
+  if (!session) throw new Error('Session is invalid or expired');
+  return user;
+};
+
 const authenticate = async (req, res, next) => {
   try {
-    const token = getTokenFromHeader(req);
-
-    if (!token) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
-    }
-
-    if (!jwtSecret) {
-      return res.status(500).json({ success: false, message: 'Authentication is not configured correctly' });
-    }
-
-    const decoded = jwt.verify(token, jwtSecret);
-    const user = await User.findByPk(decoded.user_id);
-
-    if (!user || !user.is_active) {
-      return res.status(401).json({ success: false, message: 'User not found or inactive' });
-    }
+    const user = await getAuthenticatedUser(req);
 
     if (String(user.role || '').trim().toLowerCase() !== 'admin') {
       let systemActive;
@@ -60,12 +68,27 @@ const authenticate = async (req, res, next) => {
     req.user = user;
     return next();
   } catch (error) {
+    if (error.message === 'Authentication required') {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    if (error.message === 'Authentication is not configured correctly') {
+      return res.status(500).json({ success: false, message: error.message });
+    }
     const message = error.name === 'TokenExpiredError'
       ? 'Token expired. Please log in again.'
       : 'Invalid token';
 
     return res.status(401).json({ success: false, message });
   }
+};
+
+const authenticateOptional = async(req, res, next) => {
+  try {
+    req.user = await getAuthenticatedUser(req);
+  } catch {
+    delete req.user;
+  }
+  return next();
 };
 
 const authorize = (...allowedRoles) => (req, res, next) => {
@@ -80,4 +103,4 @@ const authorize = (...allowedRoles) => (req, res, next) => {
   return next();
 };
 
-module.exports = { authenticate, authorize };
+module.exports = { authenticate, authenticateOptional, authorize };
