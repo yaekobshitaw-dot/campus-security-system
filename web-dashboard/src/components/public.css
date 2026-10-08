@@ -438,8 +438,8 @@ h3 {
   width: 100%;
   max-width: none;
   margin: 0 auto;
-  font-size: clamp(30px, 4.4vw, 58px);
-  line-height: 1.12;
+  font-size: clamp(38px, 6vw, 86px);
+  line-height: 1.05;
   font-weight: 600;
   position: relative;
   padding-bottom: 22px;
@@ -1050,7 +1050,7 @@ em {
 .home-page .feature-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
 }
 
@@ -2021,7 +2021,7 @@ em {
   }
 
   .hero-title {
-    font-size: clamp(30px, 9vw, 42px);
+    font-size: clamp(32px, 10vw, 48px);
   }
 
   .hero-subtitle {
