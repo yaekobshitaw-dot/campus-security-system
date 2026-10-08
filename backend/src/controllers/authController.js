@@ -92,13 +92,13 @@ exports.register = async(req, res) => {
             role: allowedRole
         });
 
-        const session = await securityService.createRefreshSession(user, req);
+        const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         const token = generateToken(user, session.session_id);
 
         return res.status(201).json({
             success: true,
             message: 'Registration successful',
-            data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken }
+            data: { user: user.toJSON(), accessToken: token, refreshToken }
         });
     } catch (error) {
         const message = error.message === 'JWT_SECRET is not configured' ?
@@ -279,7 +279,7 @@ exports.login = async(req, res) => {
             });
         }
 
-        const session = await securityService.createRefreshSession(user, req);
+        const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         const token = generateToken(user, session.session_id);
         if (isSecurityRole(user.role)) {
             await user.update({ availability_status: 'available' });
@@ -295,7 +295,7 @@ exports.login = async(req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Login successful',
-            data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken }
+            data: { user: user.toJSON(), accessToken: token, refreshToken }
         });
     } catch (error) {
         const message = error.message === 'JWT_SECRET is not configured' ?
@@ -323,11 +323,11 @@ exports.verifyMfaLogin = async(req, res) => {
             await recordAudit({...req, user }, { action: 'mfa_login_failed', resourceType: 'user', resourceId: user.user_id, success: false });
             return res.status(401).json({ success: false, message: 'Invalid MFA code' });
         }
-        const session = await securityService.createRefreshSession(user, req);
+        const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         const token = generateToken(user, session.session_id);
         await recordAudit({...req, user }, { action: 'mfa_success', resourceType: 'user', resourceId: user.user_id });
         await recordAudit({...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
-        return res.json({ success: true, message: 'Login successful', data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken } });
+        return res.json({ success: true, message: 'Login successful', data: { user: user.toJSON(), accessToken: token, refreshToken } });
     } catch {
         return res.status(401).json({ success: false, message: 'MFA verification failed' });
     }
@@ -339,10 +339,10 @@ exports.refreshSession = async(req, res) => {
         if (!current) return res.status(401).json({ success: false, message: 'Refresh token is invalid or expired' });
         const user = await User.findByPk(current.user_id);
         if (!user || !user.is_active) return res.status(401).json({ success: false, message: 'User not found or inactive' });
-        const session = await securityService.createRefreshSession(user, req);
+        const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         const token = generateToken(user, session.session_id);
         await recordAudit({...req, user }, { action: 'refresh_rotation', resourceType: 'security_session', resourceId: session.session_id });
-        return res.json({ success: true, data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken } });
+        return res.json({ success: true, data: { user: user.toJSON(), accessToken: token, refreshToken } });
     } catch {
         return res.status(401).json({ success: false, message: 'Unable to refresh session' });
     }
@@ -444,13 +444,13 @@ exports.logout = async(req, res) => {
 exports.oauthExchange = async(req, res) => {
     try {
         const user = await oauthService.exchangeLoginTicket(req.body.ticket);
-        const session = await securityService.createRefreshSession(user, req);
+        const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         const token = generateToken(user, session.session_id);
         await recordAudit({...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
         return res.status(200).json({
             success: true,
             message: 'Login successful',
-            data: { user: user.toJSON(), accessToken: token, refreshToken: session.refreshToken }
+            data: { user: user.toJSON(), accessToken: token, refreshToken }
         });
     } catch (error) {
         return res.status(400).json({ success: false, message: error.message || 'Unable to complete provider sign-in' });
