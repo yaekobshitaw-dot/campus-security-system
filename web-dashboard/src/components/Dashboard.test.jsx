@@ -163,7 +163,7 @@ describe('Dashboard', () => {
     expect(screen.getByRole('button', { name: 'Notifications' })).toHaveTextContent('1');
   });
 
-  it('shows the official MAU campus image and falls back to the bundled campus image', async () => {
+  it('shows a bundled MAU campus image and falls back to another bundled image', async () => {
     await act(async () => {
       render(
         <MemoryRouter initialEntries={['/dashboard']}>
@@ -172,19 +172,10 @@ describe('Dashboard', () => {
       );
     });
 
-    const campusImage = screen.getByAltText('Campus greening at Mekdela Amba University');
-    expect(campusImage).toHaveAttribute(
-      'src',
-      'https://mkau.edu.et/wordpress_e/wp-content/uploads/2025/06/campusplantation-768x576.png',
-    );
-    expect(screen.getByRole('link', { name: 'Photo source: Greening in MAU' })).toHaveAttribute(
-      'href',
-      'https://mkau.edu.et/wordpress_e/?attachment_id=3258',
-    );
-    fireEvent.error(campusImage);
+    const campusImage = screen.getByAltText('Mekdela Amba University campus grounds and buildings');
     expect(campusImage).toHaveAttribute('src', '/images/campus-4.jpg');
-    expect(campusImage).toHaveAttribute('alt', 'Mekdela Amba University campus grounds and buildings');
-    expect(screen.queryByRole('link', { name: 'Photo source: Greening in MAU' })).not.toBeInTheDocument();
+    fireEvent.error(campusImage);
+    expect(campusImage).toHaveAttribute('src', '/images/campus-5.jpg');
   });
 
   it.each([

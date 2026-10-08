@@ -41,7 +41,7 @@ const overviewMetricColors = {
   critical: '#f97316',
   officers: '#10b981',
 };
-const officialCampusImage = 'https://mkau.edu.et/wordpress_e/wp-content/uploads/2025/06/campusplantation-768x576.png';
+const officialCampusImage = '/images/campus-4.jpg';
 const officialCampusImageSource = 'https://mkau.edu.et/wordpress_e/?attachment_id=3258';
 const routes = {
   '/dashboard': 'overview', '/profile': 'profile', '/incidents/active': 'incidents', '/incidents/history': 'history',

@@ -41,8 +41,7 @@ const overviewMetricColors = {
   critical: '#f97316',
   officers: '#10b981',
 };
-const officialCampusImage = 'https://mkau.edu.et/wordpress_e/wp-content/uploads/2025/06/campusplantation-768x576.png';
-const officialCampusImageSource = 'https://mkau.edu.et/wordpress_e/?attachment_id=3258';
+const officialCampusImage = '/images/campus-4.jpg';
 const routes = {
   '/dashboard': 'overview', '/profile': 'profile', '/incidents/active': 'incidents', '/incidents/history': 'history',
   '/map': 'map', '/sos': 'sos', '/emergency': 'emergency', '/evidence': 'evidence',
@@ -215,25 +214,21 @@ const Heading = ({ eyebrow, title, description, action }) => (
 
 function CampusOverviewImage() {
   const [imageSource, setImageSource] = useState(officialCampusImage);
-  const [usingFallback, setUsingFallback] = useState(false);
 
   return (
     <figure className="relative min-h-[132px] overflow-hidden md:min-h-[168px]">
       <img
         className="absolute inset-0 h-full w-full object-cover"
         src={imageSource}
-        alt={usingFallback ? 'Mekdela Amba University campus grounds and buildings' : 'Campus greening at Mekdela Amba University'}
+        alt="Mekdela Amba University campus grounds and buildings"
         loading="lazy"
         onError={() => {
-          if (usingFallback) return;
-          setImageSource('/images/campus-4.jpg');
-          setUsingFallback(true);
+          if (imageSource === '/images/campus-5.jpg') return;
+          setImageSource('/images/campus-5.jpg');
         }}
       />
       <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 to-transparent px-3 pb-2 pt-7 text-right text-[10px] font-bold uppercase tracking-[0.12em] text-white">
-        {usingFallback
-          ? 'Mekdela Amba University campus'
-          : <a href={officialCampusImageSource} target="_blank" rel="noopener noreferrer">Photo source: Greening in MAU</a>}
+        Mekdela Amba University campus
       </figcaption>
     </figure>
   );

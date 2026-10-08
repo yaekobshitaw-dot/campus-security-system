@@ -10,7 +10,7 @@ vi.mock('./SecurityMap.jsx', () => ({ default: ({ onMapClick, onLocationDragEnd 
 
 const locations = [{
   location_id: 'admin-1',
-  name: 'MAU Administration BD',
+  name: 'Administration',
   type: 'administration',
   latitude: null,
   longitude: null,
@@ -40,7 +40,7 @@ describe('CampusLocationsPage', () => {
     render(<CampusLocationsPage user={{ role: 'admin' }} />);
 
     const nameInput = await screen.findByRole('textbox', { name: 'Location Name / Building Name' });
-    expect(nameInput).toHaveValue('MAU Administration BD');
+    expect(nameInput).toHaveValue('Administration');
     expect(screen.getByRole('combobox', { name: 'Type' })).toHaveValue('administration');
     expect(screen.getByRole('spinbutton', { name: 'Latitude' })).toHaveValue(10.984911);
     expect(screen.getByRole('spinbutton', { name: 'Longitude' })).toHaveValue(39.262305);
@@ -100,14 +100,14 @@ describe('CampusLocationsPage', () => {
     ]);
 
     fireEvent.change(typeSelect, { target: { value: 'dormitory' } });
-    expect(screen.getByRole('textbox', { name: 'Location Name / Building Name' })).toHaveValue('MAU Administration BD');
+    expect(screen.getByRole('textbox', { name: 'Location Name / Building Name' })).toHaveValue('Administration');
     expect(screen.getByRole('spinbutton', { name: 'Latitude' })).toHaveValue(10.984911);
     expect(screen.getByRole('spinbutton', { name: 'Longitude' })).toHaveValue(39.262305);
     expect(screen.getByRole('combobox', { name: 'Assign to zone' })).toHaveValue('admin-zone');
     fireEvent.click(screen.getByRole('button', { name: 'Update location' }));
 
     await waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/campus-locations/admin-1', {
-      name: 'MAU Administration BD',
+      name: 'Administration',
       type: 'dormitory',
       latitude: 10.984911,
       longitude: 39.262305,
@@ -141,8 +141,8 @@ describe('CampusLocationsPage', () => {
     });
     render(<CampusLocationsPage user={{ role: 'admin' }} />);
 
-    await screen.findAllByText('MAU Administration BD');
-    expect(screen.getByRole('textbox', { name: 'Location Name / Building Name' })).toHaveValue('MAU Administration BD');
+    await screen.findAllByText('Administration');
+    expect(screen.getByRole('textbox', { name: 'Location Name / Building Name' })).toHaveValue('Administration');
     fireEvent.click(screen.getByRole('button', { name: 'Place on map' }));
     expect(screen.getByRole('spinbutton', { name: 'Latitude' })).toHaveValue(10.9855);
     expect(screen.getByRole('spinbutton', { name: 'Longitude' })).toHaveValue(39.2632);
@@ -152,7 +152,7 @@ describe('CampusLocationsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update location' }));
 
     await waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/campus-locations/admin-1', {
-      name: 'MAU Administration BD',
+      name: 'Administration',
       type: 'administration',
       latitude: 10.9856,
       longitude: 39.2633,
@@ -220,7 +220,7 @@ describe('CampusLocationsPage', () => {
     }));
     render(<CampusLocationsPage user={{ role: 'security_officer' }} />);
 
-    expect((await screen.findAllByText('MAU Administration BD')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Administration')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Create location' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Update location' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Location Name / Building Name' })).not.toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('CampusLocationsPage', () => {
     }));
     render(<CampusLocationsPage user={{ role }} />);
 
-    expect((await screen.findAllByText('MAU Administration BD')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Administration')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Create location' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Update location' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Location Name / Building Name' })).not.toBeInTheDocument();

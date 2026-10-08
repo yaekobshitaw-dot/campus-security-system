@@ -56,6 +56,7 @@ export default function ProfilePhotoPreview({ src, alt, className = '', onError 
           className="profile-photo-preview-image"
           src={src}
           alt={alt}
+          onError={onError}
           onClick={(event) => event.stopPropagation()}
         />
       </div>

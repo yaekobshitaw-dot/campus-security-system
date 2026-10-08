@@ -5,6 +5,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { recordAudit } = require('../services/auditService');
 const securityService = require('../services/securityService');
 const { mfaLimiter } = require('../middleware/rateLimiter');
+const { logger } = require('../utils/logger');
 
 const router = express.Router();
 router.use(authenticate);
@@ -20,6 +21,7 @@ router.post('/mfa/setup', mfaLimiter, async(req, res) => {
         const label = encodeURIComponent(req.user.email);
         return res.json({ success: true, data: { otpauthUrl: `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}` } });
     } catch (error) {
+        logger.error('MFA setup failed', { error: error?.message || 'Unknown error' });
         return res.status(503).json({ success: false, message: 'MFA is not configured. Please contact an administrator.' });
     }
 });
