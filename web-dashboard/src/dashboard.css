@@ -102,7 +102,7 @@
         animation: titleFadeInOut 3s ease-in-out infinite;
     }
     .dashboard-button {
-        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-black shadow-sm transition hover: -translate-y-0.5 disabled: cursor-not-allowed disabled: opacity-50;
+        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-black shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50;
         border: 1px solid var(--button-secondary-border);
         background: var(--button-secondary-bg);
         color: var(--button-secondary-text);
