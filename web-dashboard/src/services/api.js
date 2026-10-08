@@ -53,7 +53,7 @@ api.interceptors.response.use(
             const refreshToken = localStorage.getItem('refreshToken');
             if (refreshToken) {
                 originalRequest._retry = true;
-                refreshRequest || = axios.post(`${API_URL}/auth/refresh`, { refreshToken }, {
+                refreshRequest ||= axios.post(`${API_URL}/auth/refresh`, { refreshToken }, {
                     headers: { 'Content-Type': 'application/json' },
                     timeout: api.defaults.timeout
                 }).then((response) => {
