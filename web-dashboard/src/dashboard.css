@@ -2803,6 +2803,27 @@
     scrollbar-color: #55738a transparent;
     scrollbar-width: thin;
   }
+
+  .dashboard-app .dashboard-content:has(.zones-page) {
+    overflow: hidden;
+  }
+
+  .dashboard-app .dashboard-content > .mx-auto:has(.zones-page) {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .dashboard-app .zones-page {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .dashboard-app .zones-page-list {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: #55738a transparent;
+    scrollbar-width: thin;
+  }
 }
 
 @keyframes dashboard-content-enter {
