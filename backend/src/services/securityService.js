@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { MfaRecoveryCode, SecuritySession } = require('../models');
+const { MfaRecoveryCode, SecuritySession, User } = require('../models');
 
 const base32Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const hash = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -23,8 +23,12 @@ const generateBase32Secret = (length = 20) => {
 const getPendingMfaSecret = async(user) => {
     if (user.mfa_secret_hash) return decryptSecret(user.mfa_secret_hash);
     const secret = generateBase32Secret();
-    await user.update({ mfa_secret_hash: encryptSecret(secret) });
-    return secret;
+    const encryptedSecret = encryptSecret(secret);
+    const [updatedCount] = await User.update({ mfa_secret_hash: encryptedSecret }, { where: { user_id: user.user_id, mfa_secret_hash: null } });
+    if (updatedCount === 1) return secret;
+    const persistedUser = await User.findByPk(user.user_id, { attributes: ['mfa_secret_hash'] });
+    if (!persistedUser?.mfa_secret_hash) throw new Error('Unable to persist pending MFA secret');
+    return decryptSecret(persistedUser.mfa_secret_hash);
 };
 
 const decodeBase32 = (value) => {

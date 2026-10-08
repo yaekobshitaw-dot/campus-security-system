@@ -18,6 +18,7 @@ const originalSessionCreate = SecuritySession.create;
 const originalAuditCreate = AuditLog.create;
 const originalUserFindOne = User.findOne;
 const originalUserFindByPk = User.findByPk;
+const originalUserUpdate = User.update;
 const originalExchangeLoginTicket = oauthService.exchangeLoginTicket;
 const originalRevokeRefreshSession = securityService.revokeRefreshSession;
 const originalVerifyMfaChallenge = securityService.verifyMfaChallenge;
@@ -30,6 +31,7 @@ test.afterEach(() => {
     AuditLog.create = originalAuditCreate;
     User.findOne = originalUserFindOne;
     User.findByPk = originalUserFindByPk;
+    User.update = originalUserUpdate;
     oauthService.exchangeLoginTicket = originalExchangeLoginTicket;
     securityService.revokeRefreshSession = originalRevokeRefreshSession;
     securityService.verifyMfaChallenge = originalVerifyMfaChallenge;
@@ -113,10 +115,7 @@ test('logout revokes only the submitted refresh token and works without access a
     const request = {
         body: { refreshToken: 'valid-refresh-token' },
         get: () => 'test-agent',
-        app: { get: () => ({ sockets: { sockets: new Map([
-                        ['a', sessionASocket],
-                        ['b', sessionBSocket]
-                    ]) } }) }
+        app: { get: () => ({ sockets: { sockets: new Map([['a', sessionASocket], ['b', sessionBSocket]]) } }) }
     };
     await authController.logout(request, response);
 
@@ -139,12 +138,26 @@ test('MFA secrets encrypt and decrypt without exposing the original storage valu
     assert.equal(securityService.decryptSecret(encrypted), secret);
 });
 
-test('pending MFA setup reuses the encrypted secret until enable completes', async() => {
-    const firstUser = { mfa_secret_hash: null, update: async(values) => { firstUser.mfa_secret_hash = values.mfa_secret_hash; } };
-    const firstSecret = await securityService.getPendingMfaSecret(firstUser);
-    const secondUser = { mfa_secret_hash: firstUser.mfa_secret_hash, update: async() => { throw new Error('pending setup must not rotate'); } };
+test('concurrent pending MFA setup requests return the persisted winner', async() => {
+    const persistedUser = { user_id: 'user-1', mfa_secret_hash: null };
+    let updateAttempts = 0;
+    User.update = async(values, { where }) => {
+        assert.equal(where.user_id, persistedUser.user_id);
+        assert.equal(where.mfa_secret_hash, null);
+        updateAttempts += 1;
+        if (persistedUser.mfa_secret_hash) return [0];
+        persistedUser.mfa_secret_hash = values.mfa_secret_hash;
+        return [1];
+    };
+    User.findByPk = async() => ({ mfa_secret_hash: persistedUser.mfa_secret_hash });
 
-    assert.equal(await securityService.getPendingMfaSecret(secondUser), firstSecret);
+    const [firstSecret, secondSecret] = await Promise.all([
+        securityService.getPendingMfaSecret({ user_id: persistedUser.user_id, mfa_secret_hash: null }),
+        securityService.getPendingMfaSecret({ user_id: persistedUser.user_id, mfa_secret_hash: null })
+    ]);
+
+    assert.equal(firstSecret, secondSecret);
+    assert.equal(updateAttempts, 2);
 });
 
 test('recovery codes are hashed and consumed only once', () => {
