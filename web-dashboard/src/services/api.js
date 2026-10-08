@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 import { consumePendingAction } from '../utils/actionConfirmation';
 
 const API_URL = (
@@ -19,8 +19,8 @@ api.interceptors.request.use(
         }
         const token = localStorage.getItem('token');
         if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-            delete config.headers ? .['Content-Type'];
-            delete config.headers ? .['content-type'];
+            delete config.headers?.['Content-Type'];
+            delete config.headers?.['content-type'];
         }
         if (token) {
             config.headers = config.headers || {};
