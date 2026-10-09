@@ -306,9 +306,10 @@ export function DashboardLayout({
                   onClick={onClearHistory}
                   disabled={clearHistoryLoading}
                   aria-label={t('Clear history')}
-                  className="dashboard-header-control inline-flex h-10 items-center rounded-xl border px-3 text-xs font-bold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="dashboard-header-control dashboard-header-clear-history-action inline-flex h-10 items-center rounded-xl border px-3 text-xs font-bold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {t(clearHistoryLoading ? 'Clearing...' : 'Clear history')}
+                  <EventNoteOutlined className="text-[18px] sm:hidden" />
+                  <span className="hidden sm:inline">{t(clearHistoryLoading ? 'Clearing...' : 'Clear history')}</span>
                 </button>}
                 <button
                   type="button"
@@ -371,14 +372,14 @@ export function DashboardLayout({
                   type="button"
                   aria-label={t('Live Feed')}
                   title={t('Live Feed')}
-                  className="inline-flex h-10 w-auto items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-2.5 py-2 text-xs font-black text-[#155a91] shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 sm:h-auto sm:px-3"
+                  className="dashboard-live-feed-control inline-flex h-10 w-auto items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-2.5 py-2 text-xs font-black text-[#155a91] shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 sm:h-auto sm:px-3"
                 >
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#155a91] ring-4 ring-sky-100" />
                   <span className="sm:hidden">Live</span>
                   <span className="hidden sm:inline">{t('Live Feed')}</span>
                 </button>
 
-                <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+                <div className="dashboard-header-user flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
                   <UserAvatar user={user} size="h-9 w-9" />
                   <div className="hidden sm:block">
                     <p className="text-sm font-bold text-[#0b1f3a]">{user?.name || 'Campus User'}</p>

@@ -3177,3 +3177,119 @@ textarea)::placeholder {
     min-height: 0;
     height: 100%;
 }
+
+@media (max-width: 1023px) {
+    .dashboard-app,
+    .dashboard-app .dashboard-main,
+    .dashboard-app .dashboard-workspace,
+    .dashboard-app .dashboard-content,
+    .dashboard-app .dashboard-content>.mx-auto {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+    .dashboard-app {
+        max-width: 100vw;
+        overflow-x: clip;
+    }
+    .dashboard-app .dashboard-workspace {
+        display: flex;
+        overflow-x: clip;
+        overflow-y: visible;
+    }
+    .dashboard-app .dashboard-content {
+        flex: 1 1 0;
+        padding-inline: clamp(0.75rem, 3vw, 1.5rem);
+    }
+    .dashboard-app .dashboard-content :is(.grid, .flex),
+    .dashboard-app .dashboard-content :is(input, select, textarea) {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .dashboard-overview-content>.mx-auto>.space-y-8>.grid:nth-child(3) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .dashboard-app .zones-page {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+    .dashboard-app .zones-page-list {
+        flex: 0 0 auto;
+        min-height: 0;
+        overflow: visible;
+    }
+    .dashboard-app .dashboard-modal-dialog {
+        min-width: 0;
+        margin-inline: auto;
+        overscroll-behavior: contain;
+    }
+    .dashboard-app [role="dialog"]>:is(form, div) {
+        max-width: 100%;
+        min-width: 0;
+        max-height: calc(100vh - 2rem);
+        max-height: calc(100dvh - 2rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+}
+
+@media (max-width: 639px) {
+    .dashboard-app .dashboard-header-inner {
+        min-width: 0;
+        flex-wrap: nowrap;
+        gap: 0.5rem;
+        padding-inline: 0.75rem;
+    }
+    .dashboard-app .dashboard-header-leading {
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+    .dashboard-app .dashboard-header-brand {
+        display: block;
+        min-width: 0;
+    }
+    .dashboard-app .dashboard-header-actions {
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        gap: 0.25rem;
+    }
+    .dashboard-app .dashboard-live-feed-control,
+    .dashboard-app .dashboard-header-user {
+        display: none;
+    }
+    .dashboard-app .dashboard-header-actions>.dashboard-header-control {
+        flex: 0 0 2.5rem;
+    }
+    .dashboard-app .dashboard-button,
+    .dashboard-app .table-action {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    .dashboard-app .dashboard-modal-dialog {
+        padding: 1rem;
+    }
+    .dashboard-app .zone-map-picker-map,
+    .dashboard-app .zone-map-picker-map .leaflet-container {
+        height: 18rem;
+        min-height: 18rem;
+    }
+    .dashboard-app .campus-map-experience:not(.is-fullscreen-fallback) .campus-map-fullscreen-container:not(:fullscreen) {
+        height: clamp(18rem, 55vh, 30rem);
+        min-height: 18rem;
+    }
+    .dashboard-app .campus-map-experience:not(.is-fullscreen-fallback) .campus-map-fullscreen-container:not(:fullscreen) .campus-map-container,
+    .dashboard-app .campus-map-experience:not(.is-fullscreen-fallback) .campus-map-fullscreen-container:not(:fullscreen) .leaflet-container {
+        min-height: 0;
+    }
+}
+
+@media (max-width: 430px) {
+    .dashboard-app .dashboard-header-brand {
+        display: none;
+    }
+}

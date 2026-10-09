@@ -1,132 +1,144 @@
 @keyframes public-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes public-slide-left {
-  from {
-    opacity: 0;
-    transform: translateX(-22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateX(-22px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 @keyframes public-slide-right {
-  from {
-    opacity: 0;
-    transform: translateX(22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateX(22px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .public-app main h1 {
-    animation: public-fade-up 550ms ease-out both;
-  }
-
-  .public-app main h1 + p {
-    animation: public-fade-up 550ms 100ms ease-out both;
-  }
-
-  .public-app main h1 ~ :is(a, button) {
-    animation: public-fade-up 550ms 180ms ease-out both;
-  }
-
-  .public-app main .feature-card h3,
-  .public-app main .feature-card p {
-    animation: public-fade-up 520ms ease-out both;
-  }
-
-  .public-app main .feature-card:nth-of-type(odd) .feature-image {
-    animation: public-slide-left 700ms ease-out both;
-  }
-
-  .public-app main .feature-card:nth-of-type(even) .feature-image {
-    animation-name: public-slide-right;
-  }
-
-  .public-app main .feature-card:nth-of-type(3n) .feature-image {
-    animation-name: public-fade-up;
-  }
+    .public-app main h1 {
+        animation: public-fade-up 550ms ease-out both;
+    }
+    .public-app main h1+p {
+        animation: public-fade-up 550ms 100ms ease-out both;
+    }
+    .public-app main h1~ :is(a, button) {
+        animation: public-fade-up 550ms 180ms ease-out both;
+    }
+    .public-app main .feature-card h3,
+    .public-app main .feature-card p {
+        animation: public-fade-up 520ms ease-out both;
+    }
+    .public-app main .feature-card:nth-of-type(odd) .feature-image {
+        animation: public-slide-left 700ms ease-out both;
+    }
+    .public-app main .feature-card:nth-of-type(even) .feature-image {
+        animation-name: public-slide-right;
+    }
+    .public-app main .feature-card:nth-of-type(3n) .feature-image {
+        animation-name: public-fade-up;
+    }
 }
 
 .public-app .feature-grid {
-  width: min(100%, 1440px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 32px;
-  margin-inline: auto;
+    width: min(100%, 1440px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px;
+    margin-inline: auto;
 }
 
 .public-app .home-page .feature-grid {
-  width: 100%;
-  max-width: none;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-  gap: 18px;
-  margin-inline: 0;
+    width: 100%;
+    max-width: none;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: 18px;
+    margin-inline: 0;
 }
 
 .public-app .feature-image {
-  height: auto;
-  width: 100%;
-  max-height: min(58vw, 560px);
-  aspect-ratio: 16 / 9;
-  object-fit: contain;
-  margin-inline: auto;
+    height: auto;
+    width: 100%;
+    max-height: min(58vw, 560px);
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    margin-inline: auto;
 }
 
 .public-app .home-page .feature-image {
-  height: 100%;
-  width: 100%;
-  max-height: none;
-  aspect-ratio: auto;
-  object-fit: cover;
-  margin-inline: 0;
+    height: 100%;
+    width: 100%;
+    max-height: none;
+    aspect-ratio: auto;
+    object-fit: cover;
+    margin-inline: 0;
+}
+
+.public-app .home-page .hero-title-block {
+    width: min(calc(100vw - clamp(3rem, 8vw, 8rem)), 1600px);
+    max-width: none;
+    padding-inline: clamp(0rem, 2vw, 1rem);
+}
+
+.public-app .home-page .hero-title-block .hero-title,
+.public-app .home-page .hero-title-block .hero-title :is(span, em, strong, b) {
+    width: 100%;
+    max-width: none;
+    color: #FFFFFF !important;
+    -webkit-text-fill-color: #FFFFFF !important;
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .public-app .feature-image {
-    transition: transform 240ms ease-out;
-  }
-
-  .public-app .feature-image:hover {
-    transform: translateY(-4px) scale(1.01);
-  }
+    .public-app .feature-image {
+        transition: transform 240ms ease-out;
+    }
+    .public-app .feature-image:hover {
+        transform: translateY(-4px) scale(1.01);
+    }
 }
 
 @media (max-width: 700px) {
-  .public-app .feature-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-  }
+    .public-app .feature-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+    }
+    .public-app .feature-image {
+        max-height: none;
+    }
+}
 
-  .public-app .feature-image {
-    max-height: none;
-  }
+@media (max-width: 650px) {
+    .public-app .home-page .hero-title-block {
+        width: calc(100vw - 2.5rem);
+        padding-inline: 0;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .public-app main :is(h1, h2, h3, p, a, button, img, .motion-reveal) {
-    animation: none !important;
-    transition: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  .public-app .home-page .hero-title-block.is-title-visible .hero-title {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
+    .public-app main :is(h1, h2, h3, p, a, button, img, .motion-reveal) {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+    .public-app .home-page .hero-title-block.is-title-visible .hero-title {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
 }
