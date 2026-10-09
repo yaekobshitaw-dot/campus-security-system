@@ -2869,11 +2869,9 @@ textarea)::placeholder {
 @keyframes dashboard-content-enter {
     from {
         opacity: 0;
-        transform: translateY(7px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
@@ -3177,6 +3175,12 @@ textarea)::placeholder {
 }
 
 @media (max-width: 1023px) {
+    .dashboard-app .dashboard-sidebar {
+        display: none;
+    }
+    .dashboard-app .dashboard-notification-popover {
+        top: calc(100% + 0.5rem);
+    }
     .dashboard-app,
     .dashboard-app .dashboard-main,
     .dashboard-app .dashboard-workspace,
@@ -3228,8 +3232,8 @@ textarea)::placeholder {
     div) {
         max-width: 100%;
         min-width: 0;
-        max-height: calc(100vh - 2rem);
-        max-height: calc(100dvh - 2rem);
+        max-height: calc(100vh - var(--dashboard-header-height, 76px) - 2rem);
+        max-height: calc(100dvh - var(--dashboard-header-height, 76px) - 2rem);
         overflow-y: auto;
         overscroll-behavior: contain;
     }
@@ -3287,7 +3291,7 @@ textarea)::placeholder {
     }
     .dashboard-app .campus-map-experience:not(.is-fullscreen-fallback) .campus-map-fullscreen-container:not(:fullscreen) .campus-map-container,
     .dashboard-app .campus-map-experience:not(.is-fullscreen-fallback) .campus-map-fullscreen-container:not(:fullscreen) .leaflet-container {
-        min-height: 0;
+        min-height: min(26.25rem, calc(100dvh - 7.25rem));
     }
 }
 

@@ -336,7 +336,7 @@ export function DashboardLayout({
                   {unreadCount > 0 && <span className="dashboard-notification-badge absolute -right-1.5 -top-1.5 min-w-5 rounded-full px-1.5 py-0.5 text-center text-[9px] font-black">{unreadCount}</span>}
                 </button>
 
-                {notificationsOpen && <div className="absolute right-4 top-[4.5rem] z-30 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+                {notificationsOpen && <div className="dashboard-notification-popover absolute right-4 top-[4.5rem] z-30 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-100 px-2 pb-2"><strong className="text-sm text-[#0b1f3a]">{t('Live notifications')}</strong><div className="flex items-center gap-2"><span className="text-xs font-bold text-slate-400">{unreadCount} {t('unread')}</span><button type="button" onClick={onClearNotificationHistory} disabled={clearHistoryLoading} aria-label={t('Clear history')} className="text-xs font-bold text-slate-600 hover:text-red-700 disabled:opacity-60">{t(clearHistoryLoading ? 'Clearing...' : 'Clear history')}</button></div></div>
                   {notifications.length ? <div className="max-h-72 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} type="button" onClick={() => {
                     setNotificationsOpen(false);

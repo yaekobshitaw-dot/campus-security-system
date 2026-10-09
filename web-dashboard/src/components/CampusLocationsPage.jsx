@@ -144,7 +144,7 @@ export default function CampusLocationsPage({ user }) {
   return <div className="live-map-page space-y-8">
     <div className="flex flex-col gap-2 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div><p className="dashboard-eyebrow">Campus configuration</p><h2 className="mt-1.5 text-xl font-black tracking-tight text-[#0b1f3a] sm:text-2xl">Campus locations</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Place named campus locations accurately on the map. Coordinates are never inferred from the reference image.</p></div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {canManage && <button type="button" className="dashboard-button primary" onClick={startCreating}>Create location</button>}
         <button type="button" className="dashboard-button" onClick={loadLocations} disabled={loading}>Refresh</button>
       </div>
