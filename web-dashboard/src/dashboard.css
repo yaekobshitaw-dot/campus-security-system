@@ -466,7 +466,7 @@
 
 .dashboard-app>.public-footer {
     flex: 0 0 auto;
-    width: 100vw;
+    width: 100%;
     max-width: 100%;
 }
 
@@ -503,7 +503,7 @@
     display: flex;
     min-height: auto;
     flex-direction: column;
-    overflow-x: clip;
+    overflow-x: visible;
     overflow-y: visible;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -1508,7 +1508,7 @@ article) {
         min-height: 64px;
     }
     .dashboard-app .dashboard-header-context {
-        display: none;
+        display: block;
     }
     .dashboard-app .dashboard-table {
         min-width: 640px;
@@ -1530,9 +1530,6 @@ article) {
         width: 82px;
         padding-right: 1.25rem;
         font-size: 0.65rem;
-    }
-    .dashboard-app .dashboard-header-brand {
-        display: none;
     }
     .dashboard-app .dashboard-heading {
         padding-bottom: 0.75rem;
@@ -1833,11 +1830,11 @@ textarea):focus-visible {
 
 .dashboard-overview-content {
     min-width: 0;
-    overflow-x: clip;
+    overflow-x: visible;
 }
 
 .dashboard-overview {
-    width: min(100%, 1440px);
+    width: min(100%, 1920px);
     margin-inline: auto;
 }
 
@@ -2319,7 +2316,8 @@ textarea):focus-visible {
 
 .analytics-dashboard {
     width: 100%;
-    overflow-x: clip;
+    min-width: 0;
+    overflow-x: visible;
 }
 
 
@@ -3189,20 +3187,22 @@ textarea)::placeholder {
         max-width: 100%;
     }
     .dashboard-app {
-        max-width: 100vw;
-        overflow-x: clip;
+        max-width: 100%;
     }
     .dashboard-app .dashboard-workspace {
         display: flex;
-        overflow-x: clip;
+        overflow-x: visible;
         overflow-y: visible;
     }
     .dashboard-app .dashboard-content {
         flex: 1 1 0;
         padding-inline: clamp(0.75rem, 3vw, 1.5rem);
     }
-    .dashboard-app .dashboard-content :is(.grid, .flex),
-    .dashboard-app .dashboard-content :is(input, select, textarea) {
+    .dashboard-app .dashboard-content :is(.grid,
+    .flex),
+    .dashboard-app .dashboard-content :is(input,
+    select,
+    textarea) {
         min-width: 0;
         max-width: 100%;
     }
@@ -3224,7 +3224,8 @@ textarea)::placeholder {
         margin-inline: auto;
         overscroll-behavior: contain;
     }
-    .dashboard-app [role="dialog"]>:is(form, div) {
+    .dashboard-app [role="dialog"]>:is(form,
+    div) {
         max-width: 100%;
         min-width: 0;
         max-height: calc(100vh - 2rem);
@@ -3237,29 +3238,31 @@ textarea)::placeholder {
 @media (max-width: 639px) {
     .dashboard-app .dashboard-header-inner {
         min-width: 0;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         gap: 0.5rem;
         padding-inline: 0.75rem;
     }
     .dashboard-app .dashboard-header-leading {
-        flex: 0 1 auto;
+        flex: 1 1 100%;
         min-width: 0;
+        flex-wrap: wrap;
+    }
+    .dashboard-app .dashboard-header-context {
+        display: block;
+        flex: 1 1 100%;
     }
     .dashboard-app .dashboard-header-brand {
         display: block;
         min-width: 0;
     }
     .dashboard-app .dashboard-header-actions {
-        width: auto;
-        max-width: none;
+        width: 100%;
+        max-width: 100%;
         min-width: 0;
-        flex: 0 0 auto;
-        flex-wrap: nowrap;
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        justify-content: space-between;
         gap: 0.25rem;
-    }
-    .dashboard-app .dashboard-live-feed-control,
-    .dashboard-app .dashboard-header-user {
-        display: none;
     }
     .dashboard-app .dashboard-header-actions>.dashboard-header-control {
         flex: 0 0 2.5rem;
@@ -3290,6 +3293,6 @@ textarea)::placeholder {
 
 @media (max-width: 430px) {
     .dashboard-app .dashboard-header-brand {
-        display: none;
+        min-width: 0;
     }
 }

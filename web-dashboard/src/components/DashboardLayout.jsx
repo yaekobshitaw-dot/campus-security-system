@@ -496,7 +496,7 @@ function NavigationGroupContent({ group, user, language, onNavigate }) {
   const groupLabel = navigationGroupLabel(group, user?.role);
 
   return (
-    <section className="mx-auto w-full max-w-[1500px] space-y-6">
+    <section className="mx-auto w-full max-w-[1920px] space-y-6">
       <div className="min-w-0 flex-1">
         <p className="dashboard-eyebrow">{t('Workspace Lists')}</p>
         <h2 className="mt-1 text-2xl font-black text-[#0b1f3a]">{t(groupLabel)}</h2>

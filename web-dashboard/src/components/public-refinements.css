@@ -90,7 +90,7 @@
 }
 
 .public-app .home-page .hero-title-block {
-    width: min(calc(100vw - clamp(3rem, 8vw, 8rem)), 1600px);
+    width: min(calc(100% - clamp(3rem, 8vw, 8rem)), 1600px);
     max-width: none;
     padding-inline: clamp(0rem, 2vw, 1rem);
 }
@@ -124,7 +124,7 @@
 
 @media (max-width: 650px) {
     .public-app .home-page .hero-title-block {
-        width: calc(100vw - 2.5rem);
+        width: calc(100% - 2.5rem);
         padding-inline: 0;
     }
 }

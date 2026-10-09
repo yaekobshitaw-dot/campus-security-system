@@ -60,7 +60,6 @@ body,
 body {
   @apply m-0 text-gray-900 antialiased;
   font-family: "Inter", "Noto Sans Ethiopic", sans-serif;
-  overflow-x: hidden;
 }
 
 .dashboard-app[lang="am"] {
