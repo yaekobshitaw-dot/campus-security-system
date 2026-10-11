@@ -16,12 +16,13 @@ const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
 
 const broadcastInFlight = new Map();
+const SMS_BROADCAST_PARTIAL_STATUS = 207;
 
 const summarizeRecord = (item) => ({
     sms_id: item.sms_id,
     user_id: item.recipient_user_id,
-    name: item.recipient?.name,
-    role: item.recipient?.role,
+    name: item.recipient && item.recipient.name,
+    role: item.recipient && item.recipient.role,
     phone: item.recipient_phone,
     status: item.status,
     provider: item.provider,
@@ -38,6 +39,43 @@ const summarizeResults = (records) => {
         queued: results.filter((item) => item.status === 'queued').length,
         results,
     };
+};
+
+const summarizeDuplicateRecord = (item) => {
+    const record = typeof item.toJSON === 'function' ? item.toJSON() : item;
+    if (record.status !== 'queued' || record.provider_response) return record;
+    return {
+        ...record,
+        status: 'failed',
+        error_message: record.error_message || 'Previous SMS outcome could not be confirmed.',
+    };
+};
+
+const getBroadcastResponse = (result, duplicate = false) => {
+    const totalFailure = result.total > 0 && result.failed === result.total;
+    const partialFailure = result.failed > 0 && !totalFailure;
+    const status = totalFailure ? 502 : partialFailure ? SMS_BROADCAST_PARTIAL_STATUS : duplicate ? 200 : 202;
+
+    return {
+        status,
+        payload: {
+            success: !totalFailure && !partialFailure,
+            partial: partialFailure,
+            duplicate,
+            message: totalFailure ?
+                'SMS broadcast failed for all recipients; delivery was not confirmed.' : partialFailure ?
+                'SMS broadcast was partially accepted; delivery is not confirmed.' : 'SMS submission was accepted for processing; delivery is not confirmed.',
+            data: result,
+        },
+    };
+};
+
+const getSafeBroadcastFailureMessage = (error) => {
+    const message = error && error.message;
+    if (typeof message === 'string' && /^Africa's Talking (?:request failed with status \d+|returned an invalid response|rejected the recipient \(status code \d+\)|request timed out|request failed due to a provider or network error)\.$/.test(message)) {
+        return message;
+    }
+    return 'SMS delivery failed; provider acceptance was not confirmed.';
 };
 
 const getAdminSmsRecipients = async(req, res) => {
@@ -122,9 +160,22 @@ const processBroadcast = async({ senderUserId, recipientUserIds, message, idempo
             });
             records.push(await SmsMessage.findByPk(result.sms_id, { include: [{ model: User, as: 'recipient', attributes: ['name', 'role'] }] }));
         } catch (error) {
-            if (error?.code === SMS_CONFIGURATION_ERROR_CODE) throw error;
+            if (error && error.code === SMS_CONFIGURATION_ERROR_CODE) throw error;
+            const failureMessage = getSafeBroadcastFailureMessage(error);
             const failedRecord = await SmsMessage.findOne({ where: { broadcast_id: broadcastId, recipient_user_id: recipient.user_id }, include: [{ model: User, as: 'recipient', attributes: ['name', 'role'] }] });
-            records.push(failedRecord || await createFailedBroadcastRecord({ senderUserId, recipient, message, broadcastId, idempotencyKey, error: error.message || 'SMS delivery failed.' }));
+            if (failedRecord) {
+                if (failedRecord.status !== 'failed' && typeof failedRecord.update === 'function') {
+                    try {
+                        await failedRecord.update({ status: 'failed', error_message: failureMessage });
+                    } catch (_updateError) {
+                        // The response still reflects the provider rejection if persistence is unavailable.
+                    }
+                }
+                const recordData = typeof failedRecord.toJSON === 'function' ? failedRecord.toJSON() : failedRecord;
+                records.push({...recordData, status: 'failed', error_message: failureMessage });
+            } else {
+                records.push(await createFailedBroadcastRecord({ senderUserId, recipient, message, broadcastId, idempotencyKey, error: failureMessage }));
+            }
         }
     }
 
@@ -134,6 +185,12 @@ const processBroadcast = async({ senderUserId, recipientUserIds, message, idempo
 const broadcastSms = async(req, res) => {
     try {
         const { recipientUserIds, message, idempotencyKey } = validateBroadcastPayload(req.body || {});
+        if (broadcastInFlight.has(idempotencyKey)) {
+            const result = await broadcastInFlight.get(idempotencyKey);
+            const outcome = getBroadcastResponse(result, true);
+            return res.status(outcome.status).json(outcome.payload);
+        }
+
         const existing = await SmsMessage.findAll({
             where: { idempotency_key: idempotencyKey },
             include: [{ model: User, as: 'recipient', attributes: ['name', 'role'] }],
@@ -142,12 +199,15 @@ const broadcastSms = async(req, res) => {
             ],
         });
         if (existing.length) {
-            return res.status(200).json({ success: true, duplicate: true, data: { broadcast_id: existing[0].broadcast_id, ...summarizeResults(existing) } });
+            const priorRecords = existing.map(summarizeDuplicateRecord);
+            const outcome = getBroadcastResponse({ broadcast_id: existing[0].broadcast_id, ...summarizeResults(priorRecords) }, true);
+            return res.status(outcome.status).json(outcome.payload);
         }
 
         if (broadcastInFlight.has(idempotencyKey)) {
             const result = await broadcastInFlight.get(idempotencyKey);
-            return res.status(200).json({ success: true, duplicate: true, data: result });
+            const outcome = getBroadcastResponse(result, true);
+            return res.status(outcome.status).json(outcome.payload);
         }
 
         assertSmsProviderConfigured();
@@ -155,14 +215,15 @@ const broadcastSms = async(req, res) => {
         broadcastInFlight.set(idempotencyKey, work);
         try {
             const result = await work;
-            await recordAudit(req, { action: 'sms_broadcast_sent', resourceType: 'sms_broadcast', resourceId: result.broadcast_id, details: `Broadcast sent to ${result.total} recipients.` });
-            await notifyUsers(req, { type: 'sms_broadcast_result', title: 'SMS broadcast completed', message: `${result.successful} successful, ${result.failed} failed, ${result.queued} queued.`, resourceType: 'sms_broadcast', resourceId: result.broadcast_id, link: '/sms', dedupeKey: `sms-broadcast:${result.broadcast_id}` });
-            return res.status(202).json({ success: true, duplicate: false, data: result });
+            await recordAudit(req, { action: 'sms_broadcast_processed', resourceType: 'sms_broadcast', resourceId: result.broadcast_id, details: `SMS broadcast processed for ${result.total} recipients; delivery is not confirmed.` });
+            await notifyUsers(req, { type: 'sms_broadcast_result', title: 'SMS broadcast processed', message: `${result.successful} successful, ${result.failed} failed, ${result.queued} queued; delivery is not confirmed.`, resourceType: 'sms_broadcast', resourceId: result.broadcast_id, link: '/sms', dedupeKey: `sms-broadcast:${result.broadcast_id}` });
+            const outcome = getBroadcastResponse(result);
+            return res.status(outcome.status).json(outcome.payload);
         } finally {
             broadcastInFlight.delete(idempotencyKey);
         }
     } catch (error) {
-        const configurationError = error?.code === SMS_CONFIGURATION_ERROR_CODE;
+        const configurationError = error && error.code === SMS_CONFIGURATION_ERROR_CODE;
         return res.status(configurationError ? 503 : 400).json({
             success: false,
             message: configurationError ? error.message : error.message || 'Failed to send SMS broadcast.',
@@ -183,7 +244,7 @@ const getSmsHistory = async(req, res) => {
                 { model: User, as: 'sender', attributes: ['name'] },
             ],
         });
-        return res.status(200).json({ success: true, data: records.map((item) => ({...summarizeRecord(item), sender_name: item.sender?.name, message: item.message, broadcast_id: item.broadcast_id })) });
+        return res.status(200).json({ success: true, data: records.map((item) => ({...summarizeRecord(item), sender_name: item.sender && item.sender.name, message: item.message, broadcast_id: item.broadcast_id })) });
     } catch (error) {
         return res.status(500).json({ success: false, message: 'Failed to load SMS history.' });
     }
@@ -249,7 +310,7 @@ const createSmsRequest = async(req, res) => {
 
             return res.status(202).json({
                 success: true,
-                message: result?.message || 'SMS queued for delivery to the mobile device.',
+                message: result && result.message || 'SMS queued for delivery to the mobile device.',
                 data: {
                     sms_id: result.sms_id,
                     provider: result.provider,
@@ -258,12 +319,11 @@ const createSmsRequest = async(req, res) => {
                 },
             });
         } catch (error) {
-            const configurationError = error?.code === SMS_CONFIGURATION_ERROR_CODE;
+            const configurationError = error && error.code === SMS_CONFIGURATION_ERROR_CODE;
             return res.status(configurationError ? 503 : 500).json({
                 success: false,
                 message: configurationError ?
-                    error.message :
-                    'SMS delivery failed. Check the SMS provider configuration and recipient phone number.',
+                    error.message : 'SMS delivery failed. Check the SMS provider configuration and recipient phone number.',
             });
         }
     } catch (error) {

@@ -23,7 +23,7 @@ const securityRoutes = require('./routes/securityRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter, assistantLimiter, authLimiter } = require('./middleware/rateLimiter');
 const { corsOrigin } = require('./config/cors');
-const path = require('path');
+const { profilePhotoDirectory } = require('./middleware/profilePhotoUpload');
 
 const app = express();
 
@@ -41,8 +41,8 @@ app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
-app.use('/uploads/profile-photos', express.static(path.resolve(__dirname, '../uploads/profile-photos'), {
-    fallthrough: false,
+app.use('/uploads/profile-photos', express.static(profilePhotoDirectory, {
+    fallthrough: true,
     index: false,
     maxAge: '1h'
 }));
