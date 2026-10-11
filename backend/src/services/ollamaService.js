@@ -5,37 +5,37 @@ const MAX_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 750;
 
 const getPositiveInteger = (value, fallback) => {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
 const getOllamaConfig = () => ({
-  baseUrl: String(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/+$/, ''),
-  model: String(process.env.OLLAMA_MODEL || 'qwen2.5-coder:3b').trim(),
-  timeoutMs: getPositiveInteger(process.env.OLLAMA_TIMEOUT_MS, 60000),
-  retryAttempts: Math.min(getPositiveInteger(process.env.OLLAMA_RETRY_ATTEMPTS, MAX_RETRY_ATTEMPTS), MAX_RETRY_ATTEMPTS),
-  retryDelayMs: Number.isInteger(Number(process.env.OLLAMA_RETRY_DELAY_MS)) && Number(process.env.OLLAMA_RETRY_DELAY_MS) >= 0
-    ? Number(process.env.OLLAMA_RETRY_DELAY_MS)
-    : DEFAULT_RETRY_DELAY_MS
+    baseUrl: String(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/+$/, ''),
+    model: String(process.env.OLLAMA_MODEL || 'qwen2.5-coder:3b').trim(),
+    timeoutMs: getPositiveInteger(process.env.OLLAMA_TIMEOUT_MS, 60000),
+    retryAttempts: Math.min(getPositiveInteger(process.env.OLLAMA_RETRY_ATTEMPTS, MAX_RETRY_ATTEMPTS), MAX_RETRY_ATTEMPTS),
+    retryDelayMs: Number.isInteger(Number(process.env.OLLAMA_RETRY_DELAY_MS)) && Number(process.env.OLLAMA_RETRY_DELAY_MS) >= 0 ?
+        Number(process.env.OLLAMA_RETRY_DELAY_MS) :
+        DEFAULT_RETRY_DELAY_MS
 });
 
 const getOllamaError = (error) => {
-  const code = error?.code || error?.cause?.code;
-  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') return { kind: 'timeout', retryable: true };
-  if (code === 'ECONNREFUSED') return { kind: 'connection_refused', retryable: true };
-  if (['ECONNRESET', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH'].includes(code)) {
-    return { kind: 'connection_error', retryable: true };
-  }
-  if (error?.response) {
-    const status = error.response.status;
-    return { kind: 'http_error', retryable: [408, 429, 500, 502, 503, 504].includes(status), status };
-  }
-  if (error?.request) return { kind: 'connection_error', retryable: true };
-  return { kind: 'request_error', retryable: false };
+    const code = error?.code || error?.cause?.code;
+    if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') return { kind: 'timeout', retryable: true };
+    if (code === 'ECONNREFUSED') return { kind: 'connection_refused', retryable: true };
+    if (['ECONNRESET', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH'].includes(code)) {
+        return { kind: 'connection_error', retryable: true };
+    }
+    if (error?.response) {
+        const status = error.response.status;
+        return { kind: 'http_error', retryable: [408, 429, 500, 502, 503, 504].includes(status), status };
+    }
+    if (error?.request) return { kind: 'connection_error', retryable: true };
+    return { kind: 'request_error', retryable: false };
 };
 
 const createOllamaError = (kind, status) => {
-  const error = new Error(`Ollama ${kind}${status ? ` (HTTP ${status})` : ''}`);
+        const error = new Error(`Ollama ${kind}${status ? ` (HTTP ${status})` : ''}`);
   error.kind = kind;
   if (status) error.status = status;
   return error;

@@ -2,232 +2,273 @@
 const { User, SmsMessage } = require('../models');
 const { logger } = require('../utils/logger');
 const { validatePhoneNumber, normalizePhoneNumber, sanitizeSmsMessage, toE164 } = require('../utils/smsValidation');
-const { lomisendApiKey, lomisendProjectId, lomisendSenderId, lomisendTimeoutMs } = require('../config/auth');
-const { sendGsmSms } = require('./smsProviders/gsmProvider');
 
-let testLomisendClient = null;
+const SMS_CONFIGURATION_ERROR_CODE = 'SMS_PROVIDER_CONFIGURATION';
 
-const __setLomisendClientForTests = (client) => {
-  testLomisendClient = client;
+let testAfricaTalkingClient = null;
+
+class SmsProviderConfigurationError extends Error {
+    constructor() {
+        super("Africa's Talking SMS provider is not configured.");
+        this.name = 'SmsProviderConfigurationError';
+        this.code = SMS_CONFIGURATION_ERROR_CODE;
+    }
 };
 
-const __resetLomisendClientForTests = () => {
-  testLomisendClient = null;
+const __setAfricaTalkingClientForTests = (client) => {
+    testAfricaTalkingClient = client;
 };
 
-const getSmsProviderMode = () => String(process.env.SMS_PROVIDER || 'lomisend').trim().toLowerCase();
+const __resetAfricaTalkingClientForTests = () => {
+    testAfricaTalkingClient = null;
+};
 
 const getSmsProvider = () => {
-  const provider = getSmsProviderMode();
-  if (provider === 'lomisend') return { name: provider, send: sendLomisendSms };
-  if (provider === 'gsm') return { name: provider, send: sendGsmSms };
-  throw new Error(`Unsupported SMS provider: ${provider}`);
-};
-
-const getLomisendConfig = () => ({
-  apiKey: process.env.LOMISEND_API_KEY || lomisendApiKey || '',
-  projectId: process.env.LOMISEND_PROJECT_ID || lomisendProjectId || '',
-  senderId: process.env.LOMISEND_SENDER_ID || lomisendSenderId || '',
-  timeoutMs: Number(process.env.LOMISEND_TIMEOUT_MS || lomisendTimeoutMs || 20000),
-});
-
-const getLomisendRequestBody = ({ to, message, projectId, from }) => {
-  const body = {
-    id: projectId,
-    to: toE164(to),
-    body: String(message).trim(),
-  };
-
-  if (from && String(from).trim().toUpperCase() !== 'YOUR_SENDER_ID') {
-    body.sender_id = from;
-  }
-
-  return body;
-};
-
-const getProviderMessage = (error) => error?.response?.data?.detail
-  || error?.response?.data?.message
-  || error?.response?.data?.error
-  || error?.response?.data?.errorMessage
-  || error?.message
-  || 'SMS provider request failed.';
-
-const createLomisendError = (statusCode, providerMessage) => {
-  const messages = {
-    401: 'Lomisend API authentication error',
-    402: 'Insufficient Lomisend balance or credits',
-    403: 'Lomisend subscription, permission, project, or sender restriction',
-    422: 'Invalid Lomisend request, sender, or project configuration',
-  };
-  const prefix = messages[statusCode] || `Lomisend request failed with status ${statusCode}`;
-  const error = new Error(`${prefix}: ${providerMessage}`);
-  error.statusCode = statusCode;
-  error.providerMessage = providerMessage;
-  return error;
-};
-
-const sendLomisendSms = async ({ to, message, from } = {}) => {
-  const recipientNumber = toE164(to);
-  if (!recipientNumber) {
-    throw new Error('Recipient phone number is invalid for SMS delivery.');
-  }
-
-  const text = String(message || '').trim();
-  if (!text) {
-    throw new Error('SMS text cannot be empty.');
-  }
-
-  const { apiKey, projectId, senderId, timeoutMs } = getLomisendConfig();
-  const configuredSenderId = from || senderId;
-  const effectiveFrom = configuredSenderId && String(configuredSenderId).trim().toUpperCase() !== 'YOUR_SENDER_ID'
-    ? String(configuredSenderId).trim()
-    : '';
-
-  if (!apiKey) {
-    throw new Error('LOMISEND_API_KEY is not configured in the backend environment.');
-  }
-
-  if (!projectId) {
-    throw new Error('LOMISEND_PROJECT_ID is not configured in the backend environment.');
-  }
-
-  const requestBody = getLomisendRequestBody({
-    to: recipientNumber,
-    message: text,
-    projectId,
-    from: effectiveFrom,
-  });
-
-  try {
-    const client = testLomisendClient || axios;
-    const response = await client.post('https://api.lomisend.com/v1/send-message', requestBody, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-API-Key': apiKey,
-      },
-      timeout: timeoutMs,
-    });
-
-    const providerData = response?.data?.data || response?.data || {};
-    const providerStatus = String(providerData.status || 'accepted').trim().toLowerCase();
-    const providerMessageId = providerData.id || providerData.messageId || providerData.message_id || providerData.smsId || null;
-    const acceptedStatuses = new Set(['accepted', 'pending', 'queued', 'sent', 'delivered']);
-
-    if (response.status !== 200 && response.status !== 202) {
-      throw createLomisendError(response.status, getProviderMessage({ response }));
+    const configuredProvider = String(process.env.SMS_PROVIDER || '').trim().toLowerCase();
+    if (configuredProvider && configuredProvider !== 'africastalking') {
+        throw new SmsProviderConfigurationError();
     }
+    return { name: 'africastalking', send: sendAfricaTalkingSms };
+};
 
-    if (!acceptedStatuses.has(providerStatus)) {
-      const providerError = providerData.message || providerData.error || 'Lomisend rejected the SMS request.';
-      throw new Error(providerError);
+const getAfricaTalkingConfig = () => {
+    const environment = String(process.env.AFRICASTALKING_ENVIRONMENT || 'sandbox').trim().toLowerCase();
+    const apiKey = String(process.env.AFRICASTALKING_API_KEY || '').trim();
+    const username = String(process.env.AFRICASTALKING_USERNAME || '').trim();
+    const senderId = String(process.env.AFRICASTALKING_SENDER_ID || '').trim();
+    const timeoutMs = Number(process.env.AFRICASTALKING_TIMEOUT_MS || 20000);
+
+    if (!apiKey || !username || !['sandbox', 'production'].includes(environment) ||
+        (environment === 'sandbox' && username !== 'sandbox') ||
+        (environment === 'production' && username.toLowerCase() === 'sandbox')) {
+        throw new SmsProviderConfigurationError();
     }
 
     return {
-      provider: 'lomisend',
-      messageId: providerMessageId,
-      status: providerStatus,
-      rawResponse: providerData,
+        apiKey,
+        username,
+        senderId,
+        timeoutMs,
+        endpoint: environment === 'sandbox' ?
+            'https://api.sandbox.africastalking.com/version1/messaging' : 'https://api.africastalking.com/version1/messaging',
+        environment,
     };
-  } catch (error) {
-    const providerError = getProviderMessage(error);
-    const statusCode = error?.response?.status || error?.statusCode;
-
-    if (statusCode) {
-      const mappedError = createLomisendError(statusCode, providerError);
-      logger.error('Lomisend SMS delivery failed', {
-        status: statusCode,
-        message: providerError,
-      });
-      throw mappedError;
-    }
-
-    logger.error('Lomisend SMS delivery failed', {
-      status: undefined,
-      message: providerError,
-    });
-
-    throw error;
-  }
 };
 
-const sendSmsMessage = async ({ senderUserId, recipientUserId, recipientPhone, message, broadcastId = null, idempotencyKey = null }) => {
-  if (!senderUserId) {
-    throw new Error('A sender user is required to send SMS messages.');
-  }
+const assertSmsProviderConfigured = () => {
+    getSmsProvider();
+    getAfricaTalkingConfig();
+};
 
-  const recipient = await User.findByPk(recipientUserId);
-  if (!recipient) {
-    throw new Error('Recipient user not found.');
-  }
-
-  const phoneValue = recipientPhone || recipient.phone || recipient.mobile_phone || recipient.phone_number;
-  if (!validatePhoneNumber(phoneValue)) {
-    throw new Error('Recipient does not have a valid phone number on file.');
-  }
-
-  const normalizedPhone = normalizePhoneNumber(phoneValue);
-  const safeMessage = sanitizeSmsMessage(message);
-  if (!safeMessage) {
-    throw new Error('SMS message cannot be empty.');
-  }
-
-  const provider = getSmsProvider();
-  const smsRecord = await SmsMessage.create({
-    sender_user_id: senderUserId,
-    recipient_user_id: recipientUserId,
-    recipient_phone: normalizedPhone,
-    message: safeMessage,
-    status: 'queued',
-    provider: provider.name,
-    broadcast_id: broadcastId,
-    idempotency_key: idempotencyKey,
-  });
-
-  try {
-    const result = await provider.send({ to: normalizedPhone, message: safeMessage });
-
-    const appStatus = result.status === 'delivered' ? 'delivered' : ['accepted', 'pending', 'queued', 'sent', 'delivered'].includes(result.status) ? 'sent' : 'failed';
-
-    await smsRecord.update({
-      status: appStatus,
-      provider: result.provider || provider.name,
-      provider_message_id: result.messageId,
-      provider_response: JSON.stringify(result.rawResponse || {}),
-      sent_at: appStatus === 'failed' ? null : new Date(),
-      error_message: null,
+const getAfricaTalkingRequestBody = ({ to, message, username, from } = {}) => {
+    const body = new URLSearchParams({
+        username,
+        to: toE164(to),
+        message: String(message).trim(),
     });
+    const senderId = String(from || '').trim();
+    if (senderId && senderId.toUpperCase() !== 'YOUR_SENDER_ID') {
+        body.set('from', senderId);
+    }
+    return body;
+};
+
+const sendAfricaTalkingSms = async({ to, message, from } = {}) => {
+    if (!validatePhoneNumber(to)) {
+        throw new Error('Recipient phone number is invalid for SMS delivery.');
+    }
+
+    const text = String(message || '').trim();
+    if (!text) {
+        throw new Error('SMS text cannot be empty.');
+    }
+
+    const { apiKey, username, senderId, timeoutMs, endpoint, environment } = getAfricaTalkingConfig();
+
+    const configuredSenderId = from || senderId;
+    const requestBody = getAfricaTalkingRequestBody({
+        to,
+        message: text,
+        username,
+        from: configuredSenderId,
+    });
+
+    let response;
+    try {
+        const client = testAfricaTalkingClient || axios;
+        response = await client.post(endpoint, requestBody.toString(), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Accept: 'application/json',
+                apiKey,
+            },
+            timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 20000,
+        });
+    } catch (error) {
+        const statusCode = error?.response?.status;
+        if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' || /timeout/i.test(error?.message || '')) {
+            logger.error("Africa's Talking SMS delivery failed", { environment, status: 'timeout' });
+            throw new Error("Africa's Talking request timed out.");
+        }
+        if (statusCode) {
+            logger.error("Africa's Talking SMS delivery failed", { environment, status: statusCode });
+            if (statusCode === 401) {
+                throw new Error("Africa's Talking API credentials were rejected.");
+            }
+            throw new Error(`Africa's Talking request failed with status ${statusCode}.`);
+        }
+        logger.error("Africa's Talking SMS delivery failed", { environment, status: 'network_error' });
+        throw new Error("Africa's Talking request failed due to a provider or network error.");
+    }
+
+    if (!Number.isInteger(response?.status) || response.status < 200 || response.status >= 300) {
+        const statusCode = Number.isInteger(response?.status) ? response.status : null;
+        logger.error("Africa's Talking SMS delivery failed", { environment, status: statusCode || 'invalid_response' });
+        throw new Error(statusCode ?
+            `Africa's Talking request failed with status ${statusCode}.` :
+            "Africa's Talking returned an invalid response.");
+    }
+
+    const providerData = response?.data?.SMSMessageData;
+    const recipients = providerData?.Recipients;
+    const recipient = Array.isArray(recipients) && recipients.length === 1 ? recipients[0] : null;
+    const rawStatusCode = recipient?.statusCode;
+    const hasValidStatusCode = Number.isInteger(rawStatusCode) ||
+        (typeof rawStatusCode === 'string' && /^\d+$/.test(rawStatusCode));
+    if (!hasValidStatusCode) {
+        logger.error("Africa's Talking SMS delivery failed", { environment, status: 'invalid_response' });
+        throw new Error("Africa's Talking returned an invalid response.");
+    }
+
+    const recipientStatusCode = Number(rawStatusCode);
+    if (![100, 101, 102].includes(recipientStatusCode)) {
+        logger.error("Africa's Talking SMS delivery failed", { environment, status: recipientStatusCode });
+        throw new Error(`Africa's Talking rejected the recipient (status code ${recipientStatusCode}).`);
+    }
 
     return {
-      sms_id: smsRecord.sms_id,
-      provider: result.provider,
-      status: appStatus,
-      message: appStatus === 'delivered' ? 'SMS delivered according to the provider response.' : 'SMS accepted by the configured Lomisend provider and queued for processing.',
-      recipient: {
-        user_id: recipient.user_id,
-        name: recipient.name,
-        phone: normalizedPhone,
-      },
+        provider: 'africastalking',
+        messageId: recipient.messageId || recipient.message_id || null,
+        status: recipientStatusCode === 102 ? 'queued' : recipientStatusCode === 101 ? 'sent' : 'accepted',
+        rawResponse: {
+            statusCode: recipientStatusCode,
+            messageId: recipient.messageId || recipient.message_id || null,
+        },
     };
-  } catch (error) {
-    const errorText = error.message || 'SMS delivery failed.';
-    await smsRecord.update({
-      status: 'failed',
-      provider: provider.name,
-      provider_response: JSON.stringify({ error: errorText }),
-      error_message: errorText.slice(0, 500),
+};
+
+const getSafeDeliveryError = (error) => {
+    if (error?.code === SMS_CONFIGURATION_ERROR_CODE) {
+        return error.message;
+    }
+    if (/^Africa's Talking (?:API credentials were rejected|request failed with status \d+|returned an invalid response|rejected the recipient \(status code \d+\)|request timed out|request failed due to a provider or network error)\./.test(error?.message || '')) {
+        return error.message;
+    }
+    if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' || /timeout/i.test(error?.message || '')) {
+        return "Africa's Talking request timed out.";
+    }
+    return "Africa's Talking SMS delivery failed due to a provider or network error.";
+};
+
+const sendSmsMessage = async({ senderUserId, recipientUserId, recipientPhone, message, broadcastId = null, idempotencyKey = null }) => {
+    if (!senderUserId) {
+        throw new Error('A sender user is required to send SMS messages.');
+    }
+
+    const recipient = await User.findByPk(recipientUserId);
+    if (!recipient) {
+        throw new Error('Recipient user not found.');
+    }
+
+    const phoneValue = recipientPhone || recipient.phone || recipient.mobile_phone || recipient.phone_number;
+    if (!validatePhoneNumber(phoneValue)) {
+        throw new Error('Recipient does not have a valid phone number on file.');
+    }
+
+    const normalizedPhone = normalizePhoneNumber(phoneValue);
+    const safeMessage = sanitizeSmsMessage(message);
+    if (!safeMessage) {
+        throw new Error('SMS message cannot be empty.');
+    }
+
+    if (idempotencyKey) {
+        const existingSms = await SmsMessage.findOne({
+            where: { idempotency_key: idempotencyKey, recipient_user_id: recipientUserId },
+        });
+        if (existingSms) {
+            return {
+                sms_id: existingSms.sms_id,
+                provider: existingSms.provider,
+                status: existingSms.status,
+                duplicate: true,
+                message: 'This notification was already processed.',
+                recipient: {
+                    user_id: recipient.user_id,
+                    name: recipient.name,
+                    phone: normalizedPhone,
+                },
+            };
+        }
+    }
+
+    const provider = getSmsProvider();
+    assertSmsProviderConfigured();
+    const smsRecord = await SmsMessage.create({
+        sender_user_id: senderUserId,
+        recipient_user_id: recipientUserId,
+        recipient_phone: normalizedPhone,
+        message: safeMessage,
+        status: 'queued',
+        provider: provider.name,
+        broadcast_id: broadcastId,
+        idempotency_key: idempotencyKey,
     });
 
-    throw new Error(errorText);
-  }
+    try {
+        const result = await provider.send({ to: normalizedPhone, message: safeMessage });
+
+        const appStatus = 'queued';
+        await smsRecord.update({
+            status: appStatus,
+            provider: result.provider || provider.name,
+            provider_message_id: result.messageId,
+            provider_response: JSON.stringify(result.rawResponse || {}),
+            sent_at: null,
+            error_message: null,
+        });
+
+        return {
+            sms_id: smsRecord.sms_id,
+            provider: result.provider,
+            status: appStatus,
+            message: "SMS accepted by Africa's Talking and queued for delivery; delivery is not yet confirmed.",
+            recipient: {
+                user_id: recipient.user_id,
+                name: recipient.name,
+                phone: normalizedPhone,
+            },
+        };
+    } catch (error) {
+        const errorText = getSafeDeliveryError(error);
+        await smsRecord.update({
+            status: 'failed',
+            provider: provider.name,
+            provider_response: JSON.stringify({ error: errorText }),
+            error_message: errorText.slice(0, 500),
+        });
+
+        throw new Error(errorText);
+    }
 };
 
 module.exports = {
-  getSmsProviderMode,
-  getSmsProvider,
-  sendSmsMessage,
-  sendLomisendSms,
-  getLomisendRequestBody,
-  __setLomisendClientForTests,
-  __resetLomisendClientForTests,
+    getSmsProvider,
+    assertSmsProviderConfigured,
+    SMS_CONFIGURATION_ERROR_CODE,
+    SmsProviderConfigurationError,
+    sendSmsMessage,
+    sendAfricaTalkingSms,
+    getAfricaTalkingRequestBody,
+    __setAfricaTalkingClientForTests,
+    __resetAfricaTalkingClientForTests,
 };

@@ -48,14 +48,14 @@ test('admin broadcast returns prior records for a repeated idempotency key', asy
       recipient_user_id: recipientId,
       recipient_phone: recipient.phone,
       status: 'sent',
-      provider: 'lomisend',
+      provider: 'africastalking',
       error_message: null,
       created_at: new Date().toISOString(),
       recipient: { name: recipient.name, role: recipient.role },
     };
     records.push(record);
     return { sms_id: record.sms_id };
-  } };
+  }, assertSmsProviderConfigured: () => {} };
 
   require.cache[smsServicePath] = { id: smsServicePath, filename: smsServicePath, loaded: true, exports: sentSmsService };
   delete require.cache[controllerPath];
@@ -83,6 +83,76 @@ test('admin broadcast returns prior records for a repeated idempotency key', asy
     SmsMessage.findAll = original.smsFindAll;
     SmsMessage.findByPk = original.smsFindByPk;
     SmsMessage.create = original.smsCreate;
+    if (originalSmsService) require.cache[smsServicePath] = originalSmsService;
+    else delete require.cache[smsServicePath];
+    delete require.cache[controllerPath];
+  }
+});
+
+test('broadcast returns 503 and sends nothing when Africa\'s Talking is misconfigured', async () => {
+  const adminId = '223e4567-e89b-12d3-a456-426614174000';
+  const originalSmsFindAll = SmsMessage.findAll;
+  let sendCount = 0;
+  const configurationError = Object.assign(new Error("Africa's Talking SMS provider is not configured."), {
+    code: 'SMS_PROVIDER_CONFIGURATION',
+  });
+  const smsService = {
+    assertSmsProviderConfigured() { throw configurationError; },
+    sendSmsMessage: async () => { sendCount += 1; },
+  };
+
+  require.cache[smsServicePath] = { id: smsServicePath, filename: smsServicePath, loaded: true, exports: smsService };
+  delete require.cache[controllerPath];
+  const { broadcastSms } = require('../src/controllers/smsController');
+  SmsMessage.findAll = async () => [];
+
+  try {
+    const response = makeResponse();
+    await broadcastSms({
+      user: { user_id: adminId },
+      body: {
+        recipientUserIds: ['123e4567-e89b-12d3-a456-426614174000'],
+        message: 'Campus notice',
+        idempotencyKey: 'broadcast-key-123456',
+      },
+    }, response);
+    assert.equal(response.statusCode, 503);
+    assert.equal(sendCount, 0);
+  } finally {
+    SmsMessage.findAll = originalSmsFindAll;
+    if (originalSmsService) require.cache[smsServicePath] = originalSmsService;
+    else delete require.cache[smsServicePath];
+    delete require.cache[controllerPath];
+  }
+});
+
+test('single SMS request returns 503 when Africa\'s Talking is misconfigured', async () => {
+  const recipientId = '123e4567-e89b-12d3-a456-426614174000';
+  const adminId = '223e4567-e89b-12d3-a456-426614174000';
+  const originalUserFindByPk = User.findByPk;
+  const configurationError = Object.assign(new Error("Africa's Talking SMS provider is not configured."), {
+    code: 'SMS_PROVIDER_CONFIGURATION',
+  });
+  const smsService = {
+    assertSmsProviderConfigured() {},
+    sendSmsMessage: async () => { throw configurationError; },
+  };
+
+  require.cache[smsServicePath] = { id: smsServicePath, filename: smsServicePath, loaded: true, exports: smsService };
+  delete require.cache[controllerPath];
+  const { createSmsRequest } = require('../src/controllers/smsController');
+  User.findByPk = async () => ({ user_id: recipientId, phone: '0976296127', is_active: true });
+
+  try {
+    const response = makeResponse();
+    await createSmsRequest({
+      user: { user_id: adminId, role: 'admin' },
+      body: { recipientUserId: recipientId, message: 'Campus notice' },
+    }, response);
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.payload.message, "Africa's Talking SMS provider is not configured.");
+  } finally {
+    User.findByPk = originalUserFindByPk;
     if (originalSmsService) require.cache[smsServicePath] = originalSmsService;
     else delete require.cache[smsServicePath];
     delete require.cache[controllerPath];
