@@ -4,6 +4,11 @@ const { logger } = require('../utils/logger');
 const { validatePhoneNumber, normalizePhoneNumber, sanitizeSmsMessage, toE164 } = require('../utils/smsValidation');
 
 const SMS_CONFIGURATION_ERROR_CODE = 'SMS_PROVIDER_CONFIGURATION';
+const SMS_PROVIDER_DIAGNOSTIC_KEYS = {
+    code: ['code', 'errorCode', 'error_code'],
+    message: ['message', 'errorMessage', 'error_message', 'detail', 'description', 'error'],
+    requestId: ['requestId', 'request_id', 'request-id', 'correlationId', 'correlation_id'],
+};
 
 let testAfricaTalkingClient = null;
 
@@ -73,6 +78,62 @@ const getAfricaTalkingRequestBody = ({ to, message, username, from } = {}) => {
     return body;
 };
 
+const getDiagnosticField = (sources, keys) => {
+    for (const source of sources) {
+        if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+        for (const key of keys) {
+            const value = source[key];
+            if (typeof value === 'string' || typeof value === 'number') return value;
+        }
+    }
+    return undefined;
+};
+
+const sanitizeProviderDiagnostic = (value, sensitiveValues = [], maxLength = 200) => {
+    if (typeof value !== 'string' && typeof value !== 'number') return undefined;
+    let safeValue = String(value).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+    for (const sensitiveValue of sensitiveValues) {
+        const sensitiveText = String(sensitiveValue || '').trim();
+        if (sensitiveText.length >= 3) safeValue = safeValue.split(sensitiveText).join('[redacted]');
+    }
+    safeValue = safeValue
+        .replace(/(?:api[\s_-]*key|authorization|bearer|access[\s_-]*token|password)\s*[:=]\s*[^\s,;]+/gi, '[redacted-credential]')
+        .replace(/\+?\d[\d\s().-]{5,}\d/g, '[redacted-number]');
+    return safeValue.slice(0, maxLength) || undefined;
+};
+
+const getProviderErrorDiagnostics = (error, sensitiveValues) => {
+    const response = error && error.response;
+    const data = response && response.data;
+    const nestedError = data && typeof data.error === 'object' && !Array.isArray(data.error) ? data.error : null;
+    const sources = [data, nestedError];
+    const headers = response && response.headers;
+    const diagnosticCode = sanitizeProviderDiagnostic(
+        getDiagnosticField(sources, SMS_PROVIDER_DIAGNOSTIC_KEYS.code), sensitiveValues, 80,
+    );
+    const diagnosticMessage = sanitizeProviderDiagnostic(
+        getDiagnosticField(sources, SMS_PROVIDER_DIAGNOSTIC_KEYS.message), sensitiveValues,
+    );
+    const responseRequestId = getDiagnosticField([data, nestedError, headers], SMS_PROVIDER_DIAGNOSTIC_KEYS.requestId);
+    const headerRequestId = headers && (headers['x-request-id'] || headers['x-correlation-id']);
+    const requestId = sanitizeProviderDiagnostic(
+        responseRequestId || headerRequestId,
+        sensitiveValues,
+        120,
+    );
+
+    return {
+        ...(diagnosticCode ? { providerErrorCode: diagnosticCode } : {}),
+        ...(diagnosticMessage ? { providerErrorMessage: diagnosticMessage } : {}),
+        ...(requestId ? { requestId } : {}),
+    };
+};
+
+const logProviderFailure = ({ environment, status, diagnostics = {} }) => {
+    const fields = { environment, status, ...diagnostics };
+    logger.error(`Africa's Talking SMS delivery failed ${JSON.stringify(fields)}`);
+};
+
 const sendAfricaTalkingSms = async({ to, message, from } = {}) => {
     if (!validatePhoneNumber(to)) {
         throw new Error('Recipient phone number is invalid for SMS delivery.');
@@ -105,44 +166,44 @@ const sendAfricaTalkingSms = async({ to, message, from } = {}) => {
             timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 20000,
         });
     } catch (error) {
-        const statusCode = error?.response?.status;
-        if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' || /timeout/i.test(error?.message || '')) {
-            logger.error("Africa's Talking SMS delivery failed", { environment, status: 'timeout' });
+        const statusCode = error && error.response && error.response.status;
+        if (error && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || /timeout/i.test(error.message || ''))) {
+            logProviderFailure({ environment, status: 'timeout' });
             throw new Error("Africa's Talking request timed out.");
         }
         if (statusCode) {
-            logger.error("Africa's Talking SMS delivery failed", { environment, status: statusCode });
-            if (statusCode === 401) {
-                throw new Error("Africa's Talking API credentials were rejected.");
-            }
-            throw new Error(`Africa's Talking request failed with status ${statusCode}.`);
+            const diagnostics = getProviderErrorDiagnostics(error, [apiKey, to, text]);
+            logProviderFailure({ environment, status: statusCode, diagnostics });
+            const providerError = new Error(`Africa's Talking request failed with status ${statusCode}.`);
+            providerError.providerDiagnostics = diagnostics;
+            throw providerError;
         }
-        logger.error("Africa's Talking SMS delivery failed", { environment, status: 'network_error' });
+        logProviderFailure({ environment, status: 'network_error' });
         throw new Error("Africa's Talking request failed due to a provider or network error.");
     }
 
-    if (!Number.isInteger(response?.status) || response.status < 200 || response.status >= 300) {
-        const statusCode = Number.isInteger(response?.status) ? response.status : null;
-        logger.error("Africa's Talking SMS delivery failed", { environment, status: statusCode || 'invalid_response' });
+    if (!response || !Number.isInteger(response.status) || response.status < 200 || response.status >= 300) {
+        const statusCode = response && Number.isInteger(response.status) ? response.status : null;
+        logProviderFailure({ environment, status: statusCode || 'invalid_response' });
         throw new Error(statusCode ?
             `Africa's Talking request failed with status ${statusCode}.` :
             "Africa's Talking returned an invalid response.");
     }
 
-    const providerData = response?.data?.SMSMessageData;
-    const recipients = providerData?.Recipients;
+    const providerData = response && response.data && response.data.SMSMessageData;
+    const recipients = providerData && providerData.Recipients;
     const recipient = Array.isArray(recipients) && recipients.length === 1 ? recipients[0] : null;
-    const rawStatusCode = recipient?.statusCode;
+    const rawStatusCode = recipient && recipient.statusCode;
     const hasValidStatusCode = Number.isInteger(rawStatusCode) ||
         (typeof rawStatusCode === 'string' && /^\d+$/.test(rawStatusCode));
     if (!hasValidStatusCode) {
-        logger.error("Africa's Talking SMS delivery failed", { environment, status: 'invalid_response' });
+        logProviderFailure({ environment, status: 'invalid_response' });
         throw new Error("Africa's Talking returned an invalid response.");
     }
 
     const recipientStatusCode = Number(rawStatusCode);
     if (![100, 101, 102].includes(recipientStatusCode)) {
-        logger.error("Africa's Talking SMS delivery failed", { environment, status: recipientStatusCode });
+        logProviderFailure({ environment, status: recipientStatusCode });
         throw new Error(`Africa's Talking rejected the recipient (status code ${recipientStatusCode}).`);
     }
 
@@ -158,13 +219,14 @@ const sendAfricaTalkingSms = async({ to, message, from } = {}) => {
 };
 
 const getSafeDeliveryError = (error) => {
-    if (error?.code === SMS_CONFIGURATION_ERROR_CODE) {
+    if (error && error.code === SMS_CONFIGURATION_ERROR_CODE) {
         return error.message;
     }
-    if (/^Africa's Talking (?:API credentials were rejected|request failed with status \d+|returned an invalid response|rejected the recipient \(status code \d+\)|request timed out|request failed due to a provider or network error)\./.test(error?.message || '')) {
-        return error.message;
+    const errorMessage = error && error.message || '';
+    if (/^Africa's Talking (?:request failed with status \d+|returned an invalid response|rejected the recipient \(status code \d+\)|request timed out|request failed due to a provider or network error)\./.test(errorMessage)) {
+        return errorMessage;
     }
-    if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' || /timeout/i.test(error?.message || '')) {
+    if (error && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || /timeout/i.test(errorMessage))) {
         return "Africa's Talking request timed out.";
     }
     return "Africa's Talking SMS delivery failed due to a provider or network error.";
@@ -253,7 +315,10 @@ const sendSmsMessage = async({ senderUserId, recipientUserId, recipientPhone, me
         await smsRecord.update({
             status: 'failed',
             provider: provider.name,
-            provider_response: JSON.stringify({ error: errorText }),
+            provider_response: JSON.stringify({
+                error: errorText,
+                ...(error && error.providerDiagnostics ? { diagnostics: error.providerDiagnostics } : {}),
+            }),
             error_message: errorText.slice(0, 500),
         });
 
