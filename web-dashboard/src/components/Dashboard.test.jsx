@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import { DashboardLayout, IncidentStatusBadge, IncidentTable } from './DashboardLayout';
 import webSocket from '../services/socket';
@@ -49,6 +49,11 @@ vi.mock('./SecurityMap.jsx', () => ({
 vi.mock('./MLDashboard.jsx', () => ({
   default: () => <div data-testid="ml-dashboard" />
 }));
+
+function CurrentPath() {
+  const location = useLocation();
+  return <output data-testid="current-path">{location.pathname}</output>;
+}
 
 describe('Dashboard', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -734,6 +739,32 @@ describe('Dashboard', () => {
   it('opens the existing ML Insights page on its route', () => {
     render(<MemoryRouter initialEntries={['/ml']}><Dashboard user={{ role: 'admin', name: 'Admin Test' }} /></MemoryRouter>);
     expect(screen.getByTestId('ml-dashboard')).toBeInTheDocument();
+  });
+
+  it('opens SMS Broadcast from the admin navigation group', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: 'admin-1', role: 'admin', name: 'Admin Test' }} />
+        <CurrentPath />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Users & Communication' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'SMS Broadcast' }));
+
+    expect(await screen.findByRole('heading', { name: 'SMS broadcast' })).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/sms');
+  });
+
+  it('denies a non-admin direct navigation attempt to SMS', async () => {
+    render(
+      <MemoryRouter initialEntries={['/sms']}>
+        <Dashboard user={{ user_id: 'student-1', role: 'student', name: 'Student Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Access denied')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'SMS broadcast' })).not.toBeInTheDocument();
   });
 
   it('does not expose an admin feature illustration to a student', () => {

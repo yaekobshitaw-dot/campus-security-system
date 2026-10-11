@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, beforeEach, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from './App';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
@@ -29,6 +29,11 @@ vi.mock('./components/PublicSite', () => ({
 
 const storedUser = { user_id: 'admin-1', name: 'Admin User', role: 'admin' };
 const notificationRoles = ['student', 'faculty', 'staff', 'security', 'security_officer', 'admin'];
+
+function CurrentPath() {
+  const location = useLocation();
+  return <output data-testid="current-path">{location.pathname}</output>;
+}
 
 beforeEach(() => {
   apiGet.mockReset();
@@ -84,6 +89,35 @@ describe('App authentication restoration', () => {
     expect(await screen.findByText('Login screen')).toBeInTheDocument();
     expect(apiGet).toHaveBeenCalledWith('/system/status');
     expect(apiGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an authorized admin on the SMS route after session restoration', async () => {
+    apiGet.mockImplementation((url) => url === '/system/status'
+      ? Promise.resolve({ data: { data: { active: true } } })
+      : Promise.resolve({ data: { data: storedUser } }));
+    localStorage.setItem('token', 'valid-token');
+    localStorage.setItem('user', JSON.stringify(storedUser));
+
+    render(<MemoryRouter initialEntries={['/sms']}><App /><CurrentPath /></MemoryRouter>);
+
+    expect(await screen.findByText('Dashboard loaded')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/sms');
+    expect(screen.queryByText('Login screen')).not.toBeInTheDocument();
+  });
+
+  it('redirects a non-admin away from the admin SMS route after session restoration', async () => {
+    const student = { user_id: 'student-1', name: 'Student User', role: 'student' };
+    apiGet.mockImplementation((url) => url === '/system/status'
+      ? Promise.resolve({ data: { data: { active: true } } })
+      : Promise.resolve({ data: { data: student } }));
+    localStorage.setItem('token', 'valid-token');
+    localStorage.setItem('user', JSON.stringify(student));
+
+    render(<MemoryRouter initialEntries={['/sms']}><App /><CurrentPath /></MemoryRouter>);
+
+    expect(await screen.findByText('Dashboard loaded')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/dashboard');
+    expect(screen.queryByText('Login screen')).not.toBeInTheDocument();
   });
 
   it.each(notificationRoles)('allows the authenticated %s role to open Notifications', async (role) => {
