@@ -122,6 +122,20 @@ describe('Dashboard', () => {
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/users/presence'));
   });
 
+  it('opens Contacts when selected from dashboard navigation', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: 'student-1', role: 'student', name: 'Student Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Campus overview' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation', hidden: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Contacts', hidden: true }));
+    expect(await screen.findByRole('heading', { name: 'Users & Contacts' })).toBeInTheDocument();
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/users/presence'));
+  });
+
   it('does not show assignment requests on the Admin Dashboard while retaining the request data path', async () => {
     const assignment = {
       response_id: 'assignment-1',

@@ -378,8 +378,11 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const canAssignIncidents = ['security', 'security_officer', 'admin'].includes(String(user.role || '').trim().toLowerCase());
   const canChangeIncidentStatus = String(user.role || '').trim().toLowerCase() === 'admin';
   const canViewUsers = user.role === 'admin';
+  const canViewContacts = ['student', 'faculty', 'staff', 'security', 'security_officer', 'admin']
+    .includes(String(user.role || '').trim().toLowerCase());
   const isStudent = String(user.role || '').trim().toLowerCase() === 'student';
   const protectedSection = (['users', 'sms'].includes(section) && !canViewUsers)
+    || (section === 'contacts' && !canViewContacts)
     || (['officers', 'responses'].includes(section) && !canViewOperations)
     || (section === 'locations' && !canViewCampusLocations)
     || (section === 'analytics' && !canViewOperations && !isStudent)

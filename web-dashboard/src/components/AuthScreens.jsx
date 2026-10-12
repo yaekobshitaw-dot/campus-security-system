@@ -115,9 +115,26 @@ export function OAuthButtons({
   );
 }
 
+const getPostLoginPath = (requestedLocation) => {
+  const requestedPath = typeof requestedLocation === 'string'
+    ? requestedLocation
+    : `${requestedLocation?.pathname || ''}${requestedLocation?.search || ''}${requestedLocation?.hash || ''}`;
+  if (!requestedPath.startsWith('/') || requestedPath.startsWith('//') || requestedPath.startsWith('/\\')) {
+    return '/dashboard';
+  }
+  try {
+    const destination = new URL(requestedPath, window.location.origin);
+    if (destination.origin !== window.location.origin || destination.pathname === '/login') return '/dashboard';
+    return `${destination.pathname}${destination.search}${destination.hash}`;
+  } catch {
+    return '/dashboard';
+  }
+};
+
 export function LoginScreen({ onLogin }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const postLoginPath = getPostLoginPath(location.state?.from);
   const [language] = useLanguage();
   const t = (text) => translateDashboardText(text, language);
   const [form, setForm] = useState({ email: '', phone: '', password: '' });
@@ -157,7 +174,7 @@ export function LoginScreen({ onLogin }) {
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
     onLogin(user);
-    navigate('/dashboard', { replace: true });
+    navigate(postLoginPath, { replace: true });
     } catch (requestError) {
     setError(requestError.response?.data?.message || 'Unable to sign in. Please check your details.');
     } finally {
@@ -179,7 +196,7 @@ export function LoginScreen({ onLogin }) {
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(user));
       onLogin(user);
-      navigate('/dashboard', { replace: true });
+      navigate(postLoginPath, { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to verify MFA code.');
     } finally {

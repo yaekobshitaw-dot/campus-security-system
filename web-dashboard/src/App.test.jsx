@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, beforeEach, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from './App';
@@ -33,6 +33,11 @@ const notificationRoles = ['student', 'faculty', 'staff', 'security', 'security_
 function CurrentPath() {
   const location = useLocation();
   return <output data-testid="current-path">{location.pathname}</output>;
+}
+
+function RequestedPath() {
+  const location = useLocation();
+  return <output data-testid="requested-path">{location.state?.from?.pathname || ''}</output>;
 }
 
 beforeEach(() => {
@@ -91,6 +96,34 @@ describe('App authentication restoration', () => {
     expect(apiGet).toHaveBeenCalledTimes(1);
   });
 
+  it('sends unauthenticated Contacts visits to login while preserving the requested route', async () => {
+    apiGet.mockResolvedValue({ data: { data: { active: true } } });
+    render(<MemoryRouter initialEntries={['/contacts']}><App /><CurrentPath /><RequestedPath /></MemoryRouter>);
+
+    expect(await screen.findByText('Login screen')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/login');
+    expect(screen.getByTestId('requested-path')).toHaveTextContent('/contacts');
+  });
+
+  it('preserves the Contacts destination when an active session becomes unauthorized', async () => {
+    const student = { user_id: 'student-1', name: 'Student User', role: 'student' };
+    apiGet.mockImplementation((url) => url === '/system/status'
+      ? Promise.resolve({ data: { data: { active: true } } })
+      : Promise.resolve({ data: { data: student } }));
+    localStorage.setItem('token', 'valid-token');
+    localStorage.setItem('user', JSON.stringify(student));
+
+    render(<MemoryRouter initialEntries={['/contacts']}><App /><CurrentPath /><RequestedPath /></MemoryRouter>);
+    expect(await screen.findByText('Dashboard loaded')).toBeInTheDocument();
+
+    fireEvent(window, new Event('campus-security:unauthorized'));
+
+    expect(await screen.findByText('Login screen')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/login');
+    expect(screen.getByTestId('requested-path')).toHaveTextContent('/contacts');
+    expect(localStorage.getItem('token')).toBeNull();
+  });
+
   it('keeps an authorized admin on the SMS route after session restoration', async () => {
     apiGet.mockImplementation((url) => url === '/system/status'
       ? Promise.resolve({ data: { data: { active: true } } })
@@ -131,6 +164,21 @@ describe('App authentication restoration', () => {
     render(<MemoryRouter initialEntries={['/notifications']}><App /></MemoryRouter>);
 
     expect(await screen.findByText('Dashboard loaded')).toBeInTheDocument();
+    expect(screen.queryByText('Login screen')).not.toBeInTheDocument();
+  });
+
+  it.each(notificationRoles)('resolves /contacts to the dashboard for the authenticated %s role', async (role) => {
+    const user = { user_id: `${role}-1`, name: `${role} user`, role };
+    apiGet.mockImplementation((url) => url === '/system/status'
+      ? Promise.resolve({ data: { data: { active: true } } })
+      : Promise.resolve({ data: { data: user } }));
+    localStorage.setItem('token', 'valid-token');
+    localStorage.setItem('user', JSON.stringify(user));
+
+    render(<MemoryRouter initialEntries={['/contacts']}><App /><CurrentPath /></MemoryRouter>);
+
+    expect(await screen.findByText('Dashboard loaded')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/contacts');
     expect(screen.queryByText('Login screen')).not.toBeInTheDocument();
   });
 

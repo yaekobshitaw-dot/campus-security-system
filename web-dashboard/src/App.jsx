@@ -7,7 +7,13 @@ import PublicSite, { AuthPage } from './components/PublicSite';
 import api from './services/api';
 
 function ProtectedRoute({ user, children }) {
-  return user ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (user) return children;
+  return <Navigate
+    to="/login"
+    replace
+    state={{ from: { pathname: location.pathname, search: location.search, hash: location.hash } }}
+  />;
 }
 
 function AdminRoute({ user, children }) {
@@ -73,12 +79,17 @@ function App() {
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       setUser(null);
-      if (location.pathname !== '/login') navigate('/login', { replace: true });
+      if (location.pathname !== '/login') {
+        navigate('/login', {
+          replace: true,
+          state: { from: { pathname: location.pathname, search: location.search, hash: location.hash } }
+        });
+      }
     };
 
     window.addEventListener('campus-security:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('campus-security:unauthorized', handleUnauthorized);
-  }, [location.pathname, navigate]);
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -158,7 +169,7 @@ function App() {
         />
         <Route path="/settings" element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>} />
-        {['/incidents/active', '/incidents/history', '/incidents/:incidentId', '/map', '/sos', '/emergency', '/evidence', '/officers', '/analytics', '/responses', '/alerts', '/zones', '/ml', '/announcements'].map((path) => (
+        {['/incidents/active', '/incidents/history', '/incidents/:incidentId', '/map', '/sos', '/emergency', '/evidence', '/officers', '/analytics', '/responses', '/alerts', '/zones', '/ml', '/announcements', '/contacts'].map((path) => (
           <Route key={path} path={path} element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>} />
         ))}
         <Route path="/notifications" element={<ProtectedRoute user={user}><Dashboard user={user} onLogout={handleLogout} onUserUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('user', JSON.stringify(updatedUser)); }} /></ProtectedRoute>} />
