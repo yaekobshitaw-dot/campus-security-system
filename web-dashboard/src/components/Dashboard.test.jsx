@@ -97,6 +97,31 @@ describe('Dashboard', () => {
     expect(footer.children[2]).toHaveClass('dashboard-footer-version');
   });
 
+  it('makes Contacts available to authenticated non-admin users without exposing User management', () => {
+    render(
+      <MemoryRouter>
+        <DashboardLayout user={{ user_id: 'student-1', role: 'student', name: 'Student Test' }}>
+          <div>Dashboard content</div>
+        </DashboardLayout>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation', hidden: true }));
+    expect(screen.getByRole('button', { name: 'Contacts', hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'User management', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('opens the Contacts directory for an authenticated student', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contacts']}>
+        <Dashboard user={{ user_id: 'student-1', role: 'student', name: 'Student Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Users & Contacts' })).toBeInTheDocument();
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/users/presence'));
+  });
+
   it('does not show assignment requests on the Admin Dashboard while retaining the request data path', async () => {
     const assignment = {
       response_id: 'assignment-1',

@@ -9,6 +9,7 @@ const profilePhotoController = require('../controllers/profilePhotoController');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
 const { withAdminAccountsLocked, assertAdminCapacity, assertUsableAdminRemains } = require('../services/adminAccountPolicy');
+const { disconnectUserSockets } = require('../config/socket');
 
 const LOCATION_STALE_AFTER_MS = 2 * 60 * 1000;
 const normalizeRole = (role) => String(role || '').trim().toLowerCase();
@@ -21,6 +22,31 @@ router.use(authenticate);
 
 router.get('/profile', (req, res) => {
   res.json({ success: true, data: req.user });
+});
+
+router.get('/presence', authorize('student', 'faculty', 'staff', 'security', 'security_officer', 'admin'), async (req, res) => {
+  try {
+    const users = await User.findAll({
+      where: { is_active: true },
+      attributes: ['user_id', 'name', 'profile_photo_url', 'last_seen_at'],
+      order: [['name', 'ASC']]
+    });
+    const io = req.app.get('io');
+    const presence = io?.presence || new Map();
+    const data = users.map((user) => {
+      const isOnline = presence.has(user.user_id);
+      return {
+        user_id: user.user_id,
+        name: user.name,
+        profile_photo_url: user.profile_photo_url,
+        is_online: isOnline,
+        last_seen_at: isOnline ? null : user.last_seen_at
+      };
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch user presence' });
+  }
 });
 
 router.put('/me/profile-photo', uploadProfilePhoto.single('profile_photo'), profilePhotoController.update);
@@ -232,6 +258,7 @@ router.patch('/:userId', authorize('admin'), async (req, res) => {
       await target.update(updates, { transaction });
       return { user: target, previousRole: roleBeforeUpdate };
     });
+    if (updates.is_active === false) disconnectUserSockets(req.app?.get('io'), user.user_id);
     await recordAudit(req, { action: updates.role && updates.role !== previousRole ? 'user_role_changed' : 'user_updated', resourceType: 'user', resourceId: user.user_id, details: updates.role && updates.role !== previousRole ? `Role changed from ${previousRole} to ${updates.role}.` : null });
     await notifyUsers(req, { type: 'user_admin_event', title: 'User account updated', message: `${user.name}'s account was updated.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-updated:${user.user_id}:${user.updated_at}` });
     return res.json({ success: true, data: user.toJSON() });
@@ -287,6 +314,7 @@ router.delete('/bulk', authorize('admin'), async (req, res) => {
     }
 
     deleted.push(deletedUser.user_id);
+    disconnectUserSockets(req.app?.get('io'), deletedUser.user_id);
     await recordAudit(req, {
       action: 'user_deleted',
       resourceType: 'user',
@@ -327,6 +355,7 @@ router.delete('/:userId', authorize('admin'), async (req, res) => {
       await user.destroy({ transaction });
       return user;
     });
+    disconnectUserSockets(req.app?.get('io'), deletedUser.user_id);
     await recordAudit(req, { action: 'user_deleted', resourceType: 'user', resourceId: deletedUser.user_id, details: `Deleted ${deletedUser.role} account.` });
     await notifyUsers(req, { type: 'user_admin_event', title: 'User account deleted', message: `${deletedUser.name}'s account was deleted.`, resourceType: 'user', resourceId: deletedUser.user_id, link: '/users', dedupeKey: `user-deleted:${deletedUser.user_id}` });
     return res.json({ success: true, message: 'User deleted' });
@@ -362,6 +391,7 @@ router.patch('/:userId/status', authorize('admin'), async (req, res) => {
       await target.update({ is_active }, { transaction });
       return target;
     });
+    if (!is_active) disconnectUserSockets(req.app?.get('io'), user.user_id);
     await recordAudit(req, { action: is_active ? 'user_activated' : 'user_deactivated', resourceType: 'user', resourceId: user.user_id });
     await notifyUsers(req, { type: 'user_admin_event', title: 'User account updated', message: `${user.name} was ${is_active ? 'activated' : 'deactivated'}.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-status:${user.user_id}:${is_active}:${user.updated_at}` });
 

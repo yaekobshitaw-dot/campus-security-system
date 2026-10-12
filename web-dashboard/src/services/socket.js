@@ -23,10 +23,10 @@ class WebSocketService {
     if (!token || this.socket) return;
 
     this.socket = io(SOCKET_URL, {
-      auth: { token },
+      auth: (callback) => callback({ token: localStorage.getItem('token') }),
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       timeout: 10000
     });
 
@@ -39,7 +39,7 @@ class WebSocketService {
       this.emit('disconnected', reason);
     });
     this.socket.on('connect_error', (error) => this.emit('error', error));
-    ['new-incident', 'incident-updated', 'alert-received', 'sos_alert', 'incident_assigned', 'assignment-requested', 'assignment_accepted', 'assignment_declined', 'officer_assignment', 'officer-location-updated', 'notification-created'].forEach((event) => {
+    ['new-incident', 'incident-updated', 'alert-received', 'sos_alert', 'incident_assigned', 'assignment-requested', 'assignment_accepted', 'assignment_declined', 'officer_assignment', 'officer-location-updated', 'notification-created', 'presence-updated', 'presence-snapshot'].forEach((event) => {
       this.socket.on(event, (payload) => this.emit(event, payload));
     });
   }

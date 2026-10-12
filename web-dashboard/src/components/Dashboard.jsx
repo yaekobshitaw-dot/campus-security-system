@@ -26,6 +26,7 @@ import CampusLocationsPage from './CampusLocationsPage';
 import SmsBroadcastPage from './SmsBroadcastPage';
 import ProfilePhotoEditor from './ProfilePhotoEditor';
 import UserManagementPage from './UserManagementPage';
+import PresenceContactsPage from './PresenceContactsPage';
 import ProfilePage from './ProfilePage';
 import SettingsPage from './SettingsPage';
 import { AuditLogsPage, ContentManagementPage, NotificationsPage } from './AdminPages';
@@ -45,7 +46,7 @@ const officialCampusImage = '/images/campus-4.jpg';
 const routes = {
   '/dashboard': 'overview', '/profile': 'profile', '/incidents/active': 'incidents', '/incidents/history': 'history',
   '/map': 'map', '/sos': 'sos', '/emergency': 'emergency', '/evidence': 'evidence',
-  '/officers': 'officers', '/users': 'users',
+  '/officers': 'officers', '/users': 'users', '/contacts': 'contacts',
   '/analytics': 'analytics', '/responses': 'responses', '/alerts': 'alerts', '/zones': 'zones', '/ml': 'ml',
   '/announcements': 'announcements', '/locations': 'locations',
   '/sms': 'sms',
@@ -1191,6 +1192,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   if (section === 'detail') content = detailView;
   if (section === 'evidence') content = evidence;
   if (protectedSection) content = <AccessDenied />;
+  else if (section === 'contacts') content = <PresenceContactsPage />;
   else if (section === 'zones') content = <ZoneManagement zones={zones} loading={resourceState.zones.status === 'loading'} error={resourceState.zones.status === 'error' ? resourceState.zones.error : ''} canManage={String(user.role || '').trim().toLowerCase() === 'admin'} onRefresh={loadData} />;
   else if (section === 'users') content = resourceState.users.status === 'loading'
     ? <div className="inline-loading">Loading users...</div>

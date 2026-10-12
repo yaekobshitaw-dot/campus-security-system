@@ -45,6 +45,7 @@ const featureIllustrations = {
   map: { file: 'live-map.svg', alt: 'Live map' },
   officers: { file: 'security-officers.svg', alt: 'Security officers', path: '/officers' },
   users: { file: 'user-management.svg', alt: 'User management', path: '/users' },
+  contacts: { file: 'user-management.svg', alt: 'Contacts', path: '/contacts' },
   analytics: { file: 'reports-analytics.svg', alt: 'Reports & Analytics', path: '/analytics' },
   notifications: { file: 'notifications.svg', alt: 'Notifications', adminOnly: true },
   auditLogs: { file: 'audit-logs.svg', alt: 'Audit logs', adminOnly: true },
@@ -67,6 +68,7 @@ const navigationItems = [
   { label: 'SOS / Emergency', path: '/sos', icon: WarningAmberOutlined },
   { label: 'Evidence', path: '/evidence', icon: DescriptionOutlined },
   { label: 'Security Officers', path: '/officers', icon: PeopleAltOutlined },
+  { label: 'Contacts', path: '/contacts', icon: PeopleAltOutlined },
   { label: 'User management', path: '/users', icon: PeopleAltOutlined },
   { label: 'Notifications', path: '/notifications', icon: NotificationsOutlined },
   { label: 'SMS Broadcast', path: '/sms', icon: SmsOutlined },
@@ -86,7 +88,7 @@ const navigationGroups = [
   { id: 'incidents', label: 'Incidents & Emergency', icon: ReportProblemOutlined, paths: ['/incidents/active', '/incidents/history', '/emergency', '/sos', '/evidence'] },
   { id: 'locations', label: 'Live Map & Location', icon: MapOutlined, paths: ['/map', '/alerts', '/zones', '/locations'] },
   { id: 'response', label: 'Security Officers / Response', icon: PeopleAltOutlined, paths: ['/officers', '/responses'] },
-  { id: 'communication', label: 'Users & Communication', icon: SmsOutlined, paths: ['/profile', '/users', '/notifications', '/announcements', '/sms'] },
+  { id: 'communication', label: 'Users & Communication', icon: SmsOutlined, paths: ['/profile', '/contacts', '/users', '/notifications', '/announcements', '/sms'] },
   { id: 'reports', label: 'Reports & Analytics', icon: InsightsOutlined, paths: ['/analytics', '/ml'] },
   { id: 'administration', label: 'Administration / System', icon: SettingsOutlined, paths: ['/settings', '/audit-logs', '/content'] },
 ];
@@ -95,6 +97,7 @@ const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 function canAccessNavigation(path, role) {
   const normalizedRole = normalizeRole(role);
   if (path === '/map') return ['security', 'security_officer', 'admin'].includes(normalizedRole);
+  if (path === '/contacts') return ['student', 'faculty', 'staff', 'security', 'security_officer', 'admin'].includes(normalizedRole);
   if (path === '/users') return normalizedRole === 'admin';
   if (path === '/locations') return ['faculty', 'staff', 'security', 'security_officer', 'admin'].includes(normalizedRole);
   if (['/audit-logs', '/content', '/sms'].includes(path)) return normalizedRole === 'admin';
@@ -230,7 +233,7 @@ export function DashboardLayout({
   const sectionNames = {
     overview: 'Overview', incidents: 'Active incidents', history: 'Incident history',
     emergency: 'Emergency center', map: 'Live map', sos: 'SOS / Emergency',
-    evidence: 'Evidence', officers: 'Security officers', users: 'User management',
+    evidence: 'Evidence', officers: 'Security officers', users: 'User management', contacts: 'Users & Contacts',
     analytics: 'Analytics', responses: 'Responses', alerts: 'Alerts and zones',
     announcements: 'Announcements', zones: 'Zones',
     locations: 'Campus locations', notifications: 'Notifications', auditLogs: 'Audit logs',

@@ -36,6 +36,10 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING(500),
         allowNull: true
     },
+    last_seen_at: {
+        type: DataTypes.DATE(3),
+        allowNull: true
+    },
     is_active: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
@@ -130,6 +134,7 @@ User.prototype.toJSON = function() {
     const values = {...this.get() };
     delete values.password_hash;
     delete values.push_token;
+    delete values.last_seen_at;
     delete values.reset_token_hash;
     delete values.reset_token_expires_at;
     delete values.mfa_secret_hash;

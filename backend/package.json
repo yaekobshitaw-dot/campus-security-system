@@ -13,6 +13,7 @@
     "db:migrate:announcements": "node src/scripts/migrateAnnouncements.js",
     "db:migrate:admin-schema": "node src/scripts/ensureAdminSchema.js",
     "db:migrate:auth-schema": "node src/scripts/ensureAuthSchema.js",
+    "db:migrate:presence-schema": "node src/scripts/ensurePresenceSchema.js",
     "db:repair:campus-location-indexes": "node src/scripts/repairCampusLocationIndexes.js"
   },
   "dependencies": {
