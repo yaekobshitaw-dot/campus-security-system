@@ -1,5 +1,6 @@
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import Security from '@mui/icons-material/Security';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -15,11 +16,11 @@ const clearOAuthCallbackUrl = () => {
   }
 };
 
-const AuthShell = ({ eyebrow, title, children }) => {
+const AuthShell = ({ eyebrow, title, children, className = '' }) => {
   const [language] = useLanguage();
   const t = (text) => translateDashboardText(text, language);
   return (
-    <div className="auth-page" lang={language}>
+    <div className={`auth-page ${className}`.trim()} lang={language}>
       <div className="auth-aside">
         <Link to="/" className="brand">Campus<span>Secure</span></Link>
         <div className="auth-aside-copy">
@@ -187,8 +188,8 @@ export function LoginScreen({ onLogin }) {
   };
 
   return (
-    <AuthShell eyebrow={t('Welcome back')} title={language === 'am' ? <>የግቢዎን ደህንነት<br /><em>ይቆጣጠሩ።</em></> : <>Keep your campus<br /><em>within reach.</em></>}>
-      <p className="eyebrow">{t('Secure sign in')}</p>
+    <AuthShell className="auth-page-login" eyebrow={t('Welcome back')} title={language === 'am' ? <>የግቢዎን ደህንነት<br /><em>ይቆጣጠሩ።</em></> : <>Keep your campus<br /><em>within reach.</em></>}>
+      <p className="eyebrow auth-kicker"><Security fontSize="small" aria-hidden="true" />{t('Secure sign in')}</p>
       <div className="login-logo-wrap">
         <span className="brand-mark"><img src="/images/logo.png" alt="CampusSecure logo" /></span>
       </div>

@@ -83,7 +83,12 @@ export default function SmsBroadcastPage() {
         message,
         idempotencyKey: makeIdempotencyKey(),
       });
-      setResult(response.data?.data || null);
+      const responsePayload = response.data || {};
+      setResult(responsePayload.data ? {
+        ...responsePayload.data,
+        partial: Boolean(responsePayload.partial),
+        outcomeMessage: responsePayload.message,
+      } : null);
       setMessage('');
       setSelectedIds(new Set());
       const historyResponse = await listSmsHistory();
@@ -101,7 +106,7 @@ export default function SmsBroadcastPage() {
       <button type="button" className="dashboard-button" onClick={loadData} disabled={loading}><Refresh className="text-[18px]" /> Refresh</button>
     </div>
     {error && <div className="dashboard-error" role="alert"><ErrorOutline /><span>{error}</span></div>}
-    {result && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status"><strong>Broadcast complete.</strong> {result.successful || 0} successful, {result.failed || 0} failed, {result.queued || 0} queued.</div>}
+    {result && <div className={`rounded-2xl border p-4 text-sm ${result.partial ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`} role="status"><strong>{result.partial ? 'Broadcast partially accepted.' : 'Broadcast submission accepted.'}</strong> {result.outcomeMessage} {result.successful || 0} successful, {result.failed || 0} failed, {result.queued || 0} queued.</div>}
     <section className="dashboard-panel space-y-5 border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="dashboard-eyebrow">Recipients</p><h3 className="mt-1 text-lg font-black text-[#0b1f3a]">Choose who receives this message</h3></div><div className="flex flex-wrap gap-2" role="group" aria-label="Recipient filters">{roleFilters.map((filter) => <button type="button" key={filter.value} className={`rounded-full border px-3 py-1.5 text-xs font-black ${role === filter.value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300'}`} onClick={() => setRole(filter.value)}>{filter.label}</button>)}</div></div>
       <label className="flex items-center gap-3 border-b border-slate-100 pb-3 text-sm font-black text-[#0b1f3a]"><input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={!validRecipients.length || loading} /> Select all valid recipients <span className="font-normal text-slate-500">({validRecipients.length})</span></label>

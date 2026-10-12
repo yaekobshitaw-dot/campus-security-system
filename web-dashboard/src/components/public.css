@@ -1672,6 +1672,14 @@ em {
     box-shadow: 0 0 0 3px rgba(30, 107, 116, .14);
 }
 
+.auth-page-login .auth-form input:focus,
+.auth-page-login .auth-form select:focus,
+.auth-page-register .auth-form input:focus,
+.auth-page-register .auth-form select:focus {
+    border-color: var(--auth-blue-bright);
+    box-shadow: 0 0 0 3px rgba(21, 90, 145, .14);
+}
+
 .contact-form textarea {
     resize: vertical;
 }
@@ -1746,6 +1754,15 @@ em {
     font-family: 'DM Sans', sans-serif;
 }
 
+.auth-page-login,
+.auth-page-register {
+    --auth-blue: #0F4778;
+    --auth-blue-bright: #155A91;
+    --auth-blue-pale: #eaf4fb;
+    grid-template-columns: minmax(0, 1fr) minmax(440px, .88fr);
+    background: var(--auth-blue-pale);
+}
+
 .auth-aside {
     position: relative;
     display: flex;
@@ -1755,6 +1772,18 @@ em {
     color: #fff;
     background: var(--ink);
     overflow: hidden;
+}
+
+.auth-page-login .auth-aside,
+.auth-page-register .auth-aside {
+    background-image: linear-gradient(145deg, rgba(15, 71, 120, .87), rgba(21, 90, 145, .7)), url('/images/campus-2.jpg');
+    background-position: center;
+    background-size: cover;
+}
+
+.auth-page-login .auth-aside .brand,
+.auth-page-register .auth-aside .brand {
+    color: #fff;
 }
 
 .auth-aside .brand,
@@ -1797,6 +1826,11 @@ em {
     padding: 70px 30px;
 }
 
+.auth-page-login .auth-content,
+.auth-page-register .auth-content {
+    background: linear-gradient(155deg, #f2f8fc, #fff 72%);
+}
+
 .back-home {
     position: absolute;
     top: 32px;
@@ -1808,6 +1842,33 @@ em {
 
 .auth-form-wrap {
     width: min(100%, 400px);
+}
+
+.auth-page-login .auth-form-wrap,
+.auth-page-register .auth-form-wrap {
+    width: min(100%, 460px);
+    padding: clamp(24px, 3vw, 40px);
+    border: 1px solid rgba(15, 71, 120, .1);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 18px 48px rgba(15, 71, 120, .1);
+}
+
+.auth-page-register .auth-content {
+    align-items: start;
+    padding-top: 82px;
+    padding-bottom: 38px;
+}
+
+.auth-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--auth-blue-bright);
+}
+
+.auth-kicker svg {
+    color: var(--auth-blue);
 }
 
 .login-logo-wrap,
@@ -1876,6 +1937,16 @@ em {
     width: 100%;
     justify-content: center;
     margin-top: 6px;
+}
+
+.auth-page-login .auth-submit,
+.auth-page-register .auth-submit {
+    background: var(--auth-blue-bright);
+}
+
+.auth-page-login .auth-submit:hover,
+.auth-page-register .auth-submit:hover {
+    background: var(--auth-blue);
 }
 
 .register-oauth-options .oauth-button {
@@ -2189,9 +2260,16 @@ em {
     .auth-page {
         grid-template-columns: 1fr;
     }
+    .auth-page-login,
+    .auth-page-register {
+        grid-template-columns: minmax(0, 1fr);
+    }
     .auth-aside {
         min-height: 260px;
         padding: 22px 25px;
+    }
+    .auth-page-register .auth-aside {
+        min-height: 220px;
     }
     .auth-aside-copy {
         margin-top: 50px;
@@ -2205,6 +2283,13 @@ em {
     }
     .auth-content {
         padding: 70px 22px 35px;
+    }
+    .auth-page-register .auth-content {
+        padding: 70px 18px 30px;
+    }
+    .auth-page-login .auth-form-wrap,
+    .auth-page-register .auth-form-wrap {
+        padding: 24px 20px;
     }
     .back-home {
         top: 23px;

@@ -999,7 +999,7 @@ export function AuthPage({ mode, onLogin }) {
     } catch (err) { setError(err.response?.data?.message || err.message || 'Something went wrong. Please try again.'); } finally { setLoading(false); }
   };
   return (
-    <div className="auth-page" lang={language}>
+    <div className={`auth-page ${isLogin ? 'auth-page-login' : 'auth-page-register'}`} lang={language}>
       <div className="auth-aside">
         <Link to="/" className="brand">
           <span className="brand-mark"><img src="/images/logo.png" alt="Mekdela Amba University logo" /></span>
