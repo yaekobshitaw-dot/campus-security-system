@@ -111,6 +111,47 @@
     text-wrap: balance;
 }
 
+@keyframes home-title-quick-reveal {
+    from {
+        opacity: 0;
+        transform: translate3d(-3px, 16px, 0);
+    }
+    65% {
+        opacity: 1;
+        transform: translate3d(1px, 3px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes campus-hover-ken-burns {
+    from {
+        scale: 1;
+    }
+    to {
+        scale: 1.04;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .public-app .home-page .hero-title-block.is-title-visible .hero-title {
+        animation: home-title-quick-reveal 620ms cubic-bezier(.2, .75, .25, 1) both;
+    }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .public-app .home-page .hero-visual .visual-slide img {
+        scale: 1;
+        transition: scale 650ms ease-in-out;
+    }
+    .public-app .home-page .hero-visual:hover .visual-slide.is-active img {
+        animation: campus-ken-burns 42s ease-in-out infinite alternate,
+            campus-hover-ken-burns 7s ease-in-out infinite alternate;
+    }
+}
+
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
     .public-app .feature-image {
         transition: transform 240ms ease-out;
