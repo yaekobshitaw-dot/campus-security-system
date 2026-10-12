@@ -450,7 +450,7 @@ h3 {
 }
 
 .hero-title-block.is-title-visible .hero-title {
-    animation: home-title-flow 1.6s linear infinite;
+    animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -458,24 +458,6 @@ h3 {
     .dashboard-title {
         animation: none;
         opacity: 1;
-    }
-}
-
-@keyframes home-title-flow {
-    0% {
-        transform: translate3d(-4px, 0, 0);
-    }
-    25% {
-        transform: translate3d(0, -2px, 0);
-    }
-    50% {
-        transform: translate3d(4px, 0, 0);
-    }
-    75% {
-        transform: translate3d(0, 2px, 0);
-    }
-    100% {
-        transform: translate3d(-4px, 0, 0);
     }
 }
 
@@ -713,8 +695,12 @@ em {
     object-position: center;
     filter: saturate(1) brightness(1.12);
     transform: scale(1.025);
-    animation: campus-ken-burns 34s ease-in-out infinite alternate;
+    animation: none;
     transition: transform 450ms ease;
+}
+
+.visual-slide.is-active img {
+    animation: campus-ken-burns 42s ease-in-out infinite alternate;
 }
 
 .hero-visual:hover .visual-slide img {
@@ -1760,7 +1746,9 @@ em {
     --auth-blue-bright: #155A91;
     --auth-blue-pale: #eaf4fb;
     grid-template-columns: minmax(0, 1fr) minmax(440px, .88fr);
-    background: var(--auth-blue-pale);
+    background:
+        linear-gradient(110deg, rgba(15, 71, 120, .12), rgba(21, 90, 145, .08) 46%, rgba(234, 244, 251, .54)),
+        url('/images/campus-2.jpg') center 46% / cover no-repeat;
 }
 
 .auth-aside {
@@ -1776,9 +1764,7 @@ em {
 
 .auth-page-login .auth-aside,
 .auth-page-register .auth-aside {
-    background-image: linear-gradient(145deg, rgba(15, 71, 120, .87), rgba(21, 90, 145, .7)), url('/images/campus-2.jpg');
-    background-position: center;
-    background-size: cover;
+    background: linear-gradient(145deg, rgba(15, 71, 120, .48), rgba(21, 90, 145, .32));
 }
 
 .auth-page-login .auth-aside .brand,
@@ -1828,7 +1814,7 @@ em {
 
 .auth-page-login .auth-content,
 .auth-page-register .auth-content {
-    background: linear-gradient(155deg, #f2f8fc, #fff 72%);
+    background: rgba(234, 244, 251, .55);
 }
 
 .back-home {
@@ -1850,8 +1836,10 @@ em {
     padding: clamp(24px, 3vw, 40px);
     border: 1px solid rgba(15, 71, 120, .1);
     border-radius: 8px;
-    background: #fff;
+    background: rgba(255, 255, 255, .94);
     box-shadow: 0 18px 48px rgba(15, 71, 120, .1);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
 }
 
 .auth-page-register .auth-content {
@@ -2005,7 +1993,7 @@ em {
         transform: scale(1.025) translate3d(-.25%, .2%, 0);
     }
     to {
-        transform: scale(1.065) translate3d(.25%, -.2%, 0);
+        transform: scale(1.05) translate3d(.2%, -.15%, 0);
     }
 }
 
@@ -2263,6 +2251,7 @@ em {
     .auth-page-login,
     .auth-page-register {
         grid-template-columns: minmax(0, 1fr);
+        background-position: center 42%;
     }
     .auth-aside {
         min-height: 260px;
