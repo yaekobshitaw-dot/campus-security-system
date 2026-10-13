@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { MfaRecoveryCode, SecuritySession, User } = require('../models');
+const { MfaRecoveryCode, SecuritySession, User, sequelize } = require('../models');
 
 const base32Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const hash = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -92,18 +92,66 @@ const consumeRecoveryCodeAtomic = async(userId, suppliedCode) => {
     return updatedCount === 1;
 };
 
-const createRefreshSession = async(user, req) => {
+const revokeUserSessions = async(userId, { exceptSessionId = null, revokedAt = new Date() } = {}) => {
+    if (!userId) return 0;
+    const where = {
+        user_id: userId,
+        revoked_at: null,
+        expires_at: {
+            [Op.gt]: revokedAt
+        }
+    };
+    if (exceptSessionId) {
+        where.session_id = {
+            [Op.ne]: exceptSessionId
+        };
+    }
+    const [updatedCount] = await SecuritySession.update({
+        revoked_at: revokedAt,
+        last_active_at: revokedAt
+    }, { where });
+    return updatedCount;
+};
+
+const createRefreshSession = async(user, req, { revokeExisting = true } = {}) => {
     const refreshToken = crypto.randomBytes(48).toString('base64url');
     const ttlMs = Number(process.env.REFRESH_TOKEN_TTL_MS || 30 * 24 * 60 * 60 * 1000);
-    const session = await SecuritySession.create({
-        user_id: user.user_id,
-        refresh_token_hash: hash(refreshToken),
-        device_label: String(req.get?.('user-agent') || '').slice(0, 255) || null,
-        ip_address: req.ip || null,
-        user_agent: String(req.get?.('user-agent') || '').slice(0, 512) || null,
-        expires_at: new Date(Date.now() + ttlMs)
-    });
-    return { refreshToken, session };
+    const transaction = await sequelize.transaction();
+    try {
+        const lockedUser = user?.user_id ? await User.findByPk(user.user_id, { transaction, lock: transaction.LOCK.UPDATE }) : null;
+        if (!lockedUser && user?.user_id) {
+            throw new Error('User not found');
+        }
+
+        if (revokeExisting && lockedUser?.user_id) {
+            const now = new Date();
+            await SecuritySession.update({
+                revoked_at: now,
+                last_active_at: now
+            }, {
+                where: {
+                    user_id: lockedUser.user_id,
+                    revoked_at: null
+                },
+                transaction
+            });
+        }
+
+        const session = await SecuritySession.create({
+            user_id: lockedUser?.user_id || user.user_id,
+            refresh_token_hash: hash(refreshToken),
+            device_label: String(req.get?.('user-agent') || '').slice(0, 255) || null,
+            ip_address: req.ip || null,
+            user_agent: String(req.get?.('user-agent') || '').slice(0, 512) || null,
+            expires_at: new Date(Date.now() + ttlMs)
+        }, { transaction });
+
+        await transaction.commit();
+        return { refreshToken, session };
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
 };
 
 const rotateRefreshSession = async(refreshToken) => {
@@ -133,10 +181,34 @@ const rotateRefreshSession = async(refreshToken) => {
 const revokeRefreshSession = async(refreshToken) => {
     if (!refreshToken) return false;
     const refreshTokenHash = hash(refreshToken);
-    const [updatedCount] = await SecuritySession.update({ revoked_at: new Date() }, { where: { refresh_token_hash: refreshTokenHash, revoked_at: null } });
+    const revokedAt = new Date();
+    const [updatedCount] = await SecuritySession.update({ revoked_at: revokedAt }, {
+        where: {
+            refresh_token_hash: refreshTokenHash,
+            revoked_at: null,
+            expires_at: { [Op.gt]: revokedAt }
+        }
+    });
     if (updatedCount !== 1) return false;
     const session = await SecuritySession.findOne({ where: { refresh_token_hash: refreshTokenHash } });
     return session?.session_id || false;
+};
+
+const revokeSession = async(sessionId, userId) => {
+    if (!sessionId || !userId) return false;
+    const revokedAt = new Date();
+    const [updatedCount] = await SecuritySession.update({
+        revoked_at: revokedAt,
+        last_active_at: revokedAt
+    }, {
+        where: {
+            session_id: sessionId,
+            user_id: userId,
+            revoked_at: null,
+            expires_at: { [Op.gt]: revokedAt }
+        }
+    });
+    return updatedCount === 1 ? sessionId : false;
 };
 
 const signMfaChallenge = (user) => jwt.sign({ user_id: user.user_id, purpose: 'mfa-challenge' }, String(process.env.JWT_SECRET || ''), { expiresIn: '5m' });
@@ -157,6 +229,8 @@ module.exports = {
     getPendingMfaSecret,
     hash,
     hashRecoveryCodes,
+    revokeUserSessions,
+    revokeSession,
     rotateRefreshSession,
     revokeRefreshSession,
     signMfaChallenge,

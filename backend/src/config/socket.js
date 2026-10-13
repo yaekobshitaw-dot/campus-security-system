@@ -130,18 +130,40 @@ function initSocket(io, options = {}) {
   });
 }
 
-const disconnectSessionSockets = (io, sessionId) => {
-  const sockets = io?.sockets?.sockets;
-  for (const socket of sockets?.values() || []) {
-    if (socket.sessionId === sessionId) socket.disconnect(true);
-  }
+const disconnectSessionSockets = (io, sessionId, options = {}) => {
+    const sockets = io?.sockets?.sockets;
+    for (const socket of sockets?.values() || []) {
+        if (socket.sessionId === sessionId) {
+            const payload = {
+                reason: options.reason || 'session_revoked',
+                message: options.message || 'Your account was signed in on another device. Please log in again.'
+            };
+            socket.emit?.('session-revoked', payload);
+            socket.disconnect(true);
+        }
+    }
 };
 
-const disconnectUserSockets = (io, userId) => {
-  const sockets = io?.sockets?.sockets;
-  for (const socket of sockets?.values() || []) {
-    if (String(socket.user?.user_id) === String(userId)) socket.disconnect(true);
-  }
+const disconnectUserSockets = (io, userId, options = {}) => {
+    const sockets = io?.sockets?.sockets;
+    for (const socket of sockets?.values() || []) {
+        if (String(socket.user?.user_id) === String(userId)) {
+            const payload = {
+                reason: options.reason || 'session_revoked',
+                message: options.message || 'Your account was signed in on another device. Please log in again.'
+            };
+            socket.emit?.('session-revoked', payload);
+            socket.disconnect(true);
+        }
+    }
+    if (io?.presence?.has(userId)) {
+        io.presence.delete(userId);
+        io.to?.('authenticated')?.emit?.('presence-updated', {
+            user_id: userId,
+            is_online: false,
+            last_seen_at: new Date()
+        });
+    }
 };
 
 module.exports = { disconnectSessionSockets, disconnectUserSockets, initSocket };

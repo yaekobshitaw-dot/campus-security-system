@@ -30,6 +30,7 @@ class SocketService extends LocalEventEmitter {
   constructor() {
     super();
     this.socket = null;
+    this.socketToken = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
@@ -43,12 +44,15 @@ class SocketService extends LocalEventEmitter {
         return;
       }
 
-      if (this.socket && this.isConnected) {
-        console.log('Socket already connected');
-        return;
+      if (this.socket) {
+        if (this.socketToken === token) {
+          console.log('Socket already connected or reconnecting');
+          return;
+        }
+        this.disconnect();
       }
 
-      this.socket = io(WS_URL, {
+      const socket = io(WS_URL, {
         auth: { token },
         transports: ['polling', 'websocket'],
         reconnection: true,
@@ -57,21 +61,26 @@ class SocketService extends LocalEventEmitter {
         reconnectionDelayMax: 10000,
         timeout: 20000,
       });
+      this.socket = socket;
+      this.socketToken = token;
 
-      this.socket.on('connect', () => {
+      socket.on('connect', () => {
+        if (this.socket !== socket) return;
         console.log('Socket connected');
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.emit('connected');
       });
 
-      this.socket.on('disconnect', (reason) => {
+      socket.on('disconnect', (reason) => {
+        if (this.socket !== socket) return;
         console.log('Socket disconnected:', reason);
         this.isConnected = false;
         this.emit('disconnected', reason);
       });
 
-      this.socket.on('connect_error', (error) => {
+      socket.on('connect_error', (error) => {
+        if (this.socket !== socket) return;
         this.reconnectAttempts++;
         if (this.reconnectAttempts <= 3 || this.reconnectAttempts % 5 === 0) {
           console.warn('Socket connection error:', error.message || error);
@@ -79,42 +88,52 @@ class SocketService extends LocalEventEmitter {
         this.emit('error', error);
       });
 
-      this.setupEventListeners();
+      this.setupEventListeners(socket, token);
     } catch (error) {
       console.error('Failed to connect socket:', error);
     }
   }
 
-  setupEventListeners() {
-    if (!this.socket) {
-      return;
-    }
+  setupEventListeners(socket, token) {
+    socket.on('session-revoked', async (payload) => {
+      if (this.socket !== socket || this.socketToken !== token) return;
 
-    this.socket.on('new-incident', (data) => {
+      try {
+        const currentToken = await AsyncStorage.getItem('auth_token');
+        if (this.socket !== socket || this.socketToken !== token || currentToken !== token) return;
+
+        this.disconnect();
+        this.emit('session-revoked', payload);
+      } catch (error) {
+        console.warn('Unable to verify revoked mobile session:', error?.message || error);
+      }
+    });
+
+    socket.on('new-incident', (data) => {
       this.emit('new-incident', data);
     });
 
-    this.socket.on('incident-updated', (data) => {
+    socket.on('incident-updated', (data) => {
       this.emit('incident-updated', data);
     });
 
-    this.socket.on('alert-received', (data) => {
+    socket.on('alert-received', (data) => {
       this.emit('alert-received', data);
     });
 
-    this.socket.on('sos_alert', (data) => {
+    socket.on('sos_alert', (data) => {
       this.emit('sos_alert', data);
     });
 
-    this.socket.on('incident_assigned', (data) => {
+    socket.on('incident_assigned', (data) => {
       this.emit('incident_assigned', data);
     });
 
-    this.socket.on('officer_assignment', (data) => {
+    socket.on('officer_assignment', (data) => {
       this.emit('officer_assignment', data);
     });
 
-    this.socket.on('notification-created', (data) => {
+    socket.on('notification-created', (data) => {
       this.emit('notification-created', data);
     });
   }
@@ -127,9 +146,11 @@ class SocketService extends LocalEventEmitter {
 
   disconnect() {
     if (this.socket) {
-      this.socket.disconnect();
+      const socket = this.socket;
       this.socket = null;
+      this.socketToken = null;
       this.isConnected = false;
+      socket.disconnect();
     }
   }
 }

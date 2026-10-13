@@ -1,9 +1,9 @@
 ﻿const express = require('express');
 const router = express.Router();
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticateEmergency, authorize } = require('../middleware/auth');
 const { Response, Incident, User } = require('../models');
 
-router.use(authenticate, authorize('security', 'security_officer', 'admin'));
+router.use(authenticateEmergency, authorize('security', 'security_officer', 'admin'));
 
 router.get('/', async (req, res) => {
   try {

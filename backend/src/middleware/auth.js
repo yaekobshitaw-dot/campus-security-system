@@ -38,14 +38,15 @@ const getAuthenticatedUser = async(req) => {
     }
   });
   if (!session) throw new Error('Session is invalid or expired');
+  req.authenticatedSessionId = decoded.sid;
   return user;
 };
 
-const authenticate = async (req, res, next) => {
+const createAuthenticate = ({ allowDuringMaintenance = false } = {}) => async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
 
-    if (String(user.role || '').trim().toLowerCase() !== 'admin') {
+    if (!allowDuringMaintenance && String(user.role || '').trim().toLowerCase() !== 'admin') {
       let systemActive;
       try {
         systemActive = await isSystemActive();
@@ -82,11 +83,15 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+const authenticate = createAuthenticate();
+const authenticateEmergency = createAuthenticate({ allowDuringMaintenance: true });
+
 const authenticateOptional = async(req, res, next) => {
   try {
     req.user = await getAuthenticatedUser(req);
   } catch {
     delete req.user;
+    delete req.authenticatedSessionId;
   }
   return next();
 };
@@ -103,4 +108,4 @@ const authorize = (...allowedRoles) => (req, res, next) => {
   return next();
 };
 
-module.exports = { authenticate, authenticateOptional, authorize };
+module.exports = { authenticate, authenticateEmergency, authenticateOptional, authorize };

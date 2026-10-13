@@ -5,6 +5,19 @@ import { getApiBaseUrl } from '../config/server';
 import { socketService } from './socket';
 
 let authInvalidationHandler = null;
+let pendingLogoutRefreshToken = null;
+
+export const setLogoutRefreshToken = (refreshToken) => {
+  pendingLogoutRefreshToken = typeof refreshToken === 'string' && refreshToken
+    ? refreshToken
+    : null;
+};
+
+export const consumeLogoutRefreshToken = () => {
+  const refreshToken = pendingLogoutRefreshToken;
+  pendingLogoutRefreshToken = null;
+  return refreshToken;
+};
 
 export const setAuthInvalidationHandler = (handler) => {
   authInvalidationHandler = handler;
@@ -17,12 +30,14 @@ export const setAuthInvalidationHandler = (handler) => {
 };
 
 export const clearAuthSession = async () => {
-  try {
-    await AsyncStorage.removeItem('auth_token');
-    await AsyncStorage.removeItem('user');
-  } catch (error) {
-    console.error('Failed to clear stored auth session:', error);
-  }
+  pendingLogoutRefreshToken = null;
+  await Promise.all(['auth_token', 'refresh_token', 'user'].map(async (key) => {
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch (error) {
+      console.error('Failed to clear stored auth session:', error);
+    }
+  }));
 
   socketService.disconnect();
 };

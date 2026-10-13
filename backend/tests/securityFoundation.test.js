@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
+const { Op } = require('sequelize');
 
 process.env.MFA_ENCRYPTION_KEY = process.env.MFA_ENCRYPTION_KEY || 'test-mfa-encryption-key-with-32-chars';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'security-foundation-test-secret';
@@ -21,6 +22,7 @@ const originalUserFindByPk = User.findByPk;
 const originalUserUpdate = User.update;
 const originalExchangeLoginTicket = oauthService.exchangeLoginTicket;
 const originalRevokeRefreshSession = securityService.revokeRefreshSession;
+const originalRevokeSession = securityService.revokeSession;
 const originalVerifyMfaChallenge = securityService.verifyMfaChallenge;
 const originalConsumeRecoveryCodeAtomic = securityService.consumeRecoveryCodeAtomic;
 test.afterEach(() => {
@@ -34,6 +36,7 @@ test.afterEach(() => {
     User.update = originalUserUpdate;
     oauthService.exchangeLoginTicket = originalExchangeLoginTicket;
     securityService.revokeRefreshSession = originalRevokeRefreshSession;
+    securityService.revokeSession = originalRevokeSession;
     securityService.verifyMfaChallenge = originalVerifyMfaChallenge;
     securityService.consumeRecoveryCodeAtomic = originalConsumeRecoveryCodeAtomic;
 });
@@ -80,13 +83,15 @@ test('active-session access tokens authenticate successfully', async() => {
         assert.equal(where.user_id, 'user-1');
         return { session_id: 'session-1', user_id: 'user-1', revoked_at: null, expires_at: new Date(Date.now() + 60000) };
     };
+    const request = { headers: { authorization: `Bearer ${accessToken()}` } };
     const response = middlewareResponse();
     let called = false;
 
-    await authenticate({ headers: { authorization: `Bearer ${accessToken()}` } }, response, () => { called = true; });
+    await authenticate(request, response, () => { called = true; });
 
     assert.equal(called, true);
     assert.equal(response.statusCode, null);
+    assert.equal(request.authenticatedSessionId, 'session-1');
 });
 
 test('revoked-session access tokens are rejected', async() => {
@@ -101,11 +106,32 @@ test('revoked-session access tokens are rejected', async() => {
     assert.equal(response.statusCode, 401);
 });
 
+test('revokeSession updates only the requested unrevoked session for its owner', async() => {
+    let updateValues;
+    let updateOptions;
+    SecuritySession.update = async(values, options) => {
+        updateValues = values;
+        updateOptions = options;
+        return [1];
+    };
+
+    assert.equal(await securityService.revokeSession('session-1', 'user-1'), 'session-1');
+    assert.equal(updateOptions.where.session_id, 'session-1');
+    assert.equal(updateOptions.where.user_id, 'user-1');
+    assert.equal(updateOptions.where.revoked_at, null);
+    assert.ok(updateOptions.where.expires_at);
+    assert.ok(updateValues.revoked_at instanceof Date);
+    assert.equal(updateValues.last_active_at, updateValues.revoked_at);
+
+    SecuritySession.update = async() => [0];
+    assert.equal(await securityService.revokeSession('session-1', 'user-1'), false);
+});
+
 test('logout revokes only the submitted refresh token and works without access authentication', async() => {
     const audited = captureAudit();
     const revokedTokens = [];
-    const sessionASocket = { sessionId: 'session-a', disconnected: false, disconnect() { this.disconnected = true; } };
-    const sessionBSocket = { sessionId: 'session-b', disconnected: false, disconnect() { this.disconnected = true; } };
+    const sessionASocket = { sessionId: 'session-a', disconnected: false, emit() {}, disconnect() { this.disconnected = true; } };
+    const sessionBSocket = { sessionId: 'session-b', disconnected: false, emit() {}, disconnect() { this.disconnected = true; } };
     securityService.revokeRefreshSession = async(token) => {
         revokedTokens.push(token);
         return token === 'valid-refresh-token' ? 'session-a' : false;
@@ -192,11 +218,53 @@ test('refresh rotation revokes the old session and updates its activity timestam
     assert.equal(updateValues.last_active_at, updateValues.revoked_at);
 });
 
-test('refresh revocation rejects missing, expired, or already revoked sessions', async() => {
-    SecuritySession.update = async() => [0];
+test('refresh revocation only updates a valid, unrevoked session', async() => {
+    const sessions = new Map([
+        [securityService.hash('valid-token'), { session_id: 'session-valid', expires_at: new Date(Date.now() + 60000), revoked_at: null }],
+        [securityService.hash('expired-token'), { session_id: 'session-expired', expires_at: new Date(Date.now() - 60000), revoked_at: null }],
+        [securityService.hash('revoked-token'), { session_id: 'session-revoked', expires_at: new Date(Date.now() + 60000), revoked_at: new Date() }]
+    ]);
+    const lookups = [];
+    SecuritySession.update = async(values, { where }) => {
+        assert.match(where.refresh_token_hash, /^[a-f0-9]{64}$/);
+        assert.equal(where.revoked_at, null);
+        assert.ok(where.expires_at[Op.gt] instanceof Date);
+        assert.ok(values.revoked_at instanceof Date);
+        const session = sessions.get(where.refresh_token_hash);
+        if (!session || session.revoked_at || session.expires_at <= where.expires_at[Op.gt]) return [0];
+        session.revoked_at = values.revoked_at;
+        return [1];
+    };
+    SecuritySession.findOne = async({ where }) => {
+        lookups.push(where.refresh_token_hash);
+        return sessions.get(where.refresh_token_hash) || null;
+    };
 
-    assert.equal(await securityService.revokeRefreshSession('missing-token'), false);
-    assert.equal(await securityService.rotateRefreshSession('expired-token'), null);
+    assert.equal(await securityService.revokeRefreshSession(''), false);
+    assert.equal(await securityService.revokeRefreshSession(null), false);
+    assert.equal(await securityService.revokeRefreshSession('valid-token'), 'session-valid');
+    assert.equal(await securityService.revokeRefreshSession('expired-token'), false);
+    assert.equal(await securityService.revokeRefreshSession('unknown-token'), false);
+    assert.equal(await securityService.revokeRefreshSession('malformed-token'), false);
+    assert.equal(await securityService.revokeRefreshSession('revoked-token'), false);
+    assert.deepEqual(lookups, [securityService.hash('valid-token')]);
+});
+
+test('logout does not report success when an expired refresh token updates no session', async() => {
+    const refreshToken = 'expired-logout-token';
+    SecuritySession.update = async(values, { where }) => {
+        assert.equal(where.refresh_token_hash, securityService.hash(refreshToken));
+        assert.equal(where.revoked_at, null);
+        assert.ok(where.expires_at[Op.gt] instanceof Date);
+        assert.ok(values.revoked_at instanceof Date);
+        return [0];
+    };
+    const response = authResponse();
+
+    await authController.logout({ body: { refreshToken }, app: { get: () => null } }, response);
+
+    assert.equal(response.statusCode, 401);
+    assert.deepEqual(response.payload, { success: false, message: 'Logout credentials are invalid or expired' });
 });
 
 test('concurrent refresh reuse allows only one conditional update', async() => {
@@ -263,4 +331,30 @@ test('OAuth login audit identifies the authenticated actor', async() => {
     await authController.oauthExchange(authRequest({ ticket: 'one-time-ticket' }), response);
 
     assert.equal(records.find((record) => record.action === 'login').actor_id, user.user_id);
+});
+
+test('logout revokes the validated bearer session when refresh storage is unavailable', async() => {
+    const audited = captureAudit();
+    const sessionSocket = { sessionId: 'session-a', disconnected: false, emit() {}, disconnect() { this.disconnected = true; } };
+    const revokeCalls = [];
+    securityService.revokeSession = async(sessionId, userId) => {
+        revokeCalls.push({ sessionId, userId });
+        return sessionId;
+    };
+    securityService.revokeRefreshSession = async() => assert.fail('valid bearer session should be preferred');
+    const response = authResponse();
+    const request = {
+        body: {},
+        user: authUser('student'),
+        authenticatedSessionId: 'session-a',
+        get: () => 'test-agent',
+        app: { get: () => ({ sockets: { sockets: new Map([['a', sessionSocket]]) } }) }
+    };
+
+    await authController.logout(request, response);
+
+    assert.deepEqual(revokeCalls, [{ sessionId: 'session-a', userId: 'student-1' }]);
+    assert.equal(response.statusCode, 200);
+    assert.equal(sessionSocket.disconnected, true);
+    assert.equal(audited.find((record) => record.action === 'logout').actor_id, 'student-1');
 });

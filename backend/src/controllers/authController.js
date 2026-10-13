@@ -13,6 +13,22 @@ const { logger } = require('../utils/logger');
 const securityService = require('../services/securityService');
 const { disconnectSessionSockets } = require('../config/socket');
 
+const sendSessionRevocation = (req, userId, options = {}) => {
+    const io = req.app?.get?.('io');
+    if (!io || !userId) return;
+    const sockets = io.sockets?.sockets;
+    const payload = {
+        reason: options.reason || 'session_revoked',
+        message: options.message || 'Your account was signed in on another device. Please log in again.'
+    };
+    for (const socket of sockets?.values() || []) {
+        if (String(socket.user?.user_id) !== String(userId)) continue;
+        if (options.exceptSessionId && String(socket.sessionId) === String(options.exceptSessionId)) continue;
+        socket.emit('session-revoked', payload);
+        socket.disconnect(true);
+    }
+};
+
 const jwtSecret = process.env.JWT_SECRET;
 
 if (!jwtSecret) {
@@ -280,6 +296,7 @@ exports.login = async(req, res) => {
         }
 
         const { refreshToken, session } = await securityService.createRefreshSession(user, req);
+        sendSessionRevocation(req, user.user_id, { exceptSessionId: session.session_id, reason: 'new_login', message: 'Your account was signed in on another device. Please log in again.' });
         const token = generateToken(user, session.session_id);
         if (isSecurityRole(user.role)) {
             await user.update({ availability_status: 'available' });
@@ -324,6 +341,7 @@ exports.verifyMfaLogin = async(req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid MFA code' });
         }
         const { refreshToken, session } = await securityService.createRefreshSession(user, req);
+        sendSessionRevocation(req, user.user_id, { exceptSessionId: session.session_id, reason: 'new_login', message: 'Your account was signed in on another device. Please log in again.' });
         const token = generateToken(user, session.session_id);
         await recordAudit({...req, user }, { action: 'mfa_success', resourceType: 'user', resourceId: user.user_id });
         await recordAudit({...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
@@ -425,7 +443,13 @@ exports.resetPassword = async(req, res) => {
 exports.logout = async(req, res) => {
     try {
         const refreshToken = String(req.body?.refreshToken || '');
-        const revokedSessionId = await securityService.revokeRefreshSession(refreshToken);
+        let revokedSessionId = false;
+        if (req.user && req.authenticatedSessionId) {
+            revokedSessionId = await securityService.revokeSession(req.authenticatedSessionId, req.user.user_id);
+        }
+        if (!revokedSessionId && refreshToken) {
+            revokedSessionId = await securityService.revokeRefreshSession(refreshToken);
+        }
         if (!revokedSessionId) return res.status(401).json({ success: false, message: 'Logout credentials are invalid or expired' });
         disconnectSessionSockets(req.app?.get('io'), revokedSessionId);
         if (req.user && isSecurityRole(req.user.role)) {
@@ -445,6 +469,7 @@ exports.oauthExchange = async(req, res) => {
     try {
         const user = await oauthService.exchangeLoginTicket(req.body.ticket);
         const { refreshToken, session } = await securityService.createRefreshSession(user, req);
+        sendSessionRevocation(req, user.user_id, { exceptSessionId: session.session_id, reason: 'new_login', message: 'Your account was signed in on another device. Please log in again.' });
         const token = generateToken(user, session.session_id);
         await recordAudit({...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
         return res.status(200).json({

@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, useColorScheme, View, Vibration } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AppNavigator from './navigation/AppNavigator';
-import { setAuthInvalidationHandler } from './services/api';
+import { clearAuthSession, setAuthInvalidationHandler } from './services/api';
 import { startOfficerLocationUpdates } from './services/officerLocation';
 import { getPendingSms, sendSmsResult } from './services/smsService';
 import { store } from './store';
-import { hydrateAuth, sessionExpired } from './store/authSlice';
+import { hydrateAuth, sessionExpired, sessionRevoked } from './store/authSlice';
 import { socketService } from './services/socket';
 import NotificationBanner from './components/NotificationBanner';
 import { addRealtimeNotification } from './store/notificationSlice';
@@ -28,6 +28,16 @@ function AppContent() {
   }, [dispatch]);
 
   useEffect(() => setAuthInvalidationHandler(() => dispatch(sessionExpired())), [dispatch]);
+
+  useEffect(() => {
+    const handleSessionRevoked = (payload) => {
+      dispatch(sessionRevoked(payload));
+      clearAuthSession();
+    };
+
+    socketService.on('session-revoked', handleSessionRevoked);
+    return () => socketService.off('session-revoked', handleSessionRevoked);
+  }, [dispatch]);
 
   const [banner, setBanner] = useState(null);
 

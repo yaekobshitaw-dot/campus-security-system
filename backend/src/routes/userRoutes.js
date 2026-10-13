@@ -10,6 +10,7 @@ const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
 const { withAdminAccountsLocked, assertAdminCapacity, assertUsableAdminRemains } = require('../services/adminAccountPolicy');
 const { disconnectUserSockets } = require('../config/socket');
+const { revokeUserSessions } = require('../services/securityService');
 
 const LOCATION_STALE_AFTER_MS = 2 * 60 * 1000;
 const normalizeRole = (role) => String(role || '').trim().toLowerCase();
@@ -391,7 +392,13 @@ router.patch('/:userId/status', authorize('admin'), async (req, res) => {
       await target.update({ is_active }, { transaction });
       return target;
     });
-    if (!is_active) disconnectUserSockets(req.app?.get('io'), user.user_id);
+    if (!is_active) {
+      await revokeUserSessions(user.user_id);
+      disconnectUserSockets(req.app?.get('io'), user.user_id, {
+        reason: 'account_deactivated',
+        message: 'Your account was deactivated. Please log in again.'
+      });
+    }
     await recordAudit(req, { action: is_active ? 'user_activated' : 'user_deactivated', resourceType: 'user', resourceId: user.user_id });
     await notifyUsers(req, { type: 'user_admin_event', title: 'User account updated', message: `${user.name} was ${is_active ? 'activated' : 'deactivated'}.`, resourceType: 'user', resourceId: user.user_id, link: '/users', dedupeKey: `user-status:${user.user_id}:${is_active}:${user.updated_at}` });
 

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import api, { clearAuthSession } from '../services/api';
+import api, { clearAuthSession, consumeLogoutRefreshToken, setLogoutRefreshToken } from '../services/api';
 import { registerForPushNotifications } from '../services/notification';
 import { socketService } from '../services/socket';
 
@@ -57,9 +57,10 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/login', credentials);
-      const { user, accessToken } = response.data.data;
+      const { user, accessToken, refreshToken } = response.data.data;
       await AsyncStorage.setItem('auth_token', accessToken);
       await AsyncStorage.setItem('user', JSON.stringify(user));
+      setLogoutRefreshToken(refreshToken);
       await socketService.connect();
       await registerForPushNotifications();
       return { user, token: accessToken };
@@ -91,23 +92,27 @@ export const register = createAsyncThunk(
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async (_, { rejectWithValue }) => {
+  async (_, { dispatch }) => {
+    const refreshToken = consumeLogoutRefreshToken();
+    let accessToken = null;
     try {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        try {
-          await api.post('/auth/logout');
-        } catch (error) {
-          if (!error.response || error.response.status >= 500) {
-            console.error('Server logout failed; clearing local session anyway.', error?.message || error);
-          }
-        }
-      }
-      await clearAuthSession();
-      return null;
-    } catch (error) {
-      return rejectWithValue(error.message || 'Logout failed');
+      accessToken = await AsyncStorage.getItem('auth_token');
+    } catch {
+      // A refresh token may still be available in memory.
     }
+
+    const logoutRequest = accessToken || refreshToken
+      ? Promise.resolve()
+        .then(() => api.post('/auth/logout', refreshToken ? { refreshToken } : {}, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        }))
+        .then((response) => response.status === 200)
+        .catch(() => false)
+      : Promise.resolve(false);
+
+    dispatch(loggedOutLocally());
+    await clearAuthSession();
+    return { serverRevoked: await logoutRequest };
   }
 );
 
@@ -163,6 +168,22 @@ const authSlice = createSlice({
       state.isHydrated = true;
       state.loading = false;
       state.error = 'Session expired. Please sign in again.';
+    },
+    sessionRevoked: (state, action) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isHydrated = true;
+      state.loading = false;
+      state.error = action.payload?.message || 'Your session was revoked. Please sign in again.';
+    },
+    loggedOutLocally: (state) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isHydrated = true;
+      state.loading = false;
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
@@ -245,5 +266,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setUser, sessionExpired } = authSlice.actions;
+export const { clearError, setUser, sessionExpired, sessionRevoked, loggedOutLocally } = authSlice.actions;
 export default authSlice.reducer;
