@@ -1259,6 +1259,87 @@ describe('Dashboard', () => {
     });
   });
 
+  it('lets an officer set their own status online through persisted availability', async () => {
+    const onUserUpdated = vi.fn();
+    apiPatch.mockResolvedValue({ data: { data: { user_id: 'officer-self', availability_status: 'available' } } });
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <Dashboard user={{ user_id: 'officer-self', role: 'security', name: 'Officer Self', availability_status: 'offline' }} onUserUpdated={onUserUpdated} />
+      </MemoryRouter>,
+    );
+
+    const status = await screen.findByLabelText('Status');
+    expect(screen.getByRole('option', { name: 'Online / Available' })).toBeInTheDocument();
+    fireEvent.change(status, { target: { value: 'available' } });
+
+    await waitFor(() => {
+      expect(apiPatch).toHaveBeenCalledWith('/users/me/availability', { availability_status: 'available' });
+      expect(onUserUpdated).toHaveBeenCalledWith({ user_id: 'officer-self', availability_status: 'available' });
+    });
+  });
+
+  it('lets admins set a selected connected officer online and updates the card immediately', async () => {
+    const offlineOfficer = {
+      user_id: 'officer-selected',
+      name: 'Officer Selected',
+      role: 'security',
+      availability_status: 'offline',
+      presence: true,
+    };
+    apiGet.mockImplementation((url) => url === '/users/security-officers'
+      ? Promise.resolve({ data: { data: [offlineOfficer] } })
+      : Promise.resolve({ data: { data: [] } }));
+    apiPatch.mockResolvedValue({ data: { data: { ...offlineOfficer, availability_status: 'available' } } });
+
+    render(
+      <MemoryRouter initialEntries={['/officers']}>
+        <Dashboard user={{ user_id: 'admin-1', role: 'admin', name: 'Admin' }} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set Officer Selected online' }));
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith(
+      '/users/officer-selected/availability',
+      { availability_status: 'available' },
+    ));
+    expect(await screen.findByText('Online · Available')).toBeInTheDocument();
+  });
+
+  it('refreshes the officer card when an availability event arrives', async () => {
+    const offlineOfficer = {
+      user_id: 'officer-live',
+      name: 'Officer Live',
+      role: 'security',
+      availability_status: 'offline',
+      presence: true,
+    };
+    let officerRequestCount = 0;
+    apiGet.mockImplementation((url) => {
+      if (url === '/users/security-officers') {
+        officerRequestCount += 1;
+        const officer = officerRequestCount === 1
+          ? offlineOfficer
+          : { ...offlineOfficer, availability_status: 'available' };
+        return Promise.resolve({ data: { data: [officer] } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/officers']}>
+        <Dashboard user={{ user_id: 'admin-2', role: 'admin', name: 'Admin' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Offline')).toBeInTheDocument();
+    act(() => webSocket.emit('officer-availability-updated', {
+      user_id: offlineOfficer.user_id,
+      availability_status: 'available',
+    }));
+    expect(await screen.findByText('Online · Available')).toBeInTheDocument();
+  });
+
   it('loads assignment reviews for admin, matching backend authorization', async () => {
     apiGet.mockImplementation((url) => url === '/incidents/responses/pending'
       ? Promise.resolve({ data: { data: [] } })

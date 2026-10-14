@@ -1,5 +1,5 @@
 ﻿// src/controllers/authController.js
-const { User } = require('../models');
+const { Incident, Response, User } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -43,6 +43,33 @@ const normalizeRole = (role, allowedRoles, fallbackRole = 'student') => {
 };
 const canonicalizeSecurityRole = (role) => (String(role || '').trim().toLowerCase() === 'security_officer' ? 'security' : String(role || '').trim().toLowerCase());
 const isSecurityRole = (role) => ['security', 'security_officer'].includes(String(role || '').trim().toLowerCase());
+const emitOfficerAvailability = (req, user) => {
+    const io = req.app?.get?.('io');
+    if (!io || !isSecurityRole(user?.role)) return;
+    io.to('role:security').to('role:security_officer').to('role:admin').emit('officer-availability-updated', {
+        user_id: user.user_id,
+        name: user.name,
+        role: user.role,
+        latitude: user.latitude,
+        longitude: user.longitude,
+        availability_status: user.availability_status,
+        location_updated_at: user.location_updated_at
+    });
+};
+const markSecurityOfficerOnline = async(req, user) => {
+    if (!isSecurityRole(user?.role)) return;
+    const activeResponse = await Response.findOne({
+        where: { responder_id: user.user_id, status: 'responding' },
+        include: [{
+            model: Incident,
+            as: 'incident',
+            attributes: ['incident_id', 'status'],
+            where: { status: ['reported', 'investigating', 'dispatched', 'on_scene'] }
+        }]
+    });
+    await user.update({ availability_status: activeResponse ? 'responding' : 'available' });
+    emitOfficerAvailability(req, user);
+};
 const isValidBootstrapSecret = (providedSecret) => {
     const configuredSecret = String(process.env.ADMIN_BOOTSTRAP_SECRET || '');
     const suppliedSecret = String(providedSecret || '');
@@ -298,9 +325,7 @@ exports.login = async(req, res) => {
         const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         sendSessionRevocation(req, user.user_id, { exceptSessionId: session.session_id, reason: 'new_login', message: 'Your account was signed in on another device. Please log in again.' });
         const token = generateToken(user, session.session_id);
-        if (isSecurityRole(user.role)) {
-            await user.update({ availability_status: 'available' });
-        }
+        await markSecurityOfficerOnline(req, user);
         if (user.role === 'admin') {
             req.user = user;
             await recordAudit(req, { action: 'admin_login', resourceType: 'user', resourceId: user.user_id });
@@ -343,6 +368,7 @@ exports.verifyMfaLogin = async(req, res) => {
         const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         sendSessionRevocation(req, user.user_id, { exceptSessionId: session.session_id, reason: 'new_login', message: 'Your account was signed in on another device. Please log in again.' });
         const token = generateToken(user, session.session_id);
+        await markSecurityOfficerOnline(req, user);
         await recordAudit({...req, user }, { action: 'mfa_success', resourceType: 'user', resourceId: user.user_id });
         await recordAudit({...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
         return res.json({ success: true, message: 'Login successful', data: { user: user.toJSON(), accessToken: token, refreshToken } });
@@ -454,6 +480,7 @@ exports.logout = async(req, res) => {
         disconnectSessionSockets(req.app?.get('io'), revokedSessionId);
         if (req.user && isSecurityRole(req.user.role)) {
             await req.user.update({ availability_status: 'offline' });
+            emitOfficerAvailability(req, req.user);
         }
         await recordAudit(req, { action: 'logout', resourceType: 'user', resourceId: req.user?.user_id });
         return res.status(200).json({
@@ -471,6 +498,7 @@ exports.oauthExchange = async(req, res) => {
         const { refreshToken, session } = await securityService.createRefreshSession(user, req);
         sendSessionRevocation(req, user.user_id, { exceptSessionId: session.session_id, reason: 'new_login', message: 'Your account was signed in on another device. Please log in again.' });
         const token = generateToken(user, session.session_id);
+        await markSecurityOfficerOnline(req, user);
         await recordAudit({...req, user }, { action: 'login', resourceType: 'user', resourceId: user.user_id });
         return res.status(200).json({
             success: true,

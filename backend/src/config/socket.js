@@ -97,7 +97,7 @@ function initSocket(io, options = {}) {
       location_updated_at: socket.user.location_updated_at,
       presence: true
     };
-    io.to('role:security').to('role:admin').emit('officer-location-updated', officerPayload);
+    io.to('role:security').to('role:security_officer').to('role:admin').emit('officer-location-updated', officerPayload);
 
     socket.on('disconnect', () => {
       const currentEntry = presence.get(userId);
@@ -105,7 +105,7 @@ function initSocket(io, options = {}) {
       currentEntry.count = currentEntry.connections.size;
 
       const disconnectedOfficerPayload = { ...officerPayload, presence: currentEntry.count > 0 };
-      io.to('role:security').to('role:admin').emit('officer-location-updated', disconnectedOfficerPayload);
+      io.to('role:security').to('role:security_officer').to('role:admin').emit('officer-location-updated', disconnectedOfficerPayload);
       if (currentEntry.count > 0) return;
 
       currentEntry.offlineTimer = setTimeout(() => {

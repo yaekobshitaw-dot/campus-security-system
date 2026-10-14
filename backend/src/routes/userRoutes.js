@@ -18,6 +18,15 @@ const isSecurityRole = (role) => ['security', 'security_officer'].includes(norma
 const isValidCoordinate = (value, minimum, maximum) => value !== null && value !== undefined && value !== ''
   && Number.isFinite(Number(value))
   && Number(value) >= minimum && Number(value) <= maximum;
+const findActiveRespondingResponse = (userId) => Response.findOne({
+  where: { responder_id: userId, status: 'responding' },
+  include: [{
+    model: Incident,
+    as: 'incident',
+    attributes: ['incident_id', 'status'],
+    where: { status: ['reported', 'investigating', 'dispatched', 'on_scene'] }
+  }]
+});
 
 router.use(authenticate);
 
@@ -154,42 +163,73 @@ router.patch('/me/location', authorize('security', 'security_officer', 'admin'),
     location_updated_at: req.user.location_updated_at
   };
   const io = req.app.get('io');
-  if (io) io.to('role:security').to('role:admin').emit('officer-location-updated', payload);
+  if (io) io.to('role:security').to('role:security_officer').to('role:admin').emit('officer-location-updated', payload);
   return res.status(200).json({ success: true, data: payload });
 });
 
 // Handler to update a user's explicit availability (used by security officers)
-async function updateAvailabilityHandler(req, res) {
+async function persistAvailability(req, res, user, availabilityStatus) {
   try {
-    const { availability_status } = req.body || {};
-    const validStatuses = ['available', 'responding', 'busy', 'offline'];
-    if (!validStatuses.includes(availability_status)) {
-      return res.status(400).json({ success: false, message: 'Invalid availability status' });
-    }
-
-    // Prevent going offline while responding to an active incident
-    if (availability_status === 'offline') {
-      const activeResponse = await Response.findOne({ where: { responder_id: req.user.user_id, status: 'responding' } });
-      if (activeResponse) {
+    if (['available', 'offline'].includes(availabilityStatus)) {
+      const activeResponse = await findActiveRespondingResponse(user.user_id);
+      if (activeResponse && availabilityStatus === 'offline') {
         return res.status(400).json({ success: false, message: 'You cannot go offline while responding to an active incident.' });
+      }
+      if (activeResponse && availabilityStatus === 'available') {
+        return res.status(409).json({ success: false, message: 'You cannot mark available while responding to an active incident.' });
       }
     }
 
-    await req.user.update({ availability_status });
-
+    await user.update({ availability_status: availabilityStatus });
     const payload = {
-      user_id: req.user.user_id,
-      name: req.user.name,
-      role: req.user.role,
-      latitude: req.user.latitude,
-      longitude: req.user.longitude,
-      availability_status: req.user.availability_status,
-      location_updated_at: req.user.location_updated_at
+      user_id: user.user_id,
+      name: user.name,
+      role: user.role,
+      latitude: user.latitude,
+      longitude: user.longitude,
+      availability_status: user.availability_status,
+      location_updated_at: user.location_updated_at
     };
     const io = req.app.get('io');
-    if (io) io.to('role:security').to('role:admin').emit('officer-availability-updated', payload);
-
+    if (io) {
+      io.to('role:security').to('role:security_officer').to('role:admin')
+        .emit('officer-availability-updated', payload);
+    }
     return res.status(200).json({ success: true, data: payload });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to update availability' });
+  }
+}
+
+async function updateAvailabilityHandler(req, res) {
+  const { availability_status } = req.body || {};
+  const validStatuses = ['available', 'responding', 'busy', 'offline'];
+  if (!validStatuses.includes(availability_status)) {
+    return res.status(400).json({ success: false, message: 'Invalid availability status' });
+  }
+  return persistAvailability(req, res, req.user, availability_status);
+}
+
+async function makeOfficerAvailableHandler(req, res) {
+  try {
+    if (req.body?.availability_status !== 'available') {
+      return res.status(400).json({ success: false, message: 'Invalid availability status' });
+    }
+    const officer = await User.findOne({
+      where: {
+        user_id: req.params.userId,
+        is_active: true,
+        role: { [Op.in]: ['security', 'security_officer'] }
+      }
+    });
+    if (!officer) return res.status(404).json({ success: false, message: 'Active security officer not found' });
+
+    const io = req.app.get('io');
+    const presenceEntry = io?.presence?.get(officer.user_id);
+    if (!presenceEntry || Number(presenceEntry.count) <= 0) {
+      return res.status(409).json({ success: false, message: 'The officer must be signed in before being marked available.' });
+    }
+    return persistAvailability(req, res, officer, 'available');
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to update availability' });
   }
@@ -198,6 +238,7 @@ async function updateAvailabilityHandler(req, res) {
 // Dedicated availability endpoint for officers (does not require location/GPS)
 // Allow both canonical and legacy security role labels (some records may use 'security_officer')
 router.patch('/me/availability', authorize('security', 'security_officer', 'admin'), updateAvailabilityHandler);
+router.patch('/:userId/availability', authorize('admin'), makeOfficerAvailableHandler);
 
 router.put('/push-token', async (req, res) => {
   const { push_token: pushToken } = req.body;

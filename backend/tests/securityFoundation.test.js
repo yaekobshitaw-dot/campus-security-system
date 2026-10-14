@@ -10,7 +10,7 @@ const securityService = require('../src/services/securityService');
 const authController = require('../src/controllers/authController');
 const { authenticate } = require('../src/middleware/auth');
 const oauthService = require('../src/services/oauthService');
-const { AuditLog, MfaRecoveryCode, SecuritySession, User } = require('../src/models');
+const { AuditLog, MfaRecoveryCode, Response, SecuritySession, User } = require('../src/models');
 
 const originalFindOne = SecuritySession.findOne;
 const originalSessionUpdate = SecuritySession.update;
@@ -20,6 +20,7 @@ const originalAuditCreate = AuditLog.create;
 const originalUserFindOne = User.findOne;
 const originalUserFindByPk = User.findByPk;
 const originalUserUpdate = User.update;
+const originalResponseFindOne = Response.findOne;
 const originalExchangeLoginTicket = oauthService.exchangeLoginTicket;
 const originalRevokeRefreshSession = securityService.revokeRefreshSession;
 const originalRevokeSession = securityService.revokeSession;
@@ -34,6 +35,7 @@ test.afterEach(() => {
     User.findOne = originalUserFindOne;
     User.findByPk = originalUserFindByPk;
     User.update = originalUserUpdate;
+    Response.findOne = originalResponseFindOne;
     oauthService.exchangeLoginTicket = originalExchangeLoginTicket;
     securityService.revokeRefreshSession = originalRevokeRefreshSession;
     securityService.revokeSession = originalRevokeSession;
@@ -307,11 +309,33 @@ for (const role of['student', 'admin']) {
     });
 }
 
+test('password login restores security officer availability', async() => {
+    const user = {
+        ...authUser('security'),
+        availability_status: 'offline',
+        async update(values) { Object.assign(this, values); },
+        toJSON() {
+            return { user_id: this.user_id, email: this.email, role: this.role, availability_status: this.availability_status };
+        }
+    };
+    captureAudit();
+    User.findOne = async() => user;
+    SecuritySession.create = async() => ({ session_id: 'session-1' });
+    Response.findOne = async() => null;
+    const response = authResponse();
+
+    await authController.login(authRequest({ email: user.email, password: 'password123' }), response);
+
+    assert.equal(user.availability_status, 'available');
+    assert.equal(response.payload.data.user.availability_status, 'available');
+});
+
 test('MFA login audit identifies the authenticated actor', async() => {
     const user = {...authUser('student'), mfa_enabled: true, mfa_secret_hash: 'encrypted-secret' };
     const records = captureAudit();
     User.findByPk = async() => user;
     SecuritySession.create = async() => ({ session_id: 'session-1' });
+    Response.findOne = async() => null;
     securityService.verifyMfaChallenge = () => ({ user_id: user.user_id });
     securityService.consumeRecoveryCodeAtomic = async() => true;
     const response = authResponse();
@@ -319,6 +343,75 @@ test('MFA login audit identifies the authenticated actor', async() => {
     await authController.verifyMfaLogin(authRequest({ recoveryCode: 'recovery-code' }), response);
 
     assert.equal(records.find((record) => record.action === 'login').actor_id, user.user_id);
+});
+
+test('successful MFA login restores a security officer availability status', async() => {
+    const user = {
+        ...authUser('security'),
+        mfa_enabled: true,
+        mfa_secret_hash: 'encrypted-secret',
+        availability_status: 'offline',
+        async update(values) { Object.assign(this, values); },
+        toJSON() {
+            return { user_id: this.user_id, email: this.email, role: this.role, availability_status: this.availability_status };
+        }
+    };
+    User.findByPk = async() => user;
+    SecuritySession.create = async() => ({ session_id: 'session-1' });
+    Response.findOne = async() => null;
+    securityService.verifyMfaChallenge = () => ({ user_id: user.user_id });
+    securityService.consumeRecoveryCodeAtomic = async() => true;
+    const response = authResponse();
+
+    await authController.verifyMfaLogin(authRequest({ recoveryCode: 'recovery-code' }), response);
+
+    assert.equal(user.availability_status, 'available');
+    assert.equal(response.payload.data.user.availability_status, 'available');
+});
+
+test('MFA login preserves a security officer active incident response', async() => {
+    const user = {
+        ...authUser('security'),
+        mfa_enabled: true,
+        mfa_secret_hash: 'encrypted-secret',
+        availability_status: 'offline',
+        async update(values) { Object.assign(this, values); },
+        toJSON() {
+            return { user_id: this.user_id, email: this.email, role: this.role, availability_status: this.availability_status };
+        }
+    };
+    User.findByPk = async() => user;
+    SecuritySession.create = async() => ({ session_id: 'session-1' });
+    securityService.verifyMfaChallenge = () => ({ user_id: user.user_id });
+    securityService.consumeRecoveryCodeAtomic = async() => true;
+    Response.findOne = async() => ({ responder_id: user.user_id, status: 'responding' });
+    const response = authResponse();
+
+    await authController.verifyMfaLogin(authRequest({ recoveryCode: 'recovery-code' }), response);
+
+    assert.equal(user.availability_status, 'responding');
+    assert.equal(response.payload.data.user.availability_status, 'responding');
+});
+
+test('OAuth login restores security officer availability', async() => {
+    const user = {
+        ...authUser('security'),
+        availability_status: 'offline',
+        async update(values) { Object.assign(this, values); },
+        toJSON() {
+            return { user_id: this.user_id, email: this.email, role: this.role, availability_status: this.availability_status };
+        }
+    };
+    captureAudit();
+    oauthService.exchangeLoginTicket = async() => user;
+    SecuritySession.create = async() => ({ session_id: 'session-1' });
+    Response.findOne = async() => null;
+    const response = authResponse();
+
+    await authController.oauthExchange(authRequest({ ticket: 'one-time-ticket' }), response);
+
+    assert.equal(user.availability_status, 'available');
+    assert.equal(response.payload.data.user.availability_status, 'available');
 });
 
 test('OAuth login audit identifies the authenticated actor', async() => {

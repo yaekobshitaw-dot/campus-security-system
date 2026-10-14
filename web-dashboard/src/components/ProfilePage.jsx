@@ -10,6 +10,7 @@ const ProfilePage = ({ user, onUpdated }) => {
 
   const handleChange = async (e) => {
     const next = e.target.value;
+    const previous = status;
     setStatus(next);
     setError('');
     setLoading(true);
@@ -17,6 +18,7 @@ const ProfilePage = ({ user, onUpdated }) => {
       const resp = await userService.updateMyAvailability(next);
       if (onUpdated) onUpdated(resp.data?.data || {});
     } catch (err) {
+      setStatus(previous);
       setError(err?.response?.data?.message || 'Failed to update status');
     } finally {
       setLoading(false);
@@ -43,9 +45,9 @@ const ProfilePage = ({ user, onUpdated }) => {
         <div className="mt-6">
           {['security', 'security_officer'].includes(String(user?.role || '').toLowerCase()) ? (
             <div className="max-w-md">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
-              <select value={status} onChange={handleChange} disabled={loading} className="w-full rounded-md border px-3 py-2">
-                <option value="available">Available</option>
+              <label htmlFor="officer-availability-status" className="block text-sm font-bold text-slate-700 mb-2">Status</label>
+              <select id="officer-availability-status" value={status} onChange={handleChange} disabled={loading} className="w-full rounded-md border px-3 py-2">
+                <option value="available">Online / Available</option>
                 <option value="busy">Busy</option>
                 <option value="offline">Offline</option>
               </select>

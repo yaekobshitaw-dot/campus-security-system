@@ -339,6 +339,8 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const [userStatusLoading, setUserStatusLoading] = useState('');
   const [userUpdateLoading, setUserUpdateLoading] = useState(false);
   const [clearHistoryLoading, setClearHistoryLoading] = useState(false);
+  const [availabilityUpdateLoading, setAvailabilityUpdateLoading] = useState('');
+  const [availabilityUpdateError, setAvailabilityUpdateError] = useState('');
   const [mapNavigationError, setMapNavigationError] = useState('');
   const [assignmentLoading, setAssignmentLoading] = useState('');
   const [assignmentResponseLoading, setAssignmentResponseLoading] = useState('');
@@ -513,6 +515,27 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       setLoading(false);
     }
   }, [canReviewAssignments, canViewOperations, canViewUsers]);
+
+  const makeOfficerAvailable = async (officer) => {
+    setAvailabilityUpdateLoading(officer.user_id);
+    setAvailabilityUpdateError('');
+    try {
+      const response = await api.patch(`/users/${encodeURIComponent(officer.user_id)}/availability`, {
+        availability_status: 'available',
+      });
+      const updatedOfficer = response.data?.data;
+      if (updatedOfficer) {
+        setOfficers((current) => current.map((item) => (
+          String(item.user_id) === String(updatedOfficer.user_id) ? { ...item, ...updatedOfficer } : item
+        )));
+      }
+    } catch (requestError) {
+      setAvailabilityUpdateError(requestError.response?.data?.message || 'Unable to update officer availability.');
+    } finally {
+      setAvailabilityUpdateLoading('');
+    }
+  };
+
   useEffect(() => { loadData(); }, [loadData]);
   const autoRefreshInProgress = useRef(false);
   useEffect(() => {
@@ -640,6 +663,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     webSocket.on('alert-received', handleAlert);
     webSocket.on('notification-created', handlePrivateNotification);
     webSocket.on('officer-location-updated', refreshOperationalData);
+    webSocket.on('officer-availability-updated', refreshOperationalData);
     webSocket.on('campus-location-updated', refreshOperationalData);
     webSocket.on('incident_assigned', refreshOperationalData);
     webSocket.on('incident-updated', refreshOperationalData);
@@ -650,6 +674,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       webSocket.off('alert-received', handleAlert);
       webSocket.off('notification-created', handlePrivateNotification);
       webSocket.off('officer-location-updated', refreshOperationalData);
+      webSocket.off('officer-availability-updated', refreshOperationalData);
       webSocket.off('campus-location-updated', refreshOperationalData);
       webSocket.off('incident_assigned', refreshOperationalData);
       webSocket.off('incident-updated', refreshOperationalData);
@@ -1177,7 +1202,43 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       ) : <EmptyState icon={PeopleAltOutlined} title="No users returned" message="User management data is unavailable or empty." />}
     </div>
   );
-  const officersView = <div className="space-y-8"><Heading eyebrow="Response team" title="Security officers" description="Officer availability from the security service." />{officers.length ? <div className="officer-grid">{officers.map((officer) => <article className="officer-card border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" key={officer.user_id}><div className="officer-card-heading"><div className="flex items-center gap-3"><UserAvatar user={officer} size="h-10 w-10" /><strong className="text-[#0b1f3a]">{officer.name}</strong></div><span className={`officer-status ${officer.availability_status || 'offline'}`}>{titleCase(officer.availability_status || 'offline')}</span></div><p className="text-sm text-slate-600">{officer.email}</p><p className="mt-3 text-xs text-slate-500">{officerLocationLabel(officer)}</p></article>)}</div> : <EmptyState icon={PeopleAltOutlined} title="No security officers" message="No officer records are currently available." />}</div>;
+  const officersView = (
+    <div className="space-y-8">
+      <Heading eyebrow="Response team" title="Security officers" description="Officer availability from the security service." />
+      {availabilityUpdateError && <p role="alert" className="text-sm text-red-700">{availabilityUpdateError}</p>}
+      {officers.length ? (
+        <div className="officer-grid">
+          {officers.map((officer) => {
+            const status = officer.availability_status || 'offline';
+            const statusLabel = status === 'available'
+              ? officer.presence ? 'Online · Available' : 'Available'
+              : titleCase(status);
+            return (
+              <article className="officer-card border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]" key={officer.user_id}>
+                <div className="officer-card-heading">
+                  <div className="flex items-center gap-3"><UserAvatar user={officer} size="h-10 w-10" /><strong className="text-[#0b1f3a]">{officer.name}</strong></div>
+                  <span className={`officer-status ${status}`}>{statusLabel}</span>
+                </div>
+                <p className="text-sm text-slate-600">{officer.email}</p>
+                <p className="mt-3 text-xs text-slate-500">{officerLocationLabel(officer)}</p>
+                {String(user.role || '').toLowerCase() === 'admin' && status === 'offline' && officer.presence && (
+                  <button
+                    type="button"
+                    className="dashboard-button secondary mt-4"
+                    onClick={() => makeOfficerAvailable(officer)}
+                    disabled={availabilityUpdateLoading === officer.user_id}
+                    aria-label={`Set ${officer.name} online`}
+                  >
+                    {availabilityUpdateLoading === officer.user_id ? 'Updating...' : 'Set Online'}
+                  </button>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : <EmptyState icon={PeopleAltOutlined} title="No security officers" message="No officer records are currently available." />}
+    </div>
+  );
   const alertsZonesError = resourceState.alerts.status === 'error' ? resourceState.alerts.error : resourceState.zones.status === 'error' ? resourceState.zones.error : '';
   let content = overview;
   if (section === 'profile') content = <ProfilePage user={user} onUpdated={onUserUpdated} />;
