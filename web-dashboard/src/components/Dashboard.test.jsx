@@ -1340,6 +1340,48 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Online · Available')).toBeInTheDocument();
   });
 
+  it('does not let an earlier officer-list response overwrite a newer availability refresh', async () => {
+    const offlineOfficer = {
+      user_id: 'officer-race',
+      name: 'Officer Race',
+      role: 'security',
+      availability_status: 'offline',
+      presence: true,
+    };
+    let resolveInitialRequest;
+    const initialOfficerRequest = new Promise((resolve) => { resolveInitialRequest = resolve; });
+    let officerRequestCount = 0;
+    apiGet.mockImplementation((url) => {
+      if (url === '/users/security-officers') {
+        officerRequestCount += 1;
+        return officerRequestCount === 1
+          ? initialOfficerRequest
+          : Promise.resolve({ data: { data: [{ ...offlineOfficer, availability_status: 'available' }] } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/officers']}>
+        <Dashboard user={{ user_id: 'admin-race', role: 'admin', name: 'Admin' }} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(officerRequestCount).toBe(1));
+    act(() => webSocket.emit('officer-availability-updated', {
+      user_id: offlineOfficer.user_id,
+      availability_status: 'available',
+    }));
+    expect(await screen.findByText('Online · Available')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveInitialRequest({ data: { data: [offlineOfficer] } });
+      await initialOfficerRequest;
+    });
+
+    expect(screen.getByText('Online · Available')).toBeInTheDocument();
+  });
+
   it('loads assignment reviews for admin, matching backend authorization', async () => {
     apiGet.mockImplementation((url) => url === '/incidents/responses/pending'
       ? Promise.resolve({ data: { data: [] } })

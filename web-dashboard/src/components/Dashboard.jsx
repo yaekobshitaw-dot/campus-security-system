@@ -348,6 +348,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const assignmentResponseInFlight = useRef(false);
   const [assignmentRequests, setAssignmentRequests] = useState([]);
   const [assignmentError, setAssignmentError] = useState('');
+  const officerRequestSequence = useRef(0);
   const [historySuccess, setHistorySuccess] = useState('');
   const [notificationHistoryError, setNotificationHistoryError] = useState('');
   const user = authenticatedUser || {};
@@ -449,6 +450,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   }, [user.user_id]);
 
   const loadData = useCallback(async ({ silent = false } = {}) => {
+    const officerRequestId = canViewOperations ? ++officerRequestSequence.current : null;
     if (!silent) {
       setLoading(true);
       setError('');
@@ -481,6 +483,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       const resourceResults = { incidents: incidentResult, history: historyResult, alerts: alertResult, zones: zoneResult, campusLocations: campusLocationResult, users: userResult, stats: statsResult, analytics: analyticsResult, responses: responseResult, officers: officersResult };
       setResourceState((current) => Object.entries(resourceResults).reduce((state, [name, result]) => {
         if (!result) return state;
+        if (name === 'officers' && officerRequestId !== officerRequestSequence.current) return state;
         return {
           ...state,
           [name]: result.status === 'fulfilled'
@@ -497,7 +500,9 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     if (campusLocationResult.status === 'fulfilled') setCampusLocations(campusLocationResult.value.data?.data || []);
     if (analyticsResult?.status === 'fulfilled') setAnalytics(analyticsResult.value.data?.data || null);
     if (responseResult?.status === 'fulfilled') setResponses(responseResult.value.data?.data || []);
-    if (officersResult?.status === 'fulfilled') setOfficers(officersResult.value.data?.data || []);
+    if (officersResult?.status === 'fulfilled' && officerRequestId === officerRequestSequence.current) {
+      setOfficers(officersResult.value.data?.data || []);
+    }
     if (assignmentResult?.status === 'fulfilled') {
       setAssignmentRequests(assignmentResult.value.data?.data || []);
       setAssignmentError('');
