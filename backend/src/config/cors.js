@@ -16,7 +16,8 @@ const allowedOrigins = configuredOrigins.length > 0 ?
     process.env.NODE_ENV === 'production' ?
     [
         'https://campus-security-system-production.up.railway.app',
-        'https://campus-security-system.vercel.app'
+        'https://campus-security-system.vercel.app',
+        'https://campus-security-system-alpha.vercel.app'
     ] :
     developmentOrigins;
 
