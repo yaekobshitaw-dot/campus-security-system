@@ -5,7 +5,11 @@ const { AuditLog, Notification, User } = require('../models');
 const { listSettings, updateSettings } = require('../services/settingsService');
 const { recordAudit } = require('../services/auditService');
 const { notifyUsers } = require('../services/notificationPersistence');
-const { getEmailTransportDiagnostic } = require('../services/emailService');
+const {
+    formatEmailError,
+    getEmailTransportDiagnostic,
+    sendGmailSelfTest
+} = require('../services/emailService');
 
 const router = express.Router();
 router.use(authenticate, authorize('admin'));
@@ -14,7 +18,30 @@ router.get('/email/diagnostic', async(req, res) => {
     try {
         return res.json({ success: true, data: await getEmailTransportDiagnostic() });
     } catch (error) {
-        return res.status(500).json({ success: false, message: 'Unable to run SMTP diagnostic' });
+        return res.status(500).json({ success: false, message: 'Unable to run Gmail diagnostic' });
+    }
+});
+
+router.post('/email/diagnostic/test', async(req, res) => {
+    if (req.body?.confirmation !== 'SEND_TO_CONFIGURED_SENDER') {
+        return res.status(400).json({
+            success: false,
+            message: 'Confirm that the test email should be sent to GMAIL_SENDER'
+        });
+    }
+
+    try {
+        const result = await sendGmailSelfTest();
+        return res.json({
+            success: true,
+            data: { sent: true, messageId: result?.id || null }
+        });
+    } catch (error) {
+        return res.status(502).json({
+            success: false,
+            code: error?.code || 'GMAIL_REQUEST_FAILED',
+            message: formatEmailError(error)
+        });
     }
 });
 
