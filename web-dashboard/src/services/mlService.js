@@ -11,7 +11,7 @@ const RELATIVE_PROXY = '/api/ml';
 
 async function tryRequest(path, options) {
     const candidates = isProduction ?
-        [configuredBase, PRODUCTION_ML_API] :
+        [configuredBase || PRODUCTION_ML_API, PRODUCTION_ML_API] :
         [resolvedBase, RELATIVE_PROXY, LOCAL_FALLBACK];
     const uniqueCandidates = [...new Set(candidates.filter(Boolean).map((base) => base.replace(/\/+$/, '')))];
 

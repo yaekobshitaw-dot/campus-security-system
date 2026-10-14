@@ -14,118 +14,132 @@ import { addRealtimeNotification } from './store/notificationSlice';
 import { getNotificationBannerPreference, hydrateSettings } from './store/settingsSlice';
 
 function AppContent() {
-  const dispatch = useDispatch();
-  const userRole = useSelector((state) => state.auth.user?.role);
-  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  const isHydrated = useSelector((state) => state.auth.isHydrated);
-  const notificationPreferences = useSelector((state) => state.settings.preferences);
-  const deviceColorScheme = useColorScheme();
-  const isDarkTheme = notificationPreferences.theme === 'dark'
-    || (notificationPreferences.theme === 'system' && deviceColorScheme === 'dark');
+    const dispatch = useDispatch();
+    const userRole = useSelector((state) => state.auth.user ? .role);
+    const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+    const isHydrated = useSelector((state) => state.auth.isHydrated);
+    const notificationPreferences = useSelector((state) => state.settings.preferences);
+    const deviceColorScheme = useColorScheme();
+    const isDarkTheme = notificationPreferences.theme === 'dark' ||
+        (notificationPreferences.theme === 'system' && deviceColorScheme === 'dark');
 
-  useEffect(() => {
-    dispatch(hydrateSettings()).finally(() => dispatch(hydrateAuth()));
-  }, [dispatch]);
+    useEffect(() => {
+        dispatch(hydrateSettings()).finally(() => dispatch(hydrateAuth()));
+    }, [dispatch]);
 
-  useEffect(() => setAuthInvalidationHandler(() => dispatch(sessionExpired())), [dispatch]);
+    useEffect(() => setAuthInvalidationHandler(() => dispatch(sessionExpired())), [dispatch]);
 
-  useEffect(() => {
-    const handleSessionRevoked = (payload) => {
-      dispatch(sessionRevoked(payload));
-      clearAuthSession();
-    };
+    useEffect(() => {
+        const handleSessionRevoked = (payload) => {
+            dispatch(sessionRevoked(payload));
+            clearAuthSession();
+        };
 
-    socketService.on('session-revoked', handleSessionRevoked);
-    return () => socketService.off('session-revoked', handleSessionRevoked);
-  }, [dispatch]);
+        socketService.on('session-revoked', handleSessionRevoked);
+        return () => socketService.off('session-revoked', handleSessionRevoked);
+    }, [dispatch]);
 
-  const [banner, setBanner] = useState(null);
+    const [banner, setBanner] = useState(null);
 
-  useEffect(() => {
-    // listen for realtime notifications and show a banner + add to store
-    const handleNotification = (payload) => {
-      try {
-        dispatch(addRealtimeNotification(payload));
-        if (getNotificationBannerPreference(payload, notificationPreferences)) {
-          if (notificationPreferences.vibrateOnAlerts) {
+    useEffect(() => {
+        // listen for realtime notifications and show a banner + add to store
+        const handleNotification = (payload) => {
             try {
-              Vibration.vibrate(250);
-            } catch (error) {
-              console.warn('In-app alert vibration failed:', error?.message || error);
+                dispatch(addRealtimeNotification(payload));
+                if (getNotificationBannerPreference(payload, notificationPreferences)) {
+                    if (notificationPreferences.vibrateOnAlerts) {
+                        try {
+                            Vibration.vibrate(250);
+                        } catch (error) {
+                            console.warn('In-app alert vibration failed:', error ? .message || error);
+                        }
+                    }
+                    setBanner({ title: payload.title || 'Notification', message: payload.message || (payload.data && payload.data.message) || '' });
+                    setTimeout(() => setBanner(null), 5000);
+                }
+            } catch (err) {
+                console.warn('Failed to handle realtime notification', err);
             }
-          }
-          setBanner({ title: payload.title || 'Notification', message: payload.message || (payload.data && payload.data.message) || '' });
-          setTimeout(() => setBanner(null), 5000);
-        }
-      } catch (err) {
-        console.warn('Failed to handle realtime notification', err);
-      }
-    };
+        };
 
-    socketService.on('notification-created', handleNotification);
-    return () => socketService.off('notification-created', handleNotification);
-  }, [dispatch, notificationPreferences]);
+        socketService.on('notification-created', handleNotification);
+        return () => socketService.off('notification-created', handleNotification);
+    }, [dispatch, notificationPreferences]);
 
-  useEffect(() => {
-    if (userRole !== 'security') return undefined;
-    return startOfficerLocationUpdates({
-      shareLocation: notificationPreferences.shareLocation,
-      dataSaving: notificationPreferences.dataSaving,
-    });
-  }, [userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
+    useEffect(() => {
+        if (userRole !== 'security') return undefined;
+        return startOfficerLocationUpdates({
+            shareLocation: notificationPreferences.shareLocation,
+            dataSaving: notificationPreferences.dataSaving,
+        });
+    }, [userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    useEffect(() => {
+        if (!isAuthenticated) return undefined;
 
-    let intervalId;
-    const processPendingSms = async () => {
-      try {
-        const response = await getPendingSms();
-        const pending = response?.data?.data || [];
-        for (const item of pending) {
-          const smsUrl = `sms:${item.recipient_phone}?body=${encodeURIComponent(item.message)}`;
-          const result = await sendSmsResult(item.sms_id, 'sent');
-          if (result?.success) {
-            await new Promise((resolve) => setTimeout(resolve, 250));
-          }
-          if (typeof window !== 'undefined' && window.open) {
-            window.open(smsUrl, '_self');
-          }
-        }
-      } catch (error) {
-        if (error.response?.status !== 401) {
-          console.error('Pending SMS polling failed:', error.message || error);
-        }
-      }
-    };
+        let intervalId;
+        const processPendingSms = async() => {
+            try {
+                const response = await getPendingSms();
+                const pending = response ? .data ? .data || [];
+                for (const item of pending) {
+                    const smsUrl = `sms:${item.recipient_phone}?body=${encodeURIComponent(item.message)}`;
+                    const result = await sendSmsResult(item.sms_id, 'sent');
+                    if (result ? .success) {
+                        await new Promise((resolve) => setTimeout(resolve, 250));
+                    }
+                    if (typeof window !== 'undefined' && window.open) {
+                        window.open(smsUrl, '_self');
+                    }
+                }
+            } catch (error) {
+                if (error.response ? .status !== 401) {
+                    console.error('Pending SMS polling failed:', error.message || error);
+                }
+            }
+        };
 
-    processPendingSms();
-    intervalId = setInterval(processPendingSms, 30000);
+        processPendingSms();
+        intervalId = setInterval(processPendingSms, 30000);
 
-    return () => clearInterval(intervalId);
-  }, [isAuthenticated]);
+        return () => clearInterval(intervalId);
+    }, [isAuthenticated]);
 
-  if (!isHydrated) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#2196F3" />
-      </View>
-    );
-  }
+    if (!isHydrated) {
+        return ( <
+            View style = {
+                { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' } } >
+            <
+            ActivityIndicator size = "large"
+            color = "#2196F3" / >
+            <
+            /View>
+        );
+    }
 
-  return (
-    <NavigationContainer>
-      <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
-      {banner && <NotificationBanner title={banner.title} message={banner.message} isDark={isDarkTheme} onClose={() => setBanner(null)} />}
-      <AppNavigator />
-    </NavigationContainer>
-  );
-}
+    return ( <
+        NavigationContainer >
+        <
+        StatusBar barStyle = { isDarkTheme ? 'light-content' : 'dark-content' }
+        /> {
+            banner && < NotificationBanner title = { banner.title }
+            message = { banner.message }
+            isDark = { isDarkTheme }
+            onClose = {
+                () => setBanner(null) }
+            />} <
+            AppNavigator / >
+                <
+                /NavigationContainer>
+        );
+    }
 
-export default function App() {
-  return (
-    <Provider store={store}>
-      <AppContent />
-    </Provider>
-  );
-}
+    export default function App() {
+        return ( <
+            Provider store = { store } >
+            <
+            AppContent / >
+            <
+            /Provider>
+        );
+    }

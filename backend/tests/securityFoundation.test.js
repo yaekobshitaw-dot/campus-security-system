@@ -141,7 +141,10 @@ test('logout revokes only the submitted refresh token and works without access a
     const request = {
         body: { refreshToken: 'valid-refresh-token' },
         get: () => 'test-agent',
-        app: { get: () => ({ sockets: { sockets: new Map([['a', sessionASocket], ['b', sessionBSocket]]) } }) }
+        app: { get: () => ({ sockets: { sockets: new Map([
+                        ['a', sessionASocket],
+                        ['b', sessionBSocket]
+                    ]) } }) }
     };
     await authController.logout(request, response);
 
@@ -348,7 +351,9 @@ test('logout revokes the validated bearer session when refresh storage is unavai
         user: authUser('student'),
         authenticatedSessionId: 'session-a',
         get: () => 'test-agent',
-        app: { get: () => ({ sockets: { sockets: new Map([['a', sessionSocket]]) } }) }
+        app: { get: () => ({ sockets: { sockets: new Map([
+                        ['a', sessionSocket]
+                    ]) } }) }
     };
 
     await authController.logout(request, response);

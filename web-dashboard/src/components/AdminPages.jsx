@@ -173,6 +173,9 @@ export function SystemSettingsPage() {
   const systemActive = settings.find((setting) => setting.key === 'system.active')?.value !== 'false';
   const grouped = settings.filter((setting) => setting.key !== 'system.active').reduce((groups, setting) => ({ ...groups, [setting.category]: [...(groups[setting.category] || []), setting] }), {});
   const setSystemActive = async (active) => {
+    if (!active && !window.confirm('Place the system into maintenance mode? Non-admin users will be blocked until an administrator reactivates it.')) {
+      return;
+    }
     setSaving(true); setError(''); setMessage('');
     try {
       await api.put('/settings', { settings: [{ key: 'system.active', value: active }] });

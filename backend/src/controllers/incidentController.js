@@ -102,8 +102,7 @@ const findNearestAvailableOfficer = async(latitude, longitude) => {
                     incidentLongitude,
                     Number(officer.latitude),
                     Number(officer.longitude)
-                ) :
-                null
+                ) : null
         }))
         .sort((left, right) => {
             if (left.distanceMeters === null) return 1;
@@ -220,11 +219,15 @@ const assignmentPayload = (incident, officer, distanceMeters, assignedBy, assign
 
 exports.getPendingAssignments = async(req, res) => {
     try {
-        const where = isSecurityRole(req.user.role) ?
-            { responder_id: req.user.user_id, assignment_status: {
-                    [Op.in]: ['pending', 'accepted'] }, status: {
-                    [Op.in]: ['assigned', 'responding'] } } :
-            { assignment_status: 'pending', status: 'assigned' };
+        const where = isSecurityRole(req.user.role) ? {
+            responder_id: req.user.user_id,
+            assignment_status: {
+                [Op.in]: ['pending', 'accepted']
+            },
+            status: {
+                [Op.in]: ['assigned', 'responding']
+            }
+        } : { assignment_status: 'pending', status: 'assigned' };
 
         const pendingAssignments = await Response.findAll({
             where,
@@ -287,7 +290,8 @@ exports.assignIncident = async(req, res) => {
             where: {
                 incident_id: incidentId,
                 assignment_status: {
-                    [Op.in]: ['pending', 'accepted'] }
+                    [Op.in]: ['pending', 'accepted']
+                }
             },
             transaction
         });
@@ -304,7 +308,8 @@ exports.assignIncident = async(req, res) => {
                 user_id: officerId,
                 is_active: true,
                 role: {
-                    [Op.in]: normalizeSecurityRoleList('security') }
+                    [Op.in]: normalizeSecurityRoleList('security')
+                }
             },
             attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status'],
             transaction
@@ -325,8 +330,7 @@ exports.assignIncident = async(req, res) => {
         const hasCoordinates = isValidCoordinate(incident.latitude, -90, 90) &&
             isValidCoordinate(incident.longitude, -180, 180) &&
             isValidCoordinate(officer.latitude, -90, 90) &&
-            isValidCoordinate(officer.longitude, -180, 180) &&
-            [incident.latitude, incident.longitude, officer.latitude, officer.longitude]
+            isValidCoordinate(officer.longitude, -180, 180) && [incident.latitude, incident.longitude, officer.latitude, officer.longitude]
             .every((coordinate) => coordinate !== null && coordinate !== undefined && coordinate !== '');
         const distanceMeters = hasCoordinates ?
             haversineDistanceMeters(
@@ -612,8 +616,7 @@ exports.create = async(req, res) => {
                 photoReferences = Array.isArray(req.body.photos) ?
                     req.body.photos :
                     typeof req.body.photos === 'string' ?
-                    JSON.parse(req.body.photos) :
-                    [];
+                    JSON.parse(req.body.photos) : [];
             } catch (error) {
                 return res.status(400).json({ success: false, message: 'Invalid photos payload' });
             }

@@ -10,27 +10,26 @@ const getPositiveInteger = (value, fallback) => {
 };
 
 const getOllamaConfig = () => ({
-    baseUrl: String(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/+$/, ''),
+  baseUrl: String(process.env.OLLAMA_BASE_URL || (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'development' ? 'http://127.0.0.1:11434' : '')).trim().replace(/\/+$/, ''),
     model: String(process.env.OLLAMA_MODEL || 'qwen2.5-coder:3b').trim(),
     timeoutMs: getPositiveInteger(process.env.OLLAMA_TIMEOUT_MS, 60000),
     retryAttempts: Math.min(getPositiveInteger(process.env.OLLAMA_RETRY_ATTEMPTS, MAX_RETRY_ATTEMPTS), MAX_RETRY_ATTEMPTS),
     retryDelayMs: Number.isInteger(Number(process.env.OLLAMA_RETRY_DELAY_MS)) && Number(process.env.OLLAMA_RETRY_DELAY_MS) >= 0 ?
-        Number(process.env.OLLAMA_RETRY_DELAY_MS) :
-        DEFAULT_RETRY_DELAY_MS
+        Number(process.env.OLLAMA_RETRY_DELAY_MS) : DEFAULT_RETRY_DELAY_MS
 });
 
 const getOllamaError = (error) => {
-    const code = error?.code || error?.cause?.code;
+    const code = error && (error.code || (error.cause && error.cause.code));
     if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') return { kind: 'timeout', retryable: true };
     if (code === 'ECONNREFUSED') return { kind: 'connection_refused', retryable: true };
     if (['ECONNRESET', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH'].includes(code)) {
         return { kind: 'connection_error', retryable: true };
     }
-    if (error?.response) {
+    if (error && error.response) {
         const status = error.response.status;
         return { kind: 'http_error', retryable: [408, 429, 500, 502, 503, 504].includes(status), status };
     }
-    if (error?.request) return { kind: 'connection_error', retryable: true };
+    if (error && error.request) return { kind: 'connection_error', retryable: true };
     return { kind: 'request_error', retryable: false };
 };
 
@@ -45,6 +44,8 @@ const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 
 const askOllama = async (prompt, message) => {
   const { baseUrl, model, timeoutMs, retryAttempts, retryDelayMs } = getOllamaConfig();
+  const apiKey = String(process.env.OLLAMA_API_KEY || '').trim();
+  if (!baseUrl) throw createOllamaError('base_url_not_configured');
   if (!model) throw createOllamaError('model_not_configured');
 
   for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
@@ -57,7 +58,10 @@ const askOllama = async (prompt, message) => {
           { role: 'user', content: message }
         ],
         options: { temperature: 0.2 }
-      }, { timeout: timeoutMs });
+      }, {
+        timeout: timeoutMs,
+        ...(apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : {}),
+      });
 
       const answer = response.data?.message?.content;
       if (typeof answer !== 'string' || !answer.trim()) {

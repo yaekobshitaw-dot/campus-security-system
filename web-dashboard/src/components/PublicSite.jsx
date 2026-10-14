@@ -325,17 +325,7 @@ const featureTitle = (feature, language) => language === 'am' ? feature.amTitle 
 const featureText = (feature, language) => language === 'am' ? feature.amText : feature.text;
 const featureImagesPath = (filename) => `/images/features/${filename}`;
 
-// Real campus photos used in the rotating hero carousel.
-// Place the matching image files in your project's public/images/ folder
-// with these exact filenames (or update the paths below to wherever you
-// host them).
-const heroSlides = [
-  '/images/campus-1.jpg', // main entrance arch
-  '/images/campus-2.jpg', // campus road with dorm block
-  '/images/campus-3.jpg', // admin building approach
-  '/images/campus-4.jpg', // aerial road + residence halls
-  '/images/campus-5.jpg'  // STEM/admin block + lawn
-];
+const heroVideoSource = '/videos/campus-security-bg.mp4';
 
 function PublicNav({ user, onLogout, language, onLanguageChange, copy }) {
   const [open, setOpen] = useState(false);
@@ -487,14 +477,11 @@ export function PublicFooter({ copy, dashboard = false }) {
   );
 }
 
-function CampusCarousel({ copy }) {
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState('next');
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+function HeroBackgroundVideo({ copy }) {
   const [reducedMotion, setReducedMotion] = useState(() =>
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   );
+  const [videoFailed, setVideoFailed] = useState(false);
 
   useEffect(() => {
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -503,52 +490,29 @@ function CampusCarousel({ copy }) {
     return () => motionPreference.removeEventListener?.('change', updateMotionPreference);
   }, []);
 
-  useEffect(() => {
-    if (reducedMotion || isHovered || isFocused) return undefined;
-    const timeoutId = window.setTimeout(() => {
-      setSlideDirection('next');
-      setSlideIndex((currentIndex) => (currentIndex + 1) % heroSlides.length);
-    }, 2000);
-    return () => window.clearTimeout(timeoutId);
-  }, [isFocused, isHovered, reducedMotion, slideIndex]);
-
-  const changeSlide = (direction) => {
-    setSlideDirection(direction);
-    setSlideIndex((currentIndex) =>
-      (currentIndex + (direction === 'next' ? 1 : heroSlides.length - 1)) % heroSlides.length
-    );
-  };
-
   return (
     <div
-      className="hero-visual"
-      role="region"
+      className={`hero-visual${videoFailed ? ' is-fallback' : ''}`}
+      role="presentation"
       aria-label={copy.campusVisual}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onFocus={() => setIsFocused(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setIsFocused(false);
-      }}
+      aria-hidden="true"
     >
-      {heroSlides.map((slide, index) => {
-        const isActive = index === slideIndex;
-        return (
-          <div
-            className={`visual-slide${isActive ? ` slide-${slideDirection} is-active` : ''}`}
-            key={slide}
-            aria-hidden={!isActive}
-          >
-            <img src={slide} alt={`${copy.campusVisual} ${index + 1}`} />
-          </div>
-        );
-      })}
+      <video
+        className="hero-video-bg"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        controls={false}
+        poster="/images/campus-4.jpg"
+        onError={() => setVideoFailed(true)}
+        style={{ animation: reducedMotion ? 'none' : undefined }}
+        aria-hidden="true"
+      >
+        <source src={heroVideoSource} type="video/mp4" />
+      </video>
       <div className="visual-overlay" />
-      <button className="visual-arrow visual-arrow-previous" type="button" aria-label="Previous image" onClick={() => changeSlide('previous')}>&lt;</button>
-      <button className="visual-arrow visual-arrow-next" type="button" aria-label="Next image" onClick={() => changeSlide('next')}>&gt;</button>
-      <div className="visual-panel panel-alert"><span className="panel-icon"><Siren size={17} /></span><span><strong>{copy.heroPanelNotified}</strong><small>{copy.heroPanelLocation}</small></span><CheckCircle2 size={18} /></div>
-      <div className="visual-panel panel-status"><span className="radar-icon"><Radar size={22} /></span><span><strong>{copy.heroPanelCampus}</strong><small>{copy.heroPanelStatus}</small></span><span className="live-label">LIVE</span></div>
-      <div className="visual-caption"><span>{String(slideIndex + 1).padStart(2, '0')}</span><span>{copy.heroCaption}</span></div>
     </div>
   );
 }
@@ -604,7 +568,7 @@ function HomePage({ language, copy }) {
         <div className="hero-actions"><Link className="button button-primary" to="/login">{copy.reportIncident} <ArrowRight size={18} /></Link><Link className="button button-quiet" to="/about">{copy.learnMore} <ChevronRight size={17} /></Link></div>
         <div className="hero-proof"><div><strong>24/7</strong><span>{copy.responseReady}</span></div><div><strong>01</strong><span>{copy.sharedSafety}</span></div><div><strong>100%</strong><span>{copy.roleAccess}</span></div></div>
       </div>
-      <CampusCarousel copy={copy} />
+      <HeroBackgroundVideo copy={copy} />
     </section>
     <section className="trust-strip" aria-label={copy.oneSystem}>
       <strong>{copy.oneSystem}</strong>

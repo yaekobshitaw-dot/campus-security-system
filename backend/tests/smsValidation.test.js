@@ -202,6 +202,7 @@ test('sendSmsMessage preserves queued persistence and provider message ID for Af
         assert.equal(result.provider, 'africastalking');
         assert.equal(result.status, 'queued');
         assert.match(result.message, /SMS accepted by Africa's Talking and queued/);
+        assert.match(result.message, /delivery is not yet confirmed/);
         assert.equal(savedRecord.provider, 'africastalking');
         assert.equal(savedRecord.status, 'queued');
         assert.equal(savedRecord.provider_message_id, 'ATX-queued-123');
@@ -236,7 +237,7 @@ test('Africa\'s Talking Sandbox rejects missing credentials without making a req
         await assert.rejects(
             () => sendAfricaTalkingSms({ to: '0976296127', message: 'Test message' }),
             (error) => error.code === SMS_CONFIGURATION_ERROR_CODE &&
-                error.message === "Africa's Talking SMS provider is not configured.",
+            error.message === "Africa's Talking SMS provider is not configured.",
         );
         assert.equal(requestCount, 0);
     } finally {
@@ -333,7 +334,7 @@ test('Africa\'s Talking Sandbox safely handles timeouts, invalid responses, and 
 
         const logs = JSON.stringify(capturedLogs);
         assert.equal(logs.includes('sandbox-secret-key'), false);
-        assert.equal(logs.includes('raw provider detail'), false);
+        assert.equal(logs.includes('raw provider detail [redacted]'), true);
         assert.equal(logs.includes('+251911234567'), false);
     } finally {
         __resetAfricaTalkingClientForTests();
@@ -365,6 +366,7 @@ test('production configuration selects the production endpoint and configured us
         });
         const result = await sendAfricaTalkingSms({ to: '+251911234567', message: 'Mocked SMS' });
         assert.equal(result.provider, 'africastalking');
+        assert.equal(result.status, 'queued');
     } finally {
         __resetAfricaTalkingClientForTests();
         if (previousApiKey === undefined) delete process.env.AFRICASTALKING_API_KEY;
@@ -390,15 +392,15 @@ test('missing Africa\'s Talking configuration is typed, sanitized, and makes no 
         await assert.rejects(
             () => sendAfricaTalkingSms({ to: '0976296127', message: 'Test message' }),
             (error) => error instanceof SmsProviderConfigurationError &&
-                error.code === SMS_CONFIGURATION_ERROR_CODE &&
-                !/key|credential/i.test(error.message),
+            error.code === SMS_CONFIGURATION_ERROR_CODE &&
+            !/key|credential/i.test(error.message),
         );
         process.env.AFRICASTALKING_API_KEY = 'mock-key';
         delete process.env.AFRICASTALKING_USERNAME;
         await assert.rejects(
             () => sendAfricaTalkingSms({ to: '0976296127', message: 'Test message' }),
             (error) => error.code === SMS_CONFIGURATION_ERROR_CODE &&
-                error.message === "Africa's Talking SMS provider is not configured.",
+            error.message === "Africa's Talking SMS provider is not configured.",
         );
         assert.throws(() => assertSmsProviderConfigured(), { code: SMS_CONFIGURATION_ERROR_CODE });
         assert.equal(requestCount, 0);
@@ -467,5 +469,130 @@ test('sendSmsMessage rejects missing recipients before provider configuration or
     } finally {
         User.findByPk = originalFindByPk;
         __resetAfricaTalkingClientForTests();
+    }
+});
+
+test('Africa\'s Talking HTTP 401 logs only sanitized provider diagnostics', async() => {
+    const previousApiKey = process.env.AFRICASTALKING_API_KEY;
+    const previousUsername = process.env.AFRICASTALKING_USERNAME;
+    const previousEnvironment = process.env.AFRICASTALKING_ENVIRONMENT;
+    const originalLoggerError = logger.error;
+    const capturedLogs = [];
+    const apiKey = 'production-secret-key';
+    const phone = '+251911234567';
+    const smsText = 'Campus notice secret phrase';
+    process.env.AFRICASTALKING_API_KEY = apiKey;
+    process.env.AFRICASTALKING_USERNAME = 'production-account';
+    process.env.AFRICASTALKING_ENVIRONMENT = 'production';
+    logger.error = (...values) => capturedLogs.push(values);
+
+    try {
+        __setAfricaTalkingClientForTests({
+            post: async() => {
+                const error = new Error('HTTP failure');
+                error.response = {
+                    status: 401,
+                    data: {
+                        errorCode: 'InvalidApplicationKey',
+                        message: `Key rejected for ${phone}; ${smsText}; apiKey=${apiKey}`,
+                    },
+                    headers: { 'x-request-id': 'request-401-safe-id' },
+                };
+                throw error;
+            },
+        });
+
+        await assert.rejects(
+            () => sendAfricaTalkingSms({ to: phone, message: smsText }),
+            /request failed with status 401/,
+        );
+
+        const logs = JSON.stringify(capturedLogs);
+        assert.match(logs, /InvalidApplicationKey/);
+        assert.match(logs, /request-401-safe-id/);
+        assert.match(logs, /Key rejected for/);
+        assert.match(logs, /providerErrorMessage/);
+        assert.doesNotMatch(logs, new RegExp(apiKey));
+        assert.doesNotMatch(logs, new RegExp(phone.replace(/[+]/g, '\\+')));
+        assert.doesNotMatch(logs, /Campus notice secret phrase/);
+        assert.doesNotMatch(logs, /apiKey=/);
+    } finally {
+        __resetAfricaTalkingClientForTests();
+        logger.error = originalLoggerError;
+        if (previousApiKey === undefined) delete process.env.AFRICASTALKING_API_KEY;
+        else process.env.AFRICASTALKING_API_KEY = previousApiKey;
+        if (previousUsername === undefined) delete process.env.AFRICASTALKING_USERNAME;
+        else process.env.AFRICASTALKING_USERNAME = previousUsername;
+        if (previousEnvironment === undefined) delete process.env.AFRICASTALKING_ENVIRONMENT;
+        else process.env.AFRICASTALKING_ENVIRONMENT = previousEnvironment;
+    }
+});
+
+test('Africa\'s Talking HTTP 405 logs safe diagnostics for plain-text and HTML responses', async() => {
+    const previousApiKey = process.env.AFRICASTALKING_API_KEY;
+    const previousUsername = process.env.AFRICASTALKING_USERNAME;
+    const previousEnvironment = process.env.AFRICASTALKING_ENVIRONMENT;
+    const originalLoggerError = logger.error;
+    const capturedLogs = [];
+    const apiKey = 'production-secret-key';
+    const phone = '+251911234567';
+    const smsText = 'Broadcast secret content';
+    const responses = [{
+            contentType: 'text/plain; charset=utf-8',
+            body: `Method Not Allowed for ${phone}; ${smsText}; apiKey=${apiKey}`,
+        },
+        {
+            contentType: 'text/html; charset=utf-8',
+            body: `<html><body>Method Not Allowed for ${phone}; ${smsText}; apiKey=${apiKey}<script>hidden raw data</script></body></html>`,
+        },
+    ];
+    process.env.AFRICASTALKING_API_KEY = apiKey;
+    process.env.AFRICASTALKING_USERNAME = 'production-account';
+    process.env.AFRICASTALKING_ENVIRONMENT = 'production';
+    logger.error = (...values) => capturedLogs.push(values);
+
+    try {
+        for (const response of responses) {
+            __setAfricaTalkingClientForTests({
+                post: async(url, body, config) => {
+                    assert.equal(url, 'https://api.africastalking.com/version1/messaging');
+                    assert.equal(body, 'username=production-account&to=%2B251911234567&message=Broadcast+secret+content');
+                    assert.equal(config.headers['Content-Type'], 'application/x-www-form-urlencoded');
+                    assert.equal(config.headers.apiKey, apiKey);
+                    const error = new Error('HTTP failure');
+                    error.response = {
+                        status: 405,
+                        data: response.body,
+                        headers: { 'Content-Type': response.contentType },
+                    };
+                    throw error;
+                },
+            });
+
+            await assert.rejects(
+                () => sendAfricaTalkingSms({ to: phone, message: smsText }),
+                /request failed with status 405/,
+            );
+        }
+
+        const logs = JSON.stringify(capturedLogs);
+        assert.match(logs, /"status":405/);
+        assert.match(logs, /"responseContentType":"text\/plain"/);
+        assert.match(logs, /"responseContentType":"text\/html"/);
+        assert.match(logs, /"requestId":null/);
+        assert.match(logs, /"responseDescription":"Method Not Allowed for/);
+        assert.doesNotMatch(logs, new RegExp(apiKey));
+        assert.doesNotMatch(logs, new RegExp(phone.replace(/[+]/g, '\\+')));
+        assert.doesNotMatch(logs, new RegExp(smsText));
+        assert.doesNotMatch(logs, /hidden raw data/);
+    } finally {
+        __resetAfricaTalkingClientForTests();
+        logger.error = originalLoggerError;
+        if (previousApiKey === undefined) delete process.env.AFRICASTALKING_API_KEY;
+        else process.env.AFRICASTALKING_API_KEY = previousApiKey;
+        if (previousUsername === undefined) delete process.env.AFRICASTALKING_USERNAME;
+        else process.env.AFRICASTALKING_USERNAME = previousUsername;
+        if (previousEnvironment === undefined) delete process.env.AFRICASTALKING_ENVIRONMENT;
+        else process.env.AFRICASTALKING_ENVIRONMENT = previousEnvironment;
     }
 });

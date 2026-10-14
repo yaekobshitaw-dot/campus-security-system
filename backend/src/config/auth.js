@@ -2,21 +2,21 @@
 dotenv.config();
 
 const requiredSecret = (name) => {
-  const value = process.env[name];
-  if (!value || !value.trim()) {
-    // In production, fail fast. In development or test, allow startup but warn so the app can run without auth secrets set.
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(`${name} must be configured in the environment before authentication can start.`);
+    const value = process.env[name];
+    if (!value || !value.trim()) {
+        // In production, fail fast. In development or test, allow startup but warn so the app can run without auth secrets set.
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error(`${name} must be configured in the environment before authentication can start.`);
+        }
+        console.warn(`${name} is not set. Continuing in non-production mode; authentication features may be limited.`);
+        return '';
     }
-    console.warn(`${name} is not set. Continuing in non-production mode; authentication features may be limited.`);
-    return '';
-  }
-  return value;
+    return value;
 };
 
 module.exports = {
-  jwtSecret: requiredSecret('JWT_SECRET'),
-  refreshTokenSecret: requiredSecret('REFRESH_TOKEN_SECRET'),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
+    jwtSecret: requiredSecret('JWT_SECRET'),
+    refreshTokenSecret: requiredSecret('REFRESH_TOKEN_SECRET'),
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
 };

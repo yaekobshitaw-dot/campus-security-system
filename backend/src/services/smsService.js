@@ -89,9 +89,25 @@ const getDiagnosticField = (sources, keys) => {
     return undefined;
 };
 
+const getHeaderValue = (headers, name) => {
+    if (!headers || typeof headers !== 'object') return undefined;
+    if (typeof headers.get === 'function') {
+        const value = headers.get(name);
+        if (value !== undefined && value !== null) return value;
+    }
+    const key = Object.keys(headers).find((headerName) => headerName.toLowerCase() === name);
+    return key ? headers[key] : undefined;
+};
+
 const sanitizeProviderDiagnostic = (value, sensitiveValues = [], maxLength = 200) => {
     if (typeof value !== 'string' && typeof value !== 'number') return undefined;
-    let safeValue = String(value).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+    let safeValue = String(value)
+        .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/gi, (entity) => ({
+            '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+        }[entity.toLowerCase()] || entity))
+        .replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
     for (const sensitiveValue of sensitiveValues) {
         const sensitiveText = String(sensitiveValue || '').trim();
         if (sensitiveText.length >= 3) safeValue = safeValue.split(sensitiveText).join('[redacted]');
@@ -114,18 +130,31 @@ const getProviderErrorDiagnostics = (error, sensitiveValues) => {
     const diagnosticMessage = sanitizeProviderDiagnostic(
         getDiagnosticField(sources, SMS_PROVIDER_DIAGNOSTIC_KEYS.message), sensitiveValues,
     );
-    const responseRequestId = getDiagnosticField([data, nestedError, headers], SMS_PROVIDER_DIAGNOSTIC_KEYS.requestId);
-    const headerRequestId = headers && (headers['x-request-id'] || headers['x-correlation-id']);
+    const responseRequestId = getDiagnosticField([data, nestedError], SMS_PROVIDER_DIAGNOSTIC_KEYS.requestId);
+    const headerRequestId = ['x-request-id', 'x-correlation-id', 'request-id', 'x-amzn-requestid', 'x-amz-cf-id']
+        .map((name) => getHeaderValue(headers, name))
+        .find((value) => value !== undefined && value !== null);
     const requestId = sanitizeProviderDiagnostic(
         responseRequestId || headerRequestId,
         sensitiveValues,
         120,
     );
+    const contentTypeHeader = getHeaderValue(headers, 'content-type');
+    const normalizedContentType = typeof contentTypeHeader === 'string' ?
+        contentTypeHeader.split(';', 1)[0].trim().toLowerCase() : '';
+    const responseContentType = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(normalizedContentType) ?
+        normalizedContentType : undefined;
+    const responseDescription = sanitizeProviderDiagnostic(
+        typeof data === 'string' ? data : diagnosticMessage,
+        sensitiveValues,
+    );
 
     return {
         ...(diagnosticCode ? { providerErrorCode: diagnosticCode } : {}),
         ...(diagnosticMessage ? { providerErrorMessage: diagnosticMessage } : {}),
-        ...(requestId ? { requestId } : {}),
+        requestId: requestId || null,
+        responseContentType: responseContentType || null,
+        ...(responseDescription ? { responseDescription } : {}),
     };
 };
 
