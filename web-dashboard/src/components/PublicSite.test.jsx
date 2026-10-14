@@ -164,10 +164,15 @@ describe('Public site', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Our purpose' }));
     expect(screen.getByRole('heading', { name: /Designed for people/ })).toBeInTheDocument();
-    expect(document.querySelectorAll('.about-image-grid img')).toHaveLength(2);
-    expect(document.querySelector('.about-image-grid img[src="/images/campus-security-about-1.jpg"]')).toHaveAccessibleName(
+    const aboutCarousel = document.querySelector('.about-page')?.previousElementSibling;
+    expect(aboutCarousel).toHaveClass('page-image-carousel');
+    expect(aboutCarousel).toHaveAttribute('aria-label', 'About campus images');
+    expect(aboutCarousel.querySelectorAll('.page-image-slide img')).toHaveLength(2);
+    expect(aboutCarousel.querySelector('.page-image-slide img[src="/images/campus-security-about-1.jpg"]')).toHaveAccessibleName(
       'Campus footpaths and landscaped grounds around a university building.'
     );
+    expect(aboutCarousel.previousElementSibling).toHaveClass('public-nav-wrap');
+    expect(screen.getByRole('button', { name: 'Next image' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'About' })).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(screen.getByRole('button', { name: 'Features' }));
@@ -177,6 +182,46 @@ describe('Public site', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Emergency Response' }));
     expect(screen.getByRole('heading', { name: /A complete picture of/ })).toBeInTheDocument();
     expect(document.querySelectorAll('.features-page .feature-card')).toHaveLength(8);
+  });
+
+
+  it('automatically cycles the About carousel and supports manual image selection', () => {
+    vi.useFakeTimers();
+    const { container } = renderPublicSite('about');
+    const carousel = container.querySelector('.page-image-carousel');
+
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-about-1.jpg'
+    );
+    act(() => vi.advanceTimersByTime(4800));
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-about-2.jpg'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show image 1' }));
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-about-1.jpg'
+    );
+  });
+
+  it('does not automatically cycle page carousels when reduced motion is preferred', () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
+    const { container } = renderPublicSite('about');
+
+    act(() => vi.advanceTimersByTime(12000));
+
+    expect(container.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-about-1.jpg'
+    );
   });
 
   it('switches public content to Amharic and persists the selection', () => {
@@ -217,6 +262,11 @@ describe('Public site', () => {
     expect(await screen.findByRole('link', { name: '0123456789' })).toHaveAttribute('href', 'tel:0123456789');
     expect(screen.getByRole('link', { name: 'saved@example.com' })).toHaveAttribute('href', 'mailto:saved@example.com');
     expect(screen.getByText('Updated campus')).toBeInTheDocument();
+    const contactCarousel = document.querySelector('.contact-page')?.previousElementSibling;
+    expect(contactCarousel).toHaveClass('page-image-carousel');
+    expect(contactCarousel.querySelectorAll('.page-image-slide img')).toHaveLength(3);
+    expect(contactCarousel.previousElementSibling).toHaveClass('public-nav-wrap');
+    expect(contactCarousel.nextElementSibling.querySelector('.contact-grid')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Campus location collage with two campus views and Amharic map notes.' }))
       .toHaveAttribute('src', '/images/campus-security-contact.jpg');
     expect(api.get).toHaveBeenCalledWith('/public-content/contact');

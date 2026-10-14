@@ -1,6 +1,7 @@
 import ArrowRight from '@mui/icons-material/ArrowForward';
 import CheckCircle2 from '@mui/icons-material/CheckCircleOutline';
 import ChevronDown from '@mui/icons-material/KeyboardArrowDown';
+import ChevronLeft from '@mui/icons-material/KeyboardArrowLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import X from '@mui/icons-material/Close';
 import LayoutDashboard from '@mui/icons-material/Dashboard';
@@ -337,6 +338,14 @@ const heroSlides = [
   { src: '/images/campus-4.jpg', alt: 'Aerial view of a campus road and residence halls.' },
   { src: '/images/campus-5.jpg', alt: 'Campus science and administration buildings beside a lawn.' }
 ];
+const aboutPageImages = [
+  { src: '/images/campus-security-about-1.jpg', alt: 'Campus footpaths and landscaped grounds around a university building.' },
+  { src: '/images/campus-security-about-2.jpg', alt: 'University residence buildings among trees and campus pathways.' }
+];
+const contactPageImages = [
+  { src: '/images/campus-security-contact.jpg', alt: 'Campus location collage with two campus views and Amharic map notes.' },
+  ...aboutPageImages
+];
 
 function PublicNav({ user, onLogout, language, onLanguageChange, copy }) {
   const [open, setOpen] = useState(false);
@@ -551,6 +560,85 @@ function CampusCarousel({ copy }) {
       <div className="visual-panel panel-status"><span className="radar-icon"><Radar size={22} /></span><span><strong>{copy.heroPanelCampus}</strong><small>{copy.heroPanelStatus}</small></span><span className="live-label">LIVE</span></div>
       <div className="visual-caption"><span>{String(slideIndex + 1).padStart(2, '0')}</span><span>{copy.heroCaption}</span></div>
     </div>
+  );
+}
+
+function PageImageCarousel({ images, label }) {
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  );
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!motionPreference) return undefined;
+
+    const updateMotionPreference = () => setReducedMotion(motionPreference.matches);
+    motionPreference.addEventListener?.('change', updateMotionPreference);
+    return () => motionPreference.removeEventListener?.('change', updateMotionPreference);
+  }, []);
+
+  useEffect(() => {
+    if (reducedMotion || isPaused || images.length < 2) return undefined;
+    const intervalId = window.setInterval(() => {
+      setSlideIndex((currentIndex) => (currentIndex + 1) % images.length);
+    }, 4800);
+    return () => window.clearInterval(intervalId);
+  }, [images.length, isPaused, reducedMotion]);
+
+  const changeSlide = (direction) => {
+    setSlideIndex((currentIndex) =>
+      (currentIndex + (direction === 'next' ? 1 : images.length - 1)) % images.length
+    );
+  };
+
+  return (
+    <section
+      className="page-image-carousel"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={label}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setIsPaused(false);
+      }}
+    >
+      {images.map((image, index) => {
+        const isActive = index === slideIndex;
+        return (
+          <div
+            key={image.src}
+            className={`page-image-slide${isActive ? ' is-active' : ''}`}
+            aria-hidden={!isActive}
+          >
+            <img src={image.src} alt={image.alt} />
+          </div>
+        );
+      })}
+      {images.length > 1 && <>
+        <button className="page-image-control page-image-previous" type="button" aria-label="Previous image" onClick={() => changeSlide('previous')}>
+          <ChevronLeft aria-hidden="true" />
+        </button>
+        <button className="page-image-control page-image-next" type="button" aria-label="Next image" onClick={() => changeSlide('next')}>
+          <ChevronRight aria-hidden="true" />
+        </button>
+        <div className="page-image-indicators" role="group" aria-label="Choose image">
+          {images.map((image, index) => (
+            <button
+              key={image.src}
+              type="button"
+              className={`page-image-indicator${index === slideIndex ? ' is-active' : ''}`}
+              aria-label={`Show image ${index + 1}`}
+              aria-pressed={index === slideIndex}
+              onClick={() => setSlideIndex(index)}
+            />
+          ))}
+        </div>
+      </>}
+    </section>
   );
 }
 
@@ -815,13 +903,12 @@ function FeatureCard({ feature, index, language, revealIndex }) {
 }
 
 function AboutPage({ copy }) {
-  return <PageFrame eyebrow={copy.aboutEyebrow} title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>} intro={copy.aboutIntro} pageClass="about-page">
-    <div className="about-grid"><div className="about-visual"><div className="about-number">01</div><div><ShieldCheck size={38} /><p>{copy.aboutVisual}<br /><strong>{copy.aboutVisualAccent}</strong></p></div></div><div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div></div>
-    <section className="about-image-grid" aria-label="Campus photographs">
-      <img src="/images/campus-security-about-1.jpg" alt="Campus footpaths and landscaped grounds around a university building." loading="lazy" />
-      <img src="/images/campus-security-about-2.jpg" alt="University residence buildings among trees and campus pathways." loading="lazy" />
-    </section>
-  </PageFrame>;
+  return <>
+    <PageImageCarousel images={aboutPageImages} label="About campus images" />
+    <PageFrame eyebrow={copy.aboutEyebrow} title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>} intro={copy.aboutIntro} pageClass="about-page">
+      <div className="about-grid"><div className="about-visual"><div className="about-number">01</div><div><ShieldCheck size={38} /><p>{copy.aboutVisual}<br /><strong>{copy.aboutVisualAccent}</strong></p></div></div><div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div></div>
+    </PageFrame>
+  </>;
 }
 
 function FeaturesPage({ language, copy }) {
@@ -849,48 +936,48 @@ function ContactPage({ copy }) {
   const location = contactInformation?.location || '';
 
   return (
-    <PageFrame eyebrow={copy.contactEyebrow} title={<>{copy.contactTitle} <em>{copy.contactTitleAccent}</em></>} intro={copy.contactIntro} pageClass="contact-page">
-      <div className="contact-grid">
-        <div className="contact-details">
-          {contactError && <p className="form-error" role="alert">{contactError}</p>}
-          <div className="contact-card"><span className="feature-icon"><Phone size={19} /></span><div><small>{copy.phone}</small><strong><a href={phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined}>{phone || '—'}</a></strong></div></div>
-          <div className="contact-card"><span className="feature-icon"><Mail size={19} /></span><div><small>{copy.email}</small><strong><a href={email ? `mailto:${email}` : undefined}>{email || '—'}</a></strong></div></div>
-          <div className="contact-card"><span className="feature-icon"><MapPin size={19} /></span><div><small>{copy.location}</small><strong>{location || '—'}</strong></div></div>
-          <div className="emergency-note"><Siren size={21} /><div><strong>{copy.immediateEmergency}</strong><p>{copy.emergencyInstructions}</p></div></div>
+    <>
+      <PageImageCarousel images={contactPageImages} label="Contact campus images" />
+      <PageFrame eyebrow={copy.contactEyebrow} title={<>{copy.contactTitle} <em>{copy.contactTitleAccent}</em></>} intro={copy.contactIntro} pageClass="contact-page">
+        <div className="contact-grid">
+          <div className="contact-details">
+            {contactError && <p className="form-error" role="alert">{contactError}</p>}
+            <div className="contact-card"><span className="feature-icon"><Phone size={19} /></span><div><small>{copy.phone}</small><strong><a href={phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined}>{phone || '—'}</a></strong></div></div>
+            <div className="contact-card"><span className="feature-icon"><Mail size={19} /></span><div><small>{copy.email}</small><strong><a href={email ? `mailto:${email}` : undefined}>{email || '—'}</a></strong></div></div>
+            <div className="contact-card"><span className="feature-icon"><MapPin size={19} /></span><div><small>{copy.location}</small><strong>{location || '—'}</strong></div></div>
+            <div className="emergency-note"><Siren size={21} /><div><strong>{copy.immediateEmergency}</strong><p>{copy.emergencyInstructions}</p></div></div>
+          </div>
+          <ContactForm copy={copy} />
         </div>
-        <ContactForm copy={copy} />
-      </div>
-      <figure className="contact-image-section">
-        <img src="/images/campus-security-contact.jpg" alt="Campus location collage with two campus views and Amharic map notes." loading="lazy" />
-      </figure>
-      <section className="contact-map-section">
-        <div className="contact-map-heading"><h2>{copy.location}</h2><p>{CONTACT_CAMPUS.name}</p></div>
-        <div className="contact-map-frame" role="region" aria-label={`${copy.location}: ${CONTACT_CAMPUS.name}`}>
-          <MapContainer center={[CONTACT_CAMPUS.latitude, CONTACT_CAMPUS.longitude]} zoom={17} maxZoom={19} scrollWheelZoom className="contact-campus-map">
-            <ContactMapSizeHandler />
-            <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Satellite">
-                <TileLayer
-                  attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                />
-              </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Street">
-                <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              </LayersControl.BaseLayer>
-            </LayersControl>
-            <CircleMarker
-              center={[CONTACT_CAMPUS.latitude, CONTACT_CAMPUS.longitude]}
-              radius={10}
-              pane="markerPane"
-              pathOptions={{ color: '#fff', weight: 4, fillColor: '#1e6b74', fillOpacity: 1 }}
-            >
-              <Popup>{CONTACT_CAMPUS.name}</Popup>
-            </CircleMarker>
-          </MapContainer>
-        </div>
-      </section>
-    </PageFrame>
+        <section className="contact-map-section">
+          <div className="contact-map-heading"><h2>{copy.location}</h2><p>{CONTACT_CAMPUS.name}</p></div>
+          <div className="contact-map-frame" role="region" aria-label={`${copy.location}: ${CONTACT_CAMPUS.name}`}>
+            <MapContainer center={[CONTACT_CAMPUS.latitude, CONTACT_CAMPUS.longitude]} zoom={17} maxZoom={19} scrollWheelZoom className="contact-campus-map">
+              <ContactMapSizeHandler />
+              <LayersControl position="topright">
+                <LayersControl.BaseLayer checked name="Satellite">
+                  <TileLayer
+                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  />
+                </LayersControl.BaseLayer>
+                <LayersControl.BaseLayer name="Street">
+                  <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                </LayersControl.BaseLayer>
+              </LayersControl>
+              <CircleMarker
+                center={[CONTACT_CAMPUS.latitude, CONTACT_CAMPUS.longitude]}
+                radius={10}
+                pane="markerPane"
+                pathOptions={{ color: '#fff', weight: 4, fillColor: '#1e6b74', fillOpacity: 1 }}
+              >
+                <Popup>{CONTACT_CAMPUS.name}</Popup>
+              </CircleMarker>
+            </MapContainer>
+          </div>
+        </section>
+      </PageFrame>
+    </>
   );
 }
 
@@ -981,7 +1068,8 @@ export default function PublicSite({ user, onLogout, page = 'home' }) {
   }, [page]);
 
   const content = page === 'about' ? <AboutPage copy={copy} /> : page === 'features' ? <FeaturesPage language={language} copy={copy} /> : page === 'contact' ? <ContactPage copy={copy} /> : <HomePage language={language} copy={copy} />;
-  return <div ref={publicAppRef} className={`public-app${language === 'am' ? ' language-am' : ''}`} lang={language}><PublicNav user={user} onLogout={onLogout} language={language} onLanguageChange={setCurrentLanguage} copy={copy} />{content}<PublicFooter copy={copy} /></div>;
+  const pageClass = page === 'about' || page === 'contact' ? ` public-app-${page}` : '';
+  return <div ref={publicAppRef} className={`public-app${pageClass}${language === 'am' ? ' language-am' : ''}`} lang={language}><PublicNav user={user} onLogout={onLogout} language={language} onLanguageChange={setCurrentLanguage} copy={copy} />{content}<PublicFooter copy={copy} /></div>;
 }
 
 export function AuthPage({ mode, onLogin }) {
