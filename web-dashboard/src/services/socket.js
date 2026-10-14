@@ -64,9 +64,7 @@ class WebSocketService {
     }
 
     emitEvent(event, payload) {
-        if (this.socket?.connected) {
-            this.socket.emit(event, payload);
-        }
+        if (this.socket ? .connected) this.socket.emit(event, payload);
     }
 
     on(event, listener) {
