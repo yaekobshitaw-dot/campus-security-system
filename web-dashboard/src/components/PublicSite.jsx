@@ -330,11 +330,12 @@ const featureImagesPath = (filename) => `/images/features/${filename}`;
 // with these exact filenames (or update the paths below to wherever you
 // host them).
 const heroSlides = [
-  '/images/campus-1.jpg', // main entrance arch
-  '/images/campus-2.jpg', // campus road with dorm block
-  '/images/campus-3.jpg', // admin building approach
-  '/images/campus-4.jpg', // aerial road + residence halls
-  '/images/campus-5.jpg'  // STEM/admin block + lawn
+  { src: '/images/campus-security-home.jpg', alt: 'Elevated view of the university campus, buildings, and pathways.' },
+  { src: '/images/campus-1.jpg', alt: 'Main entrance arch on campus.' },
+  { src: '/images/campus-2.jpg', alt: 'Campus road beside a residence hall.' },
+  { src: '/images/campus-3.jpg', alt: 'Approach to a campus administration building.' },
+  { src: '/images/campus-4.jpg', alt: 'Aerial view of a campus road and residence halls.' },
+  { src: '/images/campus-5.jpg', alt: 'Campus science and administration buildings beside a lawn.' }
 ];
 
 function PublicNav({ user, onLogout, language, onLanguageChange, copy }) {
@@ -536,10 +537,10 @@ function CampusCarousel({ copy }) {
         return (
           <div
             className={`visual-slide${isActive ? ` slide-${slideDirection} is-active` : ''}`}
-            key={slide}
+            key={slide.src}
             aria-hidden={!isActive}
           >
-            <img src={slide} alt={`${copy.campusVisual} ${index + 1}`} />
+            <img src={slide.src} alt={slide.alt} />
           </div>
         );
       })}
@@ -816,6 +817,10 @@ function FeatureCard({ feature, index, language, revealIndex }) {
 function AboutPage({ copy }) {
   return <PageFrame eyebrow={copy.aboutEyebrow} title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>} intro={copy.aboutIntro} pageClass="about-page">
     <div className="about-grid"><div className="about-visual"><div className="about-number">01</div><div><ShieldCheck size={38} /><p>{copy.aboutVisual}<br /><strong>{copy.aboutVisualAccent}</strong></p></div></div><div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div></div>
+    <section className="about-image-grid" aria-label="Campus photographs">
+      <img src="/images/campus-security-about-1.jpg" alt="Campus footpaths and landscaped grounds around a university building." loading="lazy" />
+      <img src="/images/campus-security-about-2.jpg" alt="University residence buildings among trees and campus pathways." loading="lazy" />
+    </section>
   </PageFrame>;
 }
 
@@ -855,6 +860,9 @@ function ContactPage({ copy }) {
         </div>
         <ContactForm copy={copy} />
       </div>
+      <figure className="contact-image-section">
+        <img src="/images/campus-security-contact.jpg" alt="Campus location collage with two campus views and Amharic map notes." loading="lazy" />
+      </figure>
       <section className="contact-map-section">
         <div className="contact-map-heading"><h2>{copy.location}</h2><p>{CONTACT_CAMPUS.name}</p></div>
         <div className="contact-map-frame" role="region" aria-label={`${copy.location}: ${CONTACT_CAMPUS.name}`}>

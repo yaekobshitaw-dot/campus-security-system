@@ -97,7 +97,11 @@ describe('Public site', () => {
     expect(container.querySelectorAll('.feature-card')).toHaveLength(8);
     expect(container.querySelectorAll('.feature-image')).toHaveLength(8);
     featureIds.forEach((id) => expect(container.querySelector(`#${id}`)).toBeInTheDocument());
-    expect(container.querySelectorAll('.visual-slide')).toHaveLength(5);
+    expect(container.querySelectorAll('.visual-slide')).toHaveLength(6);
+    expect(container.querySelector('.visual-slide img[src="/images/campus-security-home.jpg"]')).toHaveAttribute(
+      'alt',
+      'Elevated view of the university campus, buildings, and pathways.'
+    );
     expect(container.querySelector('.public-footer')).toBeInTheDocument();
   });
 
@@ -160,6 +164,10 @@ describe('Public site', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Our purpose' }));
     expect(screen.getByRole('heading', { name: /Designed for people/ })).toBeInTheDocument();
+    expect(document.querySelectorAll('.about-image-grid img')).toHaveLength(2);
+    expect(document.querySelector('.about-image-grid img[src="/images/campus-security-about-1.jpg"]')).toHaveAccessibleName(
+      'Campus footpaths and landscaped grounds around a university building.'
+    );
     expect(screen.getByRole('button', { name: 'About' })).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(screen.getByRole('button', { name: 'Features' }));
@@ -209,6 +217,8 @@ describe('Public site', () => {
     expect(await screen.findByRole('link', { name: '0123456789' })).toHaveAttribute('href', 'tel:0123456789');
     expect(screen.getByRole('link', { name: 'saved@example.com' })).toHaveAttribute('href', 'mailto:saved@example.com');
     expect(screen.getByText('Updated campus')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Campus location collage with two campus views and Amharic map notes.' }))
+      .toHaveAttribute('src', '/images/campus-security-contact.jpg');
     expect(api.get).toHaveBeenCalledWith('/public-content/contact');
   });
 
