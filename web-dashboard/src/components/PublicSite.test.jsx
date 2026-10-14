@@ -97,8 +97,7 @@ describe('Public site', () => {
     expect(container.querySelectorAll('.feature-card')).toHaveLength(8);
     expect(container.querySelectorAll('.feature-image')).toHaveLength(8);
     featureIds.forEach((id) => expect(container.querySelector(`#${id}`)).toBeInTheDocument());
-    expect(container.querySelector('.hero-video-bg')).toBeInTheDocument();
-    expect(container.querySelectorAll('.visual-slide')).toHaveLength(0);
+    expect(container.querySelectorAll('.visual-slide')).toHaveLength(5);
     expect(container.querySelector('.public-footer')).toBeInTheDocument();
   });
 

@@ -375,7 +375,7 @@ textarea:focus-visible {
     align-items: flex-start;
     justify-content: center;
     gap: 22px;
-    background: transparent;
+    background: var(--ink);
     color: #a10340;
     overflow: hidden;
 }
@@ -451,16 +451,6 @@ h3 {
 
 .hero-title-block.is-title-visible .hero-title {
     animation: none;
-}
-
-@media (max-width: 768px) {
-    .hero-visual {
-        background: linear-gradient(180deg, rgba(6, 16, 27, 0.30), rgba(6, 16, 27, 0.56));
-    }
-
-    .hero-video-bg {
-        object-position: center center;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -673,28 +663,6 @@ em {
     height: 100%;
     z-index: 0;
     overflow: hidden;
-    background: linear-gradient(180deg, rgba(9, 22, 39, 0.20), rgba(9, 22, 39, 0.45));
-    pointer-events: none;
-}
-
-.hero-visual.is-fallback {
-    background: linear-gradient(180deg, rgba(9, 22, 39, 0.18), rgba(9, 22, 39, 0.44)), url('/images/campus-4.jpg') center / cover no-repeat;
-}
-
-.hero-video-bg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-    object-position: center;
-    background: transparent;
-    filter: saturate(0.95) brightness(0.8);
-}
-
-.hero-visual.is-fallback .hero-video-bg {
-    opacity: 0;
 }
 
 .visual-slide {
@@ -1778,7 +1746,9 @@ em {
     --auth-blue-bright: #155A91;
     --auth-blue-pale: #eaf4fb;
     grid-template-columns: minmax(0, 1fr) minmax(440px, .88fr);
-    background: linear-gradient(110deg, rgba(15, 71, 120, .12), rgba(21, 90, 145, .08) 46%, rgba(234, 244, 251, .54)), url('/images/campus-2.jpg') center 46% / cover no-repeat;
+    background:
+        linear-gradient(110deg, rgba(15, 71, 120, .12), rgba(21, 90, 145, .08) 46%, rgba(234, 244, 251, .54)),
+        url('/images/campus-2.jpg') center 46% / cover no-repeat;
 }
 
 .auth-aside {
