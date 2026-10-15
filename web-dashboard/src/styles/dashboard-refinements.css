@@ -1,10 +1,12 @@
 .dashboard-app :is(h1, h2, h3) {
-  color: var(--ink-900, #172b3a);
+  color: var(--dashboard-text, var(--ink-900, #172b3a));
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-app :is(h1, h2, h3) + p {
-  color: #426b8a;
+  color: var(--dashboard-muted, #526b83);
+  line-height: 1.55;
 }
 
 .dashboard-app .dashboard-table-scroll,
@@ -216,5 +218,218 @@
 @media (max-width: 700px) {
   .dashboard-app table :is(th, td) {
     padding: 9px 13px;
+  }
+}
+
+.dashboard-app {
+  --dashboard-panel-radius: 12px;
+  --dashboard-panel-shadow: 0 2px 8px rgb(0 0 0 / 0.14), 0 1px 2px rgb(0 0 0 / 0.12);
+  --dashboard-control-radius: 8px;
+}
+
+.dashboard-app :is(.dashboard-panel, .detail-panel, .evidence-card, .officer-card, .announcement-form, .dashboard-overview-metric) {
+  min-width: 0;
+  border-color: var(--dashboard-line) !important;
+  border-radius: var(--dashboard-panel-radius) !important;
+  box-shadow: var(--dashboard-panel-shadow) !important;
+}
+
+.dashboard-app .dashboard-metric {
+  border-radius: var(--dashboard-panel-radius);
+  box-shadow: var(--dashboard-panel-shadow);
+}
+
+.dashboard-app .dashboard-panel:hover,
+.dashboard-app .detail-panel:hover,
+.dashboard-app .evidence-card:hover,
+.dashboard-app .officer-card:hover {
+  border-color: var(--dashboard-line) !important;
+}
+
+.dashboard-app .dashboard-settings-page > .settings-section {
+  min-width: 0;
+  border-color: var(--dashboard-line);
+  border-radius: var(--dashboard-panel-radius);
+  box-shadow: var(--dashboard-panel-shadow);
+}
+
+.dashboard-app .dashboard-overview-metric {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-app .dashboard-content h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.dashboard-app .dashboard-content h2 {
+  font-size: 1.375rem;
+  line-height: 1.3;
+}
+
+.dashboard-app .dashboard-content h3 {
+  font-size: 1.125rem;
+  line-height: 1.35;
+}
+
+.dashboard-app .dashboard-button,
+.dashboard-app .table-action,
+.dashboard-app .dashboard-icon-button {
+  border-radius: var(--dashboard-control-radius);
+  box-shadow: none;
+  font-weight: 700;
+  transform: none;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.dashboard-app .dashboard-button:hover,
+.dashboard-app .table-action:hover,
+.dashboard-app .dashboard-icon-button:hover {
+  transform: none;
+}
+
+.dashboard-app .table-action {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+}
+
+.dashboard-app :is(.form-field, .admin-form) label,
+.dashboard-app .form-field {
+  min-width: 0;
+  gap: 0.45rem;
+  color: var(--dashboard-muted);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.dashboard-app :is(.form-field, .admin-form, .announcement-form, .settings-section) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  border-color: var(--dashboard-line);
+  border-radius: var(--dashboard-control-radius);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.dashboard-app :is(.form-field, .admin-form, .announcement-form, .settings-section) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus-visible {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgb(15 71 120 / 0.18);
+  outline: 3px solid rgb(21 90 145 / 0.28);
+  outline-offset: 1px;
+}
+
+.dashboard-app :is(.form-field, .admin-form, .announcement-form, .settings-section) textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.dashboard-app :is(.form-field, .admin-form, .announcement-form, .settings-section) input[type="checkbox"],
+.dashboard-app :is(.form-field, .admin-form, .announcement-form, .settings-section) input[type="radio"] {
+  accent-color: var(--primary-blue);
+}
+
+.dashboard-app :is(.status-badge, .severity-badge, .sms-status-badge, .officer-status) {
+  min-height: 1.5rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dashboard-app .announcement-form button[type="submit"] {
+  border-color: var(--button-primary-bg);
+  border-radius: var(--dashboard-control-radius);
+  background: var(--button-primary-bg);
+  box-shadow: none;
+  color: var(--button-primary-text);
+}
+
+.dashboard-app .announcement-form button[type="submit"]:hover {
+  background: var(--button-primary-hover);
+}
+
+.dashboard-app .announcement-form > div:first-child {
+  background: var(--dashboard-surface-raised);
+}
+
+.dashboard-app .announcement-form > div:first-child > div > div:first-child {
+  background: var(--primary-blue);
+  box-shadow: none;
+}
+
+.dashboard-app .announcement-form button[aria-pressed="true"] {
+  border-color: var(--button-primary-bg);
+  background: var(--button-primary-bg);
+  box-shadow: none;
+  color: var(--button-primary-text);
+}
+
+.dashboard-app .announcement-form button[aria-pressed="false"]:hover {
+  border-color: var(--primary-blue);
+  background: rgb(21 90 145 / 0.08);
+  color: var(--primary-blue);
+}
+
+.dashboard-app .dashboard-content table :is(th, td) {
+  border-color: var(--dashboard-line);
+}
+
+.dashboard-app .dashboard-content table thead th {
+  background: var(--dashboard-surface-raised);
+  color: var(--dashboard-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.dashboard-app .dashboard-content table tbody tr:hover {
+  background: rgb(21 90 145 / 0.08);
+}
+
+.dashboard-app :is(.dashboard-incident-chart-tooltip, .inline-loading, .dashboard-error) {
+  border-radius: var(--dashboard-control-radius);
+}
+
+.dashboard-app :is(.dashboard-incident-chart-state, .empty-state) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.dashboard-app :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] .dashboard-app :is(.form-field, .admin-form, .announcement-form, .settings-section) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus-visible {
+  outline-color: #8bd4ed;
+}
+
+[data-theme="dark"] .dashboard-app :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: #8bd4ed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-app .dashboard-button,
+  .dashboard-app .table-action,
+  .dashboard-app .dashboard-icon-button {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-app .dashboard-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .dashboard-app :is(.dashboard-panel, .detail-panel, .evidence-card, .officer-card) {
+    padding: 1rem;
+  }
+
+  .dashboard-app .announcement-form {
+    border-radius: var(--dashboard-panel-radius);
   }
 }
