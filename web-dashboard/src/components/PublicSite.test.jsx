@@ -130,6 +130,8 @@ describe('Public site', () => {
     expect(screen.getByRole('heading', { name: 'Safety guide' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '+251 900 000 000' })).toHaveAttribute('href', 'tel:+251900000000');
     expect(screen.getByRole('heading', { name: 'Walk-home service' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Campus announcements' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Campus information' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Draft notice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Private notice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Expired notice' })).not.toBeInTheDocument();
@@ -148,10 +150,52 @@ describe('Public site', () => {
       </StrictMode>
     );
 
-    expect(await screen.findByText('There are no public announcements right now.')).toBeInTheDocument();
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    expect(document.querySelectorAll('.home-public-data')).toHaveLength(0);
+    expect(screen.queryByRole('heading', { name: 'Campus announcements' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Campus information' })).not.toBeInTheDocument();
     expect(api.get).toHaveBeenCalledTimes(2);
     expect(api.get).toHaveBeenCalledWith('/announcements/public');
     expect(api.get).toHaveBeenCalledWith('/public-content');
+  });
+
+  it('keeps one public refresh interval and request pair under StrictMode', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+    api.get.mockResolvedValue({ data: { data: [] } });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/']}>
+          <PublicSite />
+        </MemoryRouter>
+      </StrictMode>
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(api.get).toHaveBeenCalledTimes(2);
+
+    const refreshIntervalIds = setIntervalSpy.mock.results.map((result) => result.value);
+    expect(refreshIntervalIds).toHaveLength(2);
+    expect(clearIntervalSpy).toHaveBeenCalledWith(refreshIntervalIds[0]);
+    expect(clearIntervalSpy).not.toHaveBeenCalledWith(refreshIntervalIds[1]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+
+    expect(api.get).toHaveBeenCalledTimes(4);
   });
 
   it('shows a public content load error and allows retrying the request', async () => {
@@ -164,7 +208,9 @@ describe('Public site', () => {
     api.get.mockImplementation(() => Promise.resolve({ data: { data: [] } }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Retry' })[0]);
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
-    expect(await screen.findByText('No active public entries in this section.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    expect(screen.queryByRole('heading', { name: 'Campus information' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No active public entries in this section.')).not.toBeInTheDocument();
   });
 
   it('shows an announcement load error and retries the public request', async () => {
@@ -174,11 +220,67 @@ describe('Public site', () => {
     renderPublicSite();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Announcements are unavailable.');
+    expect(screen.queryByRole('heading', { name: 'Campus announcements' })).not.toBeInTheDocument();
+    expect(screen.queryByText('There are no public announcements right now.')).not.toBeInTheDocument();
     api.get.mockResolvedValue({ data: { success: true, data: [] } });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
-    expect(await screen.findByText('There are no public announcements right now.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    expect(screen.queryByRole('heading', { name: 'Campus announcements' })).not.toBeInTheDocument();
+  });
+
+  it('shows only populated Campus Information subsections', async () => {
+    api.get.mockImplementation((url) => url === '/public-content'
+      ? Promise.resolve({ data: { data: [
+        { content_id: 'faq-1', type: 'faq', title: 'How do I report?', body: 'Use the report form.', is_active: true },
+        { content_id: 'inactive', type: 'safety_resource', title: 'Inactive resource', is_active: false },
+        { content_id: 'unsupported', type: 'private_note', title: 'Private note', is_active: true }
+      ] } })
+      : Promise.resolve({ data: { data: [] } }));
+    renderPublicSite();
+
+    expect(await screen.findByRole('region', { name: 'Campus information' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Frequently asked questions' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Safety resources' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Emergency contacts' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Services and public information' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Inactive resource' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Private note' })).not.toBeInTheDocument();
+  });
+
+  it('automatically refreshes public information after publication', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
+    let contentRequestCount = 0;
+    api.get.mockImplementation((url) => {
+      if (url === '/public-content') {
+        contentRequestCount += 1;
+        return Promise.resolve({ data: { data: contentRequestCount === 1 ? [] : [
+          { content_id: 'faq-1', type: 'faq', title: 'New public answer', is_active: true }
+        ] } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+    renderPublicSite();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole('heading', { name: 'New public answer' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+
+    expect(screen.getByRole('heading', { name: 'New public answer' })).toBeInTheDocument();
+    expect(contentRequestCount).toBe(2);
   });
 
   it('centers the existing Facebook icon link in the public footer', () => {
@@ -240,14 +342,14 @@ describe('Public site', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Our purpose' }));
     expect(screen.getByRole('heading', { name: /Designed for people/ })).toBeInTheDocument();
-    const aboutCarousel = document.querySelector('.about-page')?.previousElementSibling;
+    const aboutCarousel = document.querySelector('.about-grid > .page-image-carousel');
     expect(aboutCarousel).toHaveClass('page-image-carousel');
     expect(aboutCarousel).toHaveAttribute('aria-label', 'About campus images');
+    expect(aboutCarousel.nextElementSibling).toHaveClass('about-copy');
     expect(aboutCarousel.querySelectorAll('.page-image-slide img')).toHaveLength(2);
     expect(aboutCarousel.querySelector('.page-image-slide img[src="/images/campus-security-about-1.jpg"]')).toHaveAccessibleName(
       'Campus footpaths and landscaped grounds around a university building.'
     );
-    expect(aboutCarousel.previousElementSibling).toHaveClass('public-nav-wrap');
     expect(screen.getByRole('button', { name: 'Next image' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'About' })).toHaveAttribute('aria-expanded', 'false');
 
@@ -378,11 +480,12 @@ describe('Public site', () => {
     expect(await screen.findByRole('link', { name: '0123456789' })).toHaveAttribute('href', 'tel:0123456789');
     expect(screen.getByRole('link', { name: 'saved@example.com' })).toHaveAttribute('href', 'mailto:saved@example.com');
     expect(screen.getByText('Updated campus')).toBeInTheDocument();
-    const contactCarousel = document.querySelector('.contact-page')?.previousElementSibling;
+    const contactCarousel = document.querySelector('.contact-grid > .page-image-carousel');
     expect(contactCarousel).toHaveClass('page-image-carousel');
+    expect(contactCarousel).toHaveAttribute('aria-label', 'Contact campus images');
     expect(contactCarousel.querySelectorAll('.page-image-slide img')).toHaveLength(3);
-    expect(contactCarousel.previousElementSibling).toHaveClass('public-nav-wrap');
-    expect(contactCarousel.nextElementSibling.querySelector('.contact-grid')).toBeInTheDocument();
+    expect(contactCarousel.nextElementSibling).toHaveClass('contact-details');
+    expect(document.querySelector('.contact-grid + .contact-form')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Campus location collage with two campus views and Amharic map notes.' }))
       .toHaveAttribute('src', '/images/campus-security-contact.jpg');
     expect(api.get).toHaveBeenCalledWith('/public-content/contact');

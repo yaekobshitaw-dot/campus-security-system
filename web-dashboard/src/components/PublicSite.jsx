@@ -662,9 +662,12 @@ const findResponseArray = (value) => {
   return null;
 };
 
-const isPublicAnnouncement = (announcement, now) => announcement.status === 'published'
+const isPublicAnnouncement = (announcement, now) => announcement && typeof announcement === 'object'
+  && announcement.status === 'published'
   && announcement.is_public === true
   && (!announcement.expires_at || new Date(announcement.expires_at).getTime() > now);
+
+const publicContentTypes = ['faq', 'safety_resource', 'emergency_contact', 'service'];
 
 let publicHomeRequest;
 const loadPublicHomeData = () => {
@@ -675,26 +678,24 @@ const loadPublicHomeData = () => {
   return publicHomeRequest;
 };
 
-function PublicContentGroup({ title, items, type, emptyMessage }) {
+function PublicContentGroup({ title, items, type }) {
   return (
     <section className="public-home-content-group" aria-label={title}>
       <h3>{title}</h3>
-      {items.length === 0 ? <p className="public-home-empty">{emptyMessage}</p> : (
-        <div className="public-home-content-grid">
-          {items.map((item) => (
-            <article className="public-home-content-item" key={item.content_id}>
-              <h4>{item.title}</h4>
-              {(item.summary || item.body) && <p>{item.summary || item.body}</p>}
-              {type === 'emergency_contact' && <div className="public-home-contact-links">
-                {item.contact_name && <span>{item.contact_name}</span>}
-                {item.phone && <a href={`tel:${item.phone.replace(/[^\d+]/g, '')}`}>{item.phone}</a>}
-                {item.email && <a href={`mailto:${item.email}`}>{item.email}</a>}
-              </div>}
-              {item.url && <a className="public-home-content-link" href={item.url} target="_blank" rel="noreferrer">View details <ArrowRight size={15} /></a>}
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="public-home-content-grid">
+        {items.map((item) => (
+          <article className="public-home-content-item" key={item.content_id}>
+            <h4>{item.title}</h4>
+            {(item.summary || item.body) && <p>{item.summary || item.body}</p>}
+            {type === 'emergency_contact' && <div className="public-home-contact-links">
+              {item.contact_name && <span>{item.contact_name}</span>}
+              {item.phone && <a href={`tel:${item.phone.replace(/[^\d+]/g, '')}`}>{item.phone}</a>}
+              {item.email && <a href={`mailto:${item.email}`}>{item.email}</a>}
+            </div>}
+            {item.url && <a className="public-home-content-link" href={item.url} target="_blank" rel="noreferrer">View details <ArrowRight size={15} /></a>}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -711,42 +712,52 @@ function PublicHomeContent({ copy }) {
 
   useEffect(() => {
     let active = true;
-    setState((current) => ({ ...current, loading: true, announcementError: '', contentError: '' }));
-
-    loadPublicHomeData().then(([announcementResult, contentResult]) => {
-      if (!active) return;
-      const now = Date.now();
-      setState({
-        loading: false,
-        announcements: announcementResult.status === 'fulfilled'
-          ? (findResponseArray(announcementResult.value?.data) || []).filter((item) => isPublicAnnouncement(item, now))
-          : [],
-        content: contentResult.status === 'fulfilled'
-          ? (findResponseArray(contentResult.value?.data) || []).filter((item) => item.is_active === true)
-          : [],
-        announcementError: announcementResult.status === 'rejected'
-          ? announcementResult.reason?.response?.data?.message || 'Unable to load public announcements.'
-          : '',
-        contentError: contentResult.status === 'rejected'
-          ? contentResult.reason?.response?.data?.message || 'Unable to load public information.'
-          : ''
+    const load = () => {
+      loadPublicHomeData().then(([announcementResult, contentResult]) => {
+        if (!active) return;
+        const now = Date.now();
+        setState((current) => ({
+          ...current,
+          loading: false,
+          announcements: announcementResult.status === 'fulfilled'
+            ? (findResponseArray(announcementResult.value?.data) || []).filter((item) => isPublicAnnouncement(item, now))
+            : current.announcements,
+          content: contentResult.status === 'fulfilled'
+            ? (findResponseArray(contentResult.value?.data) || []).filter((item) => item?.is_active === true && publicContentTypes.includes(item.type))
+            : current.content,
+          announcementError: announcementResult.status === 'rejected'
+            ? announcementResult.reason?.response?.data?.message || 'Unable to load public announcements.'
+            : '',
+          contentError: contentResult.status === 'rejected'
+            ? contentResult.reason?.response?.data?.message || 'Unable to load public information.'
+            : ''
+        }));
       });
-    });
+    };
 
-    return () => { active = false; };
+    load();
+    const intervalId = window.setInterval(load, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, [reloadKey]);
 
-  const retry = () => setReloadKey((current) => current + 1);
+  const retry = () => {
+    setState((current) => ({ ...current, loading: true, announcementError: '', contentError: '' }));
+    setReloadKey((current) => current + 1);
+  };
   const contentByType = (type) => state.content.filter((item) => item.type === type);
+  const hasPublicInformation = publicContentTypes.some((type) => contentByType(type).length > 0);
 
   return (
     <>
-      <section className="section home-public-data motion-reveal" aria-labelledby="public-announcements-title">
+      {state.loading && <p className="public-home-status" role="status">{copy.loadingPublicContent}</p>}
+      {state.announcementError && <div className="public-home-error" role="alert"><span>{state.announcementError}</span><button type="button" onClick={retry}>{copy.retry}</button></div>}
+      {state.contentError && <div className="public-home-error" role="alert"><span>{state.contentError}</span><button type="button" onClick={retry}>{copy.retry}</button></div>}
+      {state.announcements.length > 0 && <section className="section home-public-data motion-reveal" aria-labelledby="public-announcements-title">
         <div className="section-heading"><div><p className="eyebrow">{copy.publicInformation}</p><h2 id="public-announcements-title">{copy.publicAnnouncements}</h2></div></div>
-        {state.loading && <p className="public-home-status" role="status">{copy.loadingPublicContent}</p>}
-        {state.announcementError && <div className="public-home-error" role="alert"><span>{state.announcementError}</span><button type="button" onClick={retry}>{copy.retry}</button></div>}
-        {!state.loading && !state.announcementError && state.announcements.length === 0 && <p className="public-home-empty">{copy.noPublicAnnouncements}</p>}
-        {!state.loading && !state.announcementError && state.announcements.length > 0 && <div className="public-home-content-grid">
+        <div className="public-home-content-grid">
           {state.announcements.map((announcement) => (
             <article className="public-home-content-item public-home-announcement" key={announcement.announcement_id}>
               <p className="public-home-announcement-meta">{announcement.published_at && new Date(announcement.published_at).toLocaleDateString()}</p>
@@ -754,19 +765,17 @@ function PublicHomeContent({ copy }) {
               <p>{announcement.content}</p>
             </article>
           ))}
-        </div>}
-      </section>
-      <section className="section home-public-data home-public-information motion-reveal" aria-labelledby="public-information-title">
-        <div className="section-heading"><div><p className="eyebrow">{copy.publicInformation}</p><h2 id="public-information-title">{copy.servicesInformation}</h2></div></div>
-        {state.loading && <p className="public-home-status" role="status">{copy.loadingPublicContent}</p>}
-        {state.contentError && <div className="public-home-error" role="alert"><span>{state.contentError}</span><button type="button" onClick={retry}>{copy.retry}</button></div>}
-        {!state.loading && !state.contentError && <div className="public-home-groups">
-          <PublicContentGroup title={copy.faq} type="faq" items={contentByType('faq')} emptyMessage={copy.noPublicContent} />
-          <PublicContentGroup title={copy.safetyResources} type="safety_resource" items={contentByType('safety_resource')} emptyMessage={copy.noPublicContent} />
-          <PublicContentGroup title={copy.emergencyContacts} type="emergency_contact" items={contentByType('emergency_contact')} emptyMessage={copy.noPublicContent} />
-          <PublicContentGroup title={copy.servicesInformation} type="service" items={contentByType('service')} emptyMessage={copy.noPublicContent} />
-        </div>}
-      </section>
+        </div>
+      </section>}
+      {hasPublicInformation && <section className="section home-public-data home-public-information motion-reveal" aria-labelledby="public-information-title">
+        <div className="section-heading"><div><p className="eyebrow">{copy.publicInformation}</p><h2 id="public-information-title">{copy.publicInformation}</h2></div></div>
+        <div className="public-home-groups">
+          {contentByType('faq').length > 0 && <PublicContentGroup title={copy.faq} type="faq" items={contentByType('faq')} />}
+          {contentByType('safety_resource').length > 0 && <PublicContentGroup title={copy.safetyResources} type="safety_resource" items={contentByType('safety_resource')} />}
+          {contentByType('emergency_contact').length > 0 && <PublicContentGroup title={copy.emergencyContacts} type="emergency_contact" items={contentByType('emergency_contact')} />}
+          {contentByType('service').length > 0 && <PublicContentGroup title={copy.servicesInformation} type="service" items={contentByType('service')} />}
+        </div>
+      </section>}
     </>
   );
 }
@@ -1034,9 +1043,8 @@ function FeatureCard({ feature, index, language, revealIndex }) {
 
 function AboutPage({ copy }) {
   return <>
-    <PageImageCarousel images={aboutPageImages} label="About campus images" />
     <PageFrame eyebrow={copy.aboutEyebrow} title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>} intro={copy.aboutIntro} pageClass="about-page">
-      <div className="about-grid"><div className="about-visual"><div className="about-number">01</div><div><ShieldCheck size={38} /><p>{copy.aboutVisual}<br /><strong>{copy.aboutVisualAccent}</strong></p></div></div><div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div></div>
+      <div className="about-grid"><PageImageCarousel images={aboutPageImages} label="About campus images" /><div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div></div>
     </PageFrame>
   </>;
 }
@@ -1067,9 +1075,9 @@ function ContactPage({ copy }) {
 
   return (
     <>
-      <PageImageCarousel images={contactPageImages} label="Contact campus images" />
       <PageFrame eyebrow={copy.contactEyebrow} title={<>{copy.contactTitle} <em>{copy.contactTitleAccent}</em></>} intro={copy.contactIntro} pageClass="contact-page">
         <div className="contact-grid">
+          <PageImageCarousel images={contactPageImages} label="Contact campus images" />
           <div className="contact-details">
             {contactError && <p className="form-error" role="alert">{contactError}</p>}
             <div className="contact-card"><span className="feature-icon"><Phone size={19} /></span><div><small>{copy.phone}</small><strong><a href={phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined}>{phone || '—'}</a></strong></div></div>
@@ -1077,8 +1085,8 @@ function ContactPage({ copy }) {
             <div className="contact-card"><span className="feature-icon"><MapPin size={19} /></span><div><small>{copy.location}</small><strong>{location || '—'}</strong></div></div>
             <div className="emergency-note"><Siren size={21} /><div><strong>{copy.immediateEmergency}</strong><p>{copy.emergencyInstructions}</p></div></div>
           </div>
-          <ContactForm copy={copy} />
         </div>
+        <ContactForm copy={copy} />
         <section className="contact-map-section">
           <div className="contact-map-heading"><h2>{copy.location}</h2><p>{CONTACT_CAMPUS.name}</p></div>
           <div className="contact-map-frame" role="region" aria-label={`${copy.location}: ${CONTACT_CAMPUS.name}`}>
