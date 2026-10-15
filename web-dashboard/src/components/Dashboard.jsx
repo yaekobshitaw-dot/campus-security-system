@@ -148,9 +148,10 @@ function OverviewMetricCards({ metrics }) {
   return (
     <section className="dashboard-overview-metrics" aria-label="Dashboard summary">
       {metrics.map((metric) => (
-        <article key={metric.name} className="dashboard-overview-metric">
+        <article key={metric.name} className={`dashboard-overview-metric dashboard-overview-metric-${metric.tone}`}>
           <span>{t(metric.name)}</span>
           <strong>{metric.displayValue}</strong>
+          <metric.icon className="dashboard-overview-metric-icon" aria-hidden="true" />
         </article>
       ))}
     </section>
@@ -1054,13 +1055,15 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     ? <button type="button" className="dashboard-button primary" onClick={() => setCreateOpen(true)}>{isSOSSection ? 'Send SOS alert' : 'Report incident'}</button>
     : null;
   const overviewMetrics = [
-    { name: 'Total incidents', value: stats.total, displayValue: stats.total },
-    { name: 'Active incidents', value: stats.active, displayValue: stats.active },
-    { name: 'Critical / SOS', value: critical.length, displayValue: critical.length },
+    { name: 'Total incidents', value: stats.total, displayValue: stats.total, tone: 'total', icon: ReportProblemOutlined },
+    { name: 'Active incidents', value: stats.active, displayValue: stats.active, tone: 'active', icon: CheckCircleOutline },
+    { name: 'Critical / SOS', value: critical.length, displayValue: critical.length, tone: 'critical', icon: WarningAmberOutlined },
     {
       name: 'Security officers',
       value: resourceState.officers.status === 'error' ? 0 : officers.length,
       displayValue: resourceState.officers.status === 'error' ? '!' : officers.length,
+      tone: 'officers',
+      icon: PeopleAltOutlined,
     },
   ];
   const incidentStatusData = useMemo(

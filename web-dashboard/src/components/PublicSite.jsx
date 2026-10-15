@@ -583,7 +583,7 @@ function PageImageCarousel({ images, label }) {
     if (reducedMotion || isPaused || images.length < 2) return undefined;
     const intervalId = window.setInterval(() => {
       setSlideIndex((currentIndex) => (currentIndex + 1) % images.length);
-    }, 4800);
+    }, 2800);
     return () => window.clearInterval(intervalId);
   }, [images.length, isPaused, reducedMotion]);
 

@@ -480,23 +480,18 @@
     .dashboard-app .announcement-card>div:last-child {
         grid-template-columns: minmax(0, 1fr);
     }
-
     .dashboard-app .announcement-card>div:first-child>button {
         justify-self: center;
     }
-
     .dashboard-app .announcement-card>div:last-child>div:last-child {
         justify-content: center;
     }
-
     .dashboard-app .incident-detail-fields {
         grid-template-columns: minmax(0, 1fr);
     }
-
     .dashboard-app .incident-detail-field-wide {
         grid-column: auto;
     }
-
     .dashboard-app .dashboard-overview-content .dashboard-overview-metrics {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -697,5 +692,180 @@
     }
     .dashboard-app .announcement-form {
         border-radius: var(--dashboard-panel-radius);
+    }
+}
+
+.dashboard-app .dashboard-main,
+.dashboard-app .dashboard-workspace,
+.dashboard-app .dashboard-content {
+    background-color: #f3f5f8;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-main,
+[data-theme="dark"].dashboard-app .dashboard-workspace,
+[data-theme="dark"].dashboard-app .dashboard-content {
+    background-color: #0f172a;
+}
+
+.dashboard-app .dashboard-overview-metric-total {
+    --metric-tint: #eaf2ff;
+    --metric-accent: #245cc5;
+    --metric-border: #c8d9f7;
+}
+
+.dashboard-app .dashboard-overview-metric-active {
+    --metric-tint: #e4f7ed;
+    --metric-accent: #126b43;
+    --metric-border: #c2e8d2;
+}
+
+.dashboard-app .dashboard-overview-metric-critical {
+    --metric-tint: #fce8e8;
+    --metric-accent: #c62828;
+    --metric-border: #f2c7c7;
+}
+
+.dashboard-app .dashboard-overview-metric-officers {
+    --metric-tint: #f1eafe;
+    --metric-accent: #7041b8;
+    --metric-border: #d9c8f4;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric-total,
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric-active,
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric-critical,
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric-officers {
+    border-color: var(--metric-border) !important;
+    background-color: var(--metric-tint) !important;
+}
+
+.dashboard-app .dashboard-overview-content :is(
+    .dashboard-overview-metric-total,
+    .dashboard-overview-metric-active,
+    .dashboard-overview-metric-critical,
+    .dashboard-overview-metric-officers
+) > span,
+.dashboard-app .dashboard-overview-content :is(
+    .dashboard-overview-metric-total,
+    .dashboard-overview-metric-active,
+    .dashboard-overview-metric-critical,
+    .dashboard-overview-metric-officers
+) > strong,
+.dashboard-app .dashboard-overview-metric-icon {
+    color: var(--metric-accent);
+}
+
+.dashboard-app .dashboard-overview-metric-icon {
+    width: 1.4rem;
+    height: 1.4rem;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-metric-total {
+    --metric-tint: #1b2b45;
+    --metric-accent: #9bbcff;
+    --metric-border: #334d76;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-metric-active {
+    --metric-tint: #19372d;
+    --metric-accent: #7dd9a9;
+    --metric-border: #2c5946;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-metric-critical {
+    --metric-tint: #3b252a;
+    --metric-accent: #ffaaaa;
+    --metric-border: #634047;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-metric-officers {
+    --metric-tint: #302747;
+    --metric-accent: #c5a9fa;
+    --metric-border: #51406f;
+}
+
+.dashboard-app :is(
+    .dashboard-panel,
+    .detail-panel,
+    .evidence-card,
+    .officer-card,
+    .announcement-card,
+    .announcement-form,
+    .content-management-card,
+    .dashboard-overview-metric,
+    .dashboard-metric,
+    .analytics-summary-card,
+    .analytics-chart-panel,
+    .dashboard-incident-chart-panel
+) {
+    animation: dashboard-card-enter 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 220ms ease;
+}
+
+@keyframes dashboard-card-enter {
+    from {
+        opacity: 0;
+        translate: 0 8px;
+    }
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+.dashboard-app .dashboard-overview-metrics > :nth-child(2) {
+    animation-delay: 45ms;
+}
+
+.dashboard-app .dashboard-overview-metrics > :nth-child(3) {
+    animation-delay: 90ms;
+}
+
+.dashboard-app .dashboard-overview-metrics > :nth-child(4) {
+    animation-delay: 135ms;
+}
+
+.dashboard-app .dashboard-overview-charts > :nth-child(2) {
+    animation-delay: 65ms;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .dashboard-app :is(
+        .dashboard-panel,
+        .detail-panel,
+        .evidence-card,
+        .officer-card,
+        .announcement-card,
+        .announcement-form,
+        .content-management-card,
+        .dashboard-overview-metric,
+        .dashboard-metric,
+        .analytics-summary-card,
+        .analytics-chart-panel,
+        .dashboard-incident-chart-panel
+    ):hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgb(15 23 42 / 0.11) !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-app :is(
+        .dashboard-panel,
+        .detail-panel,
+        .evidence-card,
+        .officer-card,
+        .announcement-card,
+        .announcement-form,
+        .content-management-card,
+        .dashboard-overview-metric,
+        .dashboard-metric,
+        .analytics-summary-card,
+        .analytics-chart-panel,
+        .dashboard-incident-chart-panel
+    ) {
+        animation: none;
+        transition: none;
+        translate: none;
     }
 }
