@@ -475,11 +475,7 @@
     --dashboard-line: rgb(150 207 226 / 0.16);
     --dashboard-muted: #91a9bb;
     --dashboard-text: #edf8fc;
-    background-image: url("/images/admin-dashboard-background.jpg") !important;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-    background-attachment: fixed;
+    background-image: none !important;
     background-color: var(--dashboard-bg) !important;
     color: var(--dashboard-text);
 }
@@ -546,8 +542,7 @@
     overflow-y: visible;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    background-image: linear-gradient(rgb(111 191 218 / 0.035) 1px, transparent 1px), linear-gradient(90deg, rgb(111 191 218 / 0.035) 1px, transparent 1px);
-    background-size: 36px 36px;
+    background-image: none;
 }
 
 .dashboard-content::-webkit-scrollbar {
@@ -818,7 +813,7 @@ article) {
 
 .dashboard-overview-content>.mx-auto>.space-y-8>.dashboard-overview-recent-grid>section {
     min-width: 0;
-    height: 100%;
+    height: auto;
 }
 
 .dashboard-overview-content>.mx-auto>.space-y-8>.dashboard-overview-recent-grid .dashboard-heading {
@@ -850,12 +845,9 @@ article) {
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
-    overflow: hidden;
-    background-image: url("/images/admin-dashboard-background.jpg");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    overflow: visible;
+    background-image: none;
+    background-color: #fff;
 }
 
 .dashboard-content {
@@ -2004,7 +1996,7 @@ textarea):focus-visible {
 }
 
 .dashboard-overview-content .cc-summary>.dashboard-metric {
-    height: 100%;
+    height: auto;
 }
 
 .dashboard-overview-content .dashboard-overview-hero-image-wrap {
@@ -2116,7 +2108,7 @@ textarea):focus-visible {
 /* Light blue dashboard theme and shared typography hierarchy. */
 
 .dashboard-app {
-    --dashboard-bg: var(--page);
+    --dashboard-bg: #fff;
     --dashboard-surface: var(--surface);
     --dashboard-surface-raised: var(--surface);
     --dashboard-line: #d9e3ee;
@@ -2153,12 +2145,12 @@ textarea):focus-visible {
 }
 
 .dashboard-app .dashboard-main {
-    background: var(--page) !important;
+    background: #fff !important;
     color: var(--ink-900);
 }
 
 .dashboard-app .dashboard-content {
-    background: var(--page);
+    background: #fff;
     background-image: none;
 }
 
@@ -2549,21 +2541,12 @@ textarea):focus-visible {
 [data-theme="dark"].dashboard-app .dashboard-content {
     position: relative;
     isolation: isolate;
-    background: transparent !important;
+    background: #fff !important;
     background-image: none !important;
 }
 
-.dashboard-app .dashboard-content::before {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background: linear-gradient( 125deg, rgb(245 249 252 / 0.8) 0%, rgb(237 246 251 / 0.78) 54%, rgb(226 240 249 / 0.8) 100%);
-    content: "";
-    pointer-events: none;
-}
-
-[data-theme="dark"].dashboard-app .dashboard-content::before {
-    background: linear-gradient( 125deg, rgb(15 23 42 / 0.84) 0%, rgb(16 39 61 / 0.82) 54%, rgb(15 47 74 / 0.84) 100%);
+[data-theme="dark"].dashboard-app .dashboard-content {
+    background: #0f172a !important;
 }
 
 .analytics-dashboard {
@@ -2643,24 +2626,6 @@ textarea)::placeholder {
     color: #ffffff;
 }
 
-@media (max-width: 1023px) {
-    .dashboard-app .dashboard-content::before {
-        background: linear-gradient( 145deg, rgb(245 249 252 / 0.83) 0%, rgb(237 246 251 / 0.81) 54%, rgb(226 240 249 / 0.83) 100%);
-    }
-    [data-theme="dark"].dashboard-app .dashboard-content::before {
-        background: linear-gradient( 145deg, rgb(15 23 42 / 0.86) 0%, rgb(16 39 61 / 0.84) 54%, rgb(15 47 74 / 0.86) 100%);
-    }
-}
-
-@media (max-width: 639px) {
-    .dashboard-app .dashboard-content::before {
-        background: linear-gradient( 155deg, rgb(245 249 252 / 0.86) 0%, rgb(237 246 251 / 0.84) 54%, rgb(226 240 249 / 0.86) 100%);
-    }
-    [data-theme="dark"].dashboard-app .dashboard-content::before {
-        background: linear-gradient( 155deg, rgb(15 23 42 / 0.88) 0%, rgb(16 39 61 / 0.86) 54%, rgb(15 47 74 / 0.88) 100%);
-    }
-}
-
 .dashboard-app .dashboard-content :is(.text-slate-400,
 .text-slate-500,
 .text-slate-600,
@@ -2678,7 +2643,7 @@ textarea)::placeholder {
 }
 
 .dashboard-app .dashboard-overview-chart {
-    overflow: hidden;
+    overflow: visible;
     padding: clamp(1.125rem, 2.5vw, 1.75rem);
     border-color: var(--dashboard-line) !important;
     background: radial-gradient(ellipse at 5% 0%, rgb(37 99 235 / 0.07), transparent 46%), var(--dashboard-surface) !important;
@@ -2957,7 +2922,7 @@ textarea)::placeholder {
 .analytics-summary-card {
     display: flex;
     min-height: 9rem;
-    height: 100%;
+    height: auto;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -2965,14 +2930,14 @@ textarea)::placeholder {
     padding: 1.5rem 1.25rem;
     position: relative;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     text-align: center;
     animation: analytics-enter 420ms ease-out both;
     transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .analytics-summary-grid {
-    grid-auto-rows: 1fr;
+    grid-auto-rows: auto;
     align-items: stretch;
 }
 
@@ -3752,7 +3717,6 @@ textarea)::placeholder {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 1rem;
     }
-
     .dashboard-app .dashboard-settings-heading,
     .dashboard-app .settings-section-preferences,
     .dashboard-app .settings-section-security,
@@ -3760,7 +3724,6 @@ textarea)::placeholder {
     .dashboard-app .settings-section-system {
         grid-column: 1 / -1;
     }
-
     .dashboard-app .dashboard-content>.mx-auto>.dashboard-settings-page>.settings-section-security {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3773,20 +3736,16 @@ textarea)::placeholder {
     .dashboard-app .dashboard-settings-heading>p:last-child {
         font-size: 0.78rem;
     }
-
     .dashboard-app .dashboard-settings-page>.settings-section {
         padding: 0.875rem;
         border-radius: 1.25rem;
     }
-
     .dashboard-app .dashboard-content>.mx-auto>.dashboard-settings-page>.settings-section-security {
         display: flex;
     }
-
     .dashboard-app .settings-security-overview {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-
     .dashboard-app .settings-security-overview>div {
         padding: 0.6rem;
         overflow-wrap: anywhere;
