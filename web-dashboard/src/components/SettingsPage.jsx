@@ -7,9 +7,9 @@ import ProfilePage from './ProfilePage';
 import { SystemSettingsPage } from './AdminPages';
 import api from '../services/api';
 
-const Section = ({ title, description, children }) => (
-  <section className="dashboard-panel space-y-4 border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-    <div>
+const Section = ({ title, description, children, className = '' }) => (
+  <section className={`dashboard-panel settings-section ${className}`}>
+    <div className="settings-section-heading">
       <h3 className="text-lg font-black text-[#0b1f3a]">{title}</h3>
       {description && <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>}
     </div>
@@ -18,7 +18,7 @@ const Section = ({ title, description, children }) => (
 );
 
 const Preference = ({ label, description, checked, onChange, disabled = false }) => (
-  <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4">
+  <label className="settings-preference flex items-start gap-3 rounded-xl border border-slate-200 p-4">
     <input className="mt-1 h-4 w-4 accent-sky-700" type="checkbox" checked={checked} onChange={onChange} disabled={disabled} />
     <span>
       <span className="block text-sm font-bold text-slate-800">{label}</span>
@@ -103,7 +103,7 @@ const normalizeRole = (role) => String(role || '').trim().toLowerCase().replace(
 
 const formatSecurityDate = (value) => (value ? new Date(value).toLocaleString() : 'Unknown');
 
-function SecuritySettings({ user, isAdmin, onUpdated, onLogout }) {
+function SecuritySettings({ user, isAdmin, onUpdated, onLogout, className = '' }) {
   const [mfaEnabled, setMfaEnabled] = useState(Boolean(user?.mfa_enabled));
   const [setupUrl, setSetupUrl] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -204,37 +204,37 @@ function SecuritySettings({ user, isAdmin, onUpdated, onLogout }) {
   };
 
   return (
-    <Section title="Security" description="Protect your account and manage where it is signed in.">
-      <div className="grid gap-3 sm:grid-cols-3" aria-label="Security overview">
+    <Section title="Security" description="Protect your account and manage where it is signed in." className={className}>
+      <div className="settings-security-overview grid gap-3 sm:grid-cols-3" aria-label="Security overview">
         <div className="rounded-xl border border-slate-200 p-4"><span className="block text-xs font-bold uppercase tracking-wide text-slate-500">MFA</span><strong className="text-slate-900">{mfaEnabled ? 'Enabled' : 'Disabled'}</strong></div>
         <div className="rounded-xl border border-slate-200 p-4"><span className="block text-xs font-bold uppercase tracking-wide text-slate-500">Active sessions</span><strong className="text-slate-900">{sessions.length}</strong></div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><span className="block text-xs font-bold uppercase tracking-wide text-emerald-700">Protection</span><strong className="text-emerald-800">{mfaEnabled ? 'Enhanced' : 'Password only'}</strong></div>
       </div>
-      <div className="space-y-3 border-t border-slate-200 pt-4">
+      <div className="settings-security-block settings-security-mfa space-y-3 border-t border-slate-200 pt-4">
         <div><h4 className="font-black text-slate-900">Multi-factor authentication</h4><p className="mt-1 text-sm leading-6 text-slate-500">MFA adds a time-based code from an authenticator app when you sign in.</p></div>
         {!mfaEnabled && !setupUrl && <button type="button" className="dashboard-button primary" onClick={beginMfaSetup} disabled={busy === 'setup'}>{busy === 'setup' ? 'Starting setup...' : 'Enable MFA'}</button>}
         {mfaEnabled && <button type="button" className="dashboard-button" onClick={disableMfa} disabled={busy === 'disable'}>{busy === 'disable' ? 'Disabling...' : 'Disable MFA'}</button>}
-        {setupUrl && <form className="grid gap-4 rounded-xl border border-sky-200 bg-sky-50 p-4 sm:grid-cols-[auto_1fr]" onSubmit={enableMfa}><div className="flex justify-center"><QRCodeSVG value={setupUrl} size={160} includeMargin aria-label="Authenticator setup QR code" /></div><div className="space-y-3"><p className="text-sm leading-6 text-slate-700">Authenticator App: scan this code in a compatible authenticator application. The setup URI is shown only while setup is in progress.</p><label className="form-field"><span>Authenticator setup URI</span><textarea readOnly value={setupUrl} rows={3} aria-label="Authenticator setup URI" /></label><label className="form-field"><span>Current six-digit code</span><input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} /></label><button type="submit" className="dashboard-button primary" disabled={busy === 'enable'}>{busy === 'enable' ? 'Verifying...' : 'Verify and enable MFA'}</button></div></form>}
+        {setupUrl && <form className="settings-mfa-setup grid gap-4 rounded-xl border border-sky-200 bg-sky-50 p-4 sm:grid-cols-[auto_1fr]" onSubmit={enableMfa}><div className="flex justify-center"><QRCodeSVG value={setupUrl} size={160} includeMargin aria-label="Authenticator setup QR code" /></div><div className="space-y-3"><p className="text-sm leading-6 text-slate-700">Authenticator App: scan this code in a compatible authenticator application. The setup URI is shown only while setup is in progress.</p><label className="form-field"><span>Authenticator setup URI</span><textarea readOnly value={setupUrl} rows={3} aria-label="Authenticator setup URI" /></label><label className="form-field"><span>Current six-digit code</span><input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} /></label><button type="submit" className="dashboard-button primary" disabled={busy === 'enable'}>{busy === 'enable' ? 'Verifying...' : 'Verify and enable MFA'}</button></div></form>}
       </div>
-      <div className="space-y-3 border-t border-slate-200 pt-4">
+      <div className="settings-security-block settings-security-recovery space-y-3 border-t border-slate-200 pt-4">
         <div><h4 className="font-black text-slate-900">Recovery codes</h4><p className="mt-1 text-sm leading-6 text-slate-500">Recovery codes can be used once if you cannot access your authenticator app.</p></div>
         {recoveryCodes ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4" role="alert"><p className="font-bold text-amber-900">Store these codes securely. They will not be shown again.</p><code className="mt-3 grid grid-cols-2 gap-2 text-sm text-amber-950 sm:grid-cols-4">{recoveryCodes.map((code) => <span key={code}>{code}</span>)}</code><button type="button" className="dashboard-button mt-4" onClick={() => setRecoveryCodes(null)}>Hide recovery codes</button></div> : <p className="text-sm text-slate-600">{mfaEnabled ? 'Recovery codes are configured for this account.' : 'Recovery codes become available after MFA is enabled.'}</p>}
       </div>
-      <div className="space-y-3 border-t border-slate-200 pt-4">
+      <div className="settings-security-block settings-security-sessions space-y-3 border-t border-slate-200 pt-4">
         <div><h4 className="font-black text-slate-900">Active sessions</h4><p className="mt-1 text-sm leading-6 text-slate-500">Review and revoke refresh sessions. Tokens are never displayed.</p></div>
         {loadingSessions ? <p className="text-sm text-slate-500">Loading sessions...</p> : sessions.length === 0 ? <p className="text-sm text-slate-500">No active sessions found.</p> : <div className="space-y-2">{sessions.map((session) => <div className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between" key={session.session_id}><div className="text-sm text-slate-700"><strong className="block text-slate-900">{session.device_label || 'Unknown device'}</strong><span>Created {formatSecurityDate(session.created_at)}</span><span className="block">Last active {formatSecurityDate(session.last_active_at)} · Expires {formatSecurityDate(session.expires_at)}</span></div><button type="button" className="dashboard-button" onClick={() => revokeSession(session)} disabled={busy === `revoke-${session.session_id}`}>{busy === `revoke-${session.session_id}` ? 'Revoking...' : 'Revoke session'}</button></div>)}</div>}
         <button type="button" className="dashboard-button" onClick={revokeAll} disabled={busy === 'all'}>{busy === 'all' ? 'Signing out...' : 'Logout All Sessions'}</button>
       </div>
-      {isAdmin && <div className="space-y-2 border-t border-slate-200 pt-4"><h4 className="font-black text-slate-900">Security audit</h4><p className="text-sm leading-6 text-slate-500">Review administrator-authorized security events without exposing secrets or tokens.</p><Link className="dashboard-button" to="/audit-logs">Open Audit Logs</Link></div>}
-      {message && <p className="text-sm font-bold text-emerald-700" role="status">{message}</p>}
-      {error && <p className="text-sm font-bold text-red-700" role="alert">{error}</p>}
+      {isAdmin && <div className="settings-security-block settings-security-audit space-y-2 border-t border-slate-200 pt-4"><h4 className="font-black text-slate-900">Security audit</h4><p className="text-sm leading-6 text-slate-500">Review administrator-authorized security events without exposing secrets or tokens.</p><Link className="dashboard-button" to="/audit-logs">Open Audit Logs</Link></div>}
+      {message && <p className="settings-security-message text-sm font-bold text-emerald-700" role="status">{message}</p>}
+      {error && <p className="settings-security-message text-sm font-bold text-red-700" role="alert">{error}</p>}
     </Section>
   );
 }
 
 function PreferenceSelect({ label, value, options, onChange }) {
   return (
-    <label className="dashboard-setting-select">
+    <label className="dashboard-setting-select settings-select-field">
       <span>{label}</span>
       <select aria-label={label} value={value} onChange={onChange}>
         {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
@@ -279,8 +279,8 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="dashboard-heading border-b border-slate-200/80 pb-4">
+    <div className="dashboard-settings-page">
+      <div className="dashboard-heading dashboard-settings-heading border-b border-slate-200/80 pb-4">
         <p className="dashboard-eyebrow">Personalize your workspace</p>
         <h2 className="mt-1.5 text-xl font-black tracking-tight text-[#0b1f3a] sm:text-2xl">{t('Settings')}</h2>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
@@ -288,7 +288,7 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
         </p>
       </div>
 
-      <Section title="Account" description="Your account details and profile tools.">
+      <Section title="Account" description="Your account details and profile tools." className="settings-section-account">
         <ProfilePage user={user} onUpdated={onUpdated} />
         <div className="flex flex-wrap gap-3 border-t border-slate-200 pt-4">
           <Link className="dashboard-button" to="/forgot-password">Change password</Link>
@@ -300,7 +300,7 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
         </p>
       </Section>
 
-      <Section title="Appearance" description="Choose the theme used by the dashboard.">
+      <Section title="Appearance" description="Choose the theme used by the dashboard." className="settings-section-appearance">
         <div className="flex flex-wrap gap-3" role="group" aria-label="Theme">
           {['light', 'dark'].map((value) => (
             <button
@@ -317,7 +317,7 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
         <p className="text-xs leading-5 text-slate-500">Theme choice is saved in this browser for your account.</p>
       </Section>
 
-      <Section title="Language" description="Use a language already supported by dashboard translations.">
+      <Section title="Language" description="Use a language already supported by dashboard translations." className="settings-section-language">
         <label className="form-field max-w-sm">
           <span>Application language</span>
           <select aria-label="Application language" value={language} onChange={(event) => setLanguage(event.target.value)}>
@@ -327,7 +327,7 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
         </label>
       </Section>
 
-      <Section title={`Recommended for ${settingsProfile.title}`} description={settingsProfile.description}>
+      <Section title={`Recommended for ${settingsProfile.title}`} description={settingsProfile.description} className="settings-section-preferences">
         <div className="grid gap-3 sm:grid-cols-2">
           <Preference label="In-app notifications" description="Show live notifications in the dashboard header." checked={preferences.inAppNotifications} onChange={updatePreference('inAppNotifications')} />
           <Preference label="Incident notifications" description="Show new incident reports." checked={preferences.incidentNotifications} onChange={updatePreference('incidentNotifications')} />
@@ -349,7 +349,7 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
         </p>
       </Section>
 
-      <Section title="Privacy & Security" description="Manage the account security actions currently available in the dashboard.">
+      <Section title="Privacy & Security" description="Manage the account security actions currently available in the dashboard." className="settings-section-privacy">
         <div className="flex flex-wrap items-center gap-3">
           <Link className="dashboard-button" to="/forgot-password">Reset password</Link>
           <button type="button" className="dashboard-button" onClick={onLogout}>Sign out of this session</button>
@@ -358,17 +358,17 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
         <p className="text-xs leading-5 text-slate-500">Settings return to their defaults for this account. Detailed account protection and session controls are available below.</p>
       </Section>
 
-      <SecuritySettings user={user} isAdmin={isAdmin} onUpdated={onUpdated} onLogout={onLogout} />
+      <SecuritySettings user={user} isAdmin={isAdmin} onUpdated={onUpdated} onLogout={onLogout} className="settings-section-security" />
 
       {isAdmin && (
         <>
-          <Section title="Admin features" description="Administrative destinations available to administrators only. Existing access controls continue to apply.">
+          <Section title="Admin features" description="Administrative destinations available to administrators only. Existing access controls continue to apply." className="settings-section-admin">
             <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label="Admin features">
               {adminLinks.map(([label, path]) => <Link className="dashboard-button justify-start" key={path} to={path}>{label}</Link>)}
             </nav>
             <p className="text-xs leading-5 text-slate-500">Zone Management and existing zone operations are unchanged.</p>
           </Section>
-          <Section title="System Management" description="Administrator-only operational configuration and application availability.">
+          <Section title="System Management" description="Administrator-only operational configuration and application availability." className="settings-section-system">
             <SystemSettingsPage />
           </Section>
         </>

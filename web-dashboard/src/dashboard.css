@@ -3552,3 +3552,243 @@ textarea)::placeholder {
         min-width: 0;
     }
 }
+
+.dashboard-app .dashboard-content>.mx-auto>.dashboard-settings-page {
+    display: grid;
+    min-height: 0;
+    flex: 0 0 auto;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0.875rem;
+}
+
+.dashboard-app .dashboard-settings-heading,
+.dashboard-app .dashboard-settings-page>.settings-section {
+    min-width: 0;
+    margin: 0;
+}
+
+.dashboard-app .dashboard-settings-heading {
+    padding-bottom: 0.75rem;
+}
+
+.dashboard-app .dashboard-settings-heading>p:last-child {
+    max-width: 48rem;
+    margin-top: 0.35rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.dashboard-app .dashboard-settings-page>.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 1.5rem;
+    background: var(--dashboard-surface);
+    box-shadow: 0 12px 30px rgb(15 23 42 / 0.07);
+}
+
+.dashboard-app .settings-section-heading {
+    min-width: 0;
+}
+
+.dashboard-app .settings-section-heading h3 {
+    color: var(--dashboard-text);
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.dashboard-app .settings-section-heading p {
+    margin-top: 0.25rem;
+    color: var(--dashboard-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .settings-preference {
+    min-width: 0;
+    gap: 0.65rem;
+    padding: 0.7rem 0.8rem;
+    border-color: var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-surface);
+}
+
+.dashboard-app .settings-preference input {
+    flex: 0 0 auto;
+}
+
+.dashboard-app .settings-preference>span {
+    min-width: 0;
+}
+
+.dashboard-app .settings-preference>span>span:first-child {
+    color: var(--dashboard-text);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.dashboard-app .settings-preference>span>span:last-child {
+    margin-top: 0.2rem;
+    color: var(--dashboard-muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .dashboard-settings-page .dashboard-setting-select {
+    min-width: 0;
+    gap: 0.45rem;
+    padding: 0.75rem 0.85rem;
+    border-color: var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-surface);
+    color: var(--dashboard-text);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.dashboard-app .dashboard-settings-page .dashboard-setting-select select {
+    min-height: 2.5rem;
+    border-color: var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-surface-raised);
+    padding: 0.625rem 0.875rem;
+    color: var(--dashboard-text);
+    font-size: 0.875rem;
+}
+
+.dashboard-app .dashboard-settings-page .form-field {
+    gap: 0.45rem;
+    color: var(--dashboard-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.35;
+    text-transform: none;
+}
+
+.dashboard-app .dashboard-settings-page .form-field input,
+.dashboard-app .dashboard-settings-page .form-field select,
+.dashboard-app .dashboard-settings-page .form-field textarea {
+    min-height: 2.5rem;
+    border-color: var(--dashboard-line);
+    border-radius: 0.75rem;
+    background: var(--dashboard-surface-raised);
+    padding: 0.625rem 0.875rem;
+    color: var(--dashboard-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.dashboard-app .dashboard-settings-page .form-field textarea {
+    min-height: 5rem;
+}
+
+.dashboard-app .dashboard-settings-page .form-field input:focus,
+.dashboard-app .dashboard-settings-page .form-field select:focus,
+.dashboard-app .dashboard-settings-page .form-field textarea:focus,
+.dashboard-app .dashboard-setting-select select:focus {
+    border-color: #34d399;
+    background: var(--dashboard-surface);
+    box-shadow: 0 0 0 3px rgb(16 185 129 / 0.14);
+}
+
+.dashboard-app .settings-security-overview {
+    grid-column: 1 / -1;
+}
+
+.dashboard-app .settings-security-overview>div:not(:last-child) {
+    min-width: 0;
+    padding: 0.7rem 0.8rem;
+    border-color: var(--dashboard-line);
+    border-radius: 0.75rem;
+}
+
+.dashboard-app .settings-security-block {
+    min-width: 0;
+    margin: 0;
+    padding-top: 0.75rem;
+    gap: 0.55rem;
+    border-color: var(--dashboard-line);
+}
+
+.dashboard-app .settings-security-block h4 {
+    color: var(--dashboard-text);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.dashboard-app .settings-security-block p,
+.dashboard-app .settings-security-message {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .settings-security-sessions,
+.dashboard-app .settings-security-audit,
+.dashboard-app .settings-security-message {
+    grid-column: 1 / -1;
+}
+
+.dashboard-app .settings-security-sessions>div.space-y-2>div {
+    padding: 0.7rem 0.8rem;
+    border-color: var(--dashboard-line);
+    border-radius: 0.75rem;
+}
+
+.dashboard-app .settings-mfa-setup {
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+}
+
+@media (min-width: 820px) {
+    .dashboard-app .dashboard-content>.mx-auto>.dashboard-settings-page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .dashboard-app .dashboard-settings-heading,
+    .dashboard-app .settings-section-preferences,
+    .dashboard-app .settings-section-security,
+    .dashboard-app .settings-section-admin,
+    .dashboard-app .settings-section-system {
+        grid-column: 1 / -1;
+    }
+
+    .dashboard-app .dashboard-content>.mx-auto>.dashboard-settings-page>.settings-section-security {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+        column-gap: 1.25rem;
+    }
+}
+
+@media (max-width: 639px) {
+    .dashboard-app .dashboard-settings-heading>p:last-child {
+        font-size: 0.78rem;
+    }
+
+    .dashboard-app .dashboard-settings-page>.settings-section {
+        padding: 0.875rem;
+        border-radius: 1.25rem;
+    }
+
+    .dashboard-app .dashboard-content>.mx-auto>.dashboard-settings-page>.settings-section-security {
+        display: flex;
+    }
+
+    .dashboard-app .settings-security-overview {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dashboard-app .settings-security-overview>div {
+        padding: 0.6rem;
+        overflow-wrap: anywhere;
+    }
+}
