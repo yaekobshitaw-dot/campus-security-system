@@ -433,3 +433,165 @@
     border-radius: var(--dashboard-panel-radius);
   }
 }
+
+.dashboard-app .dashboard-header {
+    border-bottom: 1px solid var(--dashboard-line) !important;
+    background: var(--dashboard-surface) !important;
+    box-shadow: 0 1px 4px rgb(23 43 58 / 0.08) !important;
+    color: var(--dashboard-text);
+}
+
+.dashboard-app .dashboard-header :is(.dashboard-header-name, .dashboard-header-context h1) {
+    color: var(--dashboard-text);
+}
+
+.dashboard-app .dashboard-header :is(.dashboard-header-subtitle, .dashboard-header-context p) {
+    color: var(--dashboard-muted);
+}
+
+.dashboard-app .dashboard-sidebar {
+    width: 220px;
+    border-right: 1px solid var(--dashboard-line);
+    background: var(--dashboard-surface) !important;
+    color: var(--dashboard-text);
+}
+
+.dashboard-app .dashboard-sidebar .dashboard-nav-item {
+    color: var(--dashboard-muted);
+}
+
+.dashboard-app .dashboard-sidebar .dashboard-nav-item:hover {
+    border-color: transparent;
+    background: rgb(21 90 145 / 0.08);
+    color: var(--primary-blue);
+}
+
+.dashboard-app .dashboard-sidebar .dashboard-nav-item[aria-current="page"] {
+    border-color: transparent;
+    background: var(--primary-blue);
+    color: #fff;
+}
+
+.dashboard-app .dashboard-overview-content {
+    padding: 1rem clamp(1rem, 2vw, 1.75rem);
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 {
+    gap: 0.875rem;
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > section.dashboard-panel:has(figure) {
+    border-bottom: 1px solid var(--dashboard-line);
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > section.dashboard-panel:has(figure) > .grid {
+    display: block;
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > section.dashboard-panel:has(figure) figure {
+    display: none;
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > section.dashboard-panel:has(figure) > .grid > div {
+    padding: 0.5rem 0.75rem;
+}
+
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > section.dashboard-panel:has(figure) .dashboard-heading {
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric {
+    min-height: 5.5rem;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.8rem 0.9rem;
+    border-top-width: 2px;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgb(23 43 58 / 0.07);
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric > strong {
+    font-size: 1.5rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-charts,
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > .dashboard-overview-recent-grid {
+    gap: 0.875rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-panel,
+.dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > .dashboard-overview-recent-grid > section {
+    border-radius: 8px !important;
+    box-shadow: 0 1px 5px rgb(23 43 58 / 0.08) !important;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-panel {
+    padding: 0.9rem 1rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-heading {
+    padding-bottom: 0.55rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-heading h3 {
+    margin-top: 0;
+    font-size: 0.95rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-heading p:last-child,
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-heading .dashboard-eyebrow {
+    display: none;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-chart-content {
+    padding-top: 0.5rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-incident-donut,
+.dashboard-app .dashboard-overview-content .dashboard-incident-bar-chart {
+    height: 190px;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-recent-grid .dashboard-heading {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.65rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-recent-grid .dashboard-heading .dashboard-eyebrow {
+    display: none;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-recent-grid .incident-table {
+    min-width: 760px;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-recent-grid > section:last-child {
+    border-top: 1px solid var(--dashboard-line);
+}
+
+@media (max-width: 900px) {
+    .dashboard-app .dashboard-overview-content .dashboard-overview-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    .dashboard-app .dashboard-overview-content {
+        padding: 0.75rem;
+    }
+
+    .dashboard-app .dashboard-overview-content .dashboard-overview-charts,
+    .dashboard-app .dashboard-overview-content > .mx-auto > .space-y-8 > .dashboard-overview-recent-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
