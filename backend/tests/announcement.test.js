@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { Op } = require('sequelize');
 const { authorize } = require('../src/middleware/auth');
 const announcementController = require('../src/controllers/announcementController');
 const announcementService = require('../src/services/announcementService');
@@ -227,6 +228,27 @@ test.afterEach(() => {
   User.findAll = original.userFindAll;
   Alert.findAll = original.alertFindAll;
   Alert.create = original.alertCreate;
+});
+
+test('public announcement endpoint returns only public published records with visibility fields', async () => {
+  let query;
+  Announcement.findAll = async (options) => {
+    query = options;
+    return [{ announcement_id: ids.all, status: 'published', is_public: true }];
+  };
+
+  const result = await call('publicList', {});
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(query.where.status, 'published');
+  assert.equal(query.where.is_public, true);
+  assert.ok(query.where.deleted_at === null);
+  assert.deepEqual(query.where[Op.or][0], { expires_at: null });
+  assert.ok(query.where[Op.or][1].expires_at[Op.gt] instanceof Date);
+  assert.ok(query.attributes.includes('status'));
+  assert.ok(query.attributes.includes('is_public'));
+  assert.equal(result.payload.data[0].status, 'published');
+  assert.equal(result.payload.data[0].is_public, true);
 });
 
 test('admin creates a draft', async () => {

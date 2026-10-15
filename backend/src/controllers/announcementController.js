@@ -27,7 +27,7 @@ exports.publicList = async (req, res) => {
     const { Op } = require('sequelize');
     const data = await Announcement.findAll({
       where: { status: 'published', is_public: true, deleted_at: null, [Op.or]: [{ expires_at: null }, { expires_at: { [Op.gt]: new Date() } }] },
-      attributes: ['announcement_id', 'title', 'content', 'priority', 'published_at', 'expires_at'],
+      attributes: ['announcement_id', 'title', 'content', 'priority', 'status', 'is_public', 'published_at', 'expires_at'],
       order: [['published_at', 'DESC']],
       limit: 20,
     });

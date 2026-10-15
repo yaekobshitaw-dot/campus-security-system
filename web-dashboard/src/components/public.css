@@ -2487,6 +2487,125 @@ em {
     border-bottom: 1px solid var(--line);
 }
 
+.home-public-data {
+    border-bottom: 1px solid var(--line);
+}
+
+.home-public-information {
+    padding-top: 64px;
+}
+
+.home-public-data .section-heading {
+    margin-bottom: 24px;
+}
+
+.public-home-groups {
+    display: grid;
+    gap: 34px;
+}
+
+.public-home-content-group h3 {
+    margin: 0 0 14px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 19px;
+}
+
+.public-home-content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 14px;
+}
+
+.public-home-content-item {
+    min-width: 0;
+    padding: 18px 0;
+    border-top: 2px solid var(--teal);
+    overflow-wrap: anywhere;
+}
+
+.public-home-content-item h3,
+.public-home-content-item h4,
+.public-home-content-item p {
+    margin: 0;
+}
+
+.public-home-content-item h3,
+.public-home-content-item h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px;
+    line-height: 1.35;
+}
+
+.public-home-content-item > p:not(.public-home-announcement-meta) {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-line;
+}
+
+.public-home-announcement-meta {
+    margin-bottom: 7px !important;
+    color: var(--teal);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.public-home-contact-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.public-home-contact-links a,
+.public-home-content-link {
+    color: var(--teal);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.public-home-content-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 12px;
+}
+
+.public-home-empty,
+.public-home-status {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.public-home-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--alert);
+    background: var(--alert-tint);
+    color: var(--alert-dark);
+    font-size: 13px;
+}
+
+.public-home-error button {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .home-benefit {
     display: flex;
     min-width: 0;

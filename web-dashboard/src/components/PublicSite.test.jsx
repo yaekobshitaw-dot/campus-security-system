@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PublicSite from './PublicSite';
@@ -105,6 +106,81 @@ describe('Public site', () => {
     expect(container.querySelector('.public-footer')).toBeInTheDocument();
   });
 
+  it('renders public published announcements and active content from nested API response arrays', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/announcements/public') return Promise.resolve({ data: { data: { items: [
+        { announcement_id: 'published', title: 'Campus notice', content: 'Gate hours updated.', status: 'published', is_public: true },
+        { announcement_id: 'draft', title: 'Draft notice', content: 'Not public.', status: 'draft', is_public: true },
+        { announcement_id: 'private', title: 'Private notice', content: 'Not public.', status: 'published', is_public: false },
+        { announcement_id: 'expired', title: 'Expired notice', content: 'No longer current.', status: 'published', is_public: true, expires_at: new Date(Date.now() - 1000).toISOString() }
+      ] } } });
+      return Promise.resolve({ data: { data: { items: [
+        { content_id: 'faq-1', type: 'faq', title: 'How do I report?', body: 'Use the report form.', is_active: true },
+        { content_id: 'resource-1', type: 'safety_resource', title: 'Safety guide', url: 'https://example.edu/safety', is_active: true },
+        { content_id: 'contact-1', type: 'emergency_contact', title: 'Campus security', contact_name: 'Security desk', phone: '+251 900 000 000', is_active: true },
+        { content_id: 'service-1', type: 'service', title: 'Walk-home service', summary: 'Request an escort.', is_active: true },
+        { content_id: 'inactive', type: 'faq', title: 'Hidden entry', is_active: false }
+      ] } } });
+    });
+
+    renderPublicSite();
+
+    expect(await screen.findByRole('heading', { name: 'Campus notice' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'How do I report?' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Safety guide' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '+251 900 000 000' })).toHaveAttribute('href', 'tel:+251900000000');
+    expect(screen.getByRole('heading', { name: 'Walk-home service' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Draft notice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Private notice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Expired notice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Hidden entry' })).not.toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/announcements/public');
+    expect(api.get).toHaveBeenCalledWith('/public-content');
+  });
+
+  it('does not duplicate public requests when StrictMode replays effects', async () => {
+    api.get.mockResolvedValue({ data: { success: true, data: [] } });
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/']}>
+          <PublicSite />
+        </MemoryRouter>
+      </StrictMode>
+    );
+
+    expect(await screen.findByText('There are no public announcements right now.')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenCalledWith('/announcements/public');
+    expect(api.get).toHaveBeenCalledWith('/public-content');
+  });
+
+  it('shows a public content load error and allows retrying the request', async () => {
+    api.get.mockImplementation((url) => url === '/public-content'
+      ? Promise.reject({ response: { data: { message: 'Public content is unavailable.' } } })
+      : Promise.resolve({ data: { data: [] } }));
+    renderPublicSite();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Public content is unavailable.');
+    api.get.mockImplementation(() => Promise.resolve({ data: { data: [] } }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Retry' })[0]);
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
+    expect(await screen.findByText('No active public entries in this section.')).toBeInTheDocument();
+  });
+
+  it('shows an announcement load error and retries the public request', async () => {
+    api.get.mockImplementation((url) => url === '/announcements/public'
+      ? Promise.reject({ response: { data: { message: 'Announcements are unavailable.' } } })
+      : Promise.resolve({ data: { success: true, data: [] } }));
+    renderPublicSite();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Announcements are unavailable.');
+    api.get.mockResolvedValue({ data: { success: true, data: [] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
+    expect(await screen.findByText('There are no public announcements right now.')).toBeInTheDocument();
+  });
+
   it('centers the existing Facebook icon link in the public footer', () => {
     renderPublicSite();
 
@@ -194,7 +270,12 @@ describe('Public site', () => {
       'src',
       '/images/campus-security-about-1.jpg'
     );
-    act(() => vi.advanceTimersByTime(4800));
+    act(() => vi.advanceTimersByTime(1499));
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-about-1.jpg'
+    );
+    act(() => vi.advanceTimersByTime(1));
     expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
       'src',
       '/images/campus-security-about-2.jpg'
@@ -205,6 +286,41 @@ describe('Public site', () => {
       'src',
       '/images/campus-security-about-1.jpg'
     );
+  });
+
+  it('automatically cycles the Contact carousel every 1500 milliseconds', () => {
+    vi.useFakeTimers();
+    const { container } = renderPublicSite('contact');
+    const carousel = container.querySelector('.page-image-carousel');
+
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-contact.jpg'
+    );
+    act(() => vi.advanceTimersByTime(1499));
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-contact.jpg'
+    );
+    act(() => vi.advanceTimersByTime(1));
+    expect(carousel.querySelector('.page-image-slide.is-active img')).toHaveAttribute(
+      'src',
+      '/images/campus-security-about-1.jpg'
+    );
+  });
+
+  it('clears the page carousel interval when the page unmounts', () => {
+    vi.useFakeTimers();
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+    const { unmount } = renderPublicSite('about');
+    const intervalId = setIntervalSpy.mock.results[0].value;
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalledWith(intervalId);
   });
 
   it('does not automatically cycle page carousels when reduced motion is preferred', () => {

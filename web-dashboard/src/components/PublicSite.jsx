@@ -149,6 +149,11 @@ const translations = {
     homeEyebrow: 'Campus safety, connected',
     homeTitle: 'Mekdela Amba University Security and Emergency Response System',
     homeIntro: 'A unified emergency response system that helps students, faculty, staff, and security teams report incidents quickly and act with confidence.',
+    publicAnnouncements: 'Campus announcements', noPublicAnnouncements: 'There are no public announcements right now.',
+    publicInformation: 'Campus information', faq: 'Frequently asked questions', safetyResources: 'Safety resources',
+    emergencyContacts: 'Emergency contacts', servicesInformation: 'Services and public information',
+    noPublicContent: 'No active public entries in this section.', loadingPublicContent: 'Loading public information...',
+    retry: 'Retry',
     reportIncident: 'Report an incident', learnMore: 'Learn more',
     responseReady: 'response ready', sharedSafety: 'shared safety view', roleAccess: 'role-aware access',
     benefitReport: 'Real-Time Incident Reporting', benefitReportText: 'Share what happened with the right campus team.',
@@ -237,6 +242,11 @@ const translations = {
     homeEyebrow: 'የግቢ ደህንነት፣ በአንድነት',
     homeTitle: 'የመቅደላ አምባ ዩኒቨርሲቲ የደህንነትና የአደጋ ጊዜ ምላሽ ሥርዓት',
     homeIntro: 'ተማሪዎች፣ መምህራን፣ ሠራተኞች እና የደህንነት ቡድኖች ክስተቶችን በፍጥነት እንዲያሳውቁና በበለጠ እምነት እንዲሠሩ የሚያግዝ የተቀናጀ የአደጋ ጊዜ ምላሽ ሥርዓት።',
+    publicAnnouncements: 'የግቢ ማስታወቂያዎች', noPublicAnnouncements: 'በአሁኑ ጊዜ ይፋዊ ማስታወቂያ የለም።',
+    publicInformation: 'የግቢ መረጃ', faq: 'ተደጋጋሚ ጥያቄዎች', safetyResources: 'የደህንነት ምንጮች',
+    emergencyContacts: 'የአደጋ ጊዜ እውቂያዎች', servicesInformation: 'አገልግሎቶች እና ይፋዊ መረጃ',
+    noPublicContent: 'በዚህ ክፍል ንቁ ይፋዊ መረጃ የለም።', loadingPublicContent: 'ይፋዊ መረጃ በመጫን ላይ...',
+    retry: 'እንደገና ሞክር',
     reportIncident: 'ክስተት ያሳውቁ', learnMore: 'ተጨማሪ ይወቁ',
     responseReady: 'ለምላሽ ዝግጁ', sharedSafety: 'የጋራ የደህንነት እይታ',
     roleAccess: 'በሚና የተመሠረተ መዳረሻ',
@@ -583,7 +593,7 @@ function PageImageCarousel({ images, label }) {
     if (reducedMotion || isPaused || images.length < 2) return undefined;
     const intervalId = window.setInterval(() => {
       setSlideIndex((currentIndex) => (currentIndex + 1) % images.length);
-    }, 2800);
+    }, 1500);
     return () => window.clearInterval(intervalId);
   }, [images.length, isPaused, reducedMotion]);
 
@@ -639,6 +649,125 @@ function PageImageCarousel({ images, label }) {
         </div>
       </>}
     </section>
+  );
+}
+
+const findResponseArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return null;
+  for (const key of ['data', 'items', 'announcements', 'content', 'results']) {
+    const found = findResponseArray(value[key]);
+    if (found) return found;
+  }
+  return null;
+};
+
+const isPublicAnnouncement = (announcement, now) => announcement.status === 'published'
+  && announcement.is_public === true
+  && (!announcement.expires_at || new Date(announcement.expires_at).getTime() > now);
+
+let publicHomeRequest;
+const loadPublicHomeData = () => {
+  if (!publicHomeRequest) {
+    publicHomeRequest = Promise.allSettled([api.get('/announcements/public'), api.get('/public-content')])
+      .finally(() => { publicHomeRequest = null; });
+  }
+  return publicHomeRequest;
+};
+
+function PublicContentGroup({ title, items, type, emptyMessage }) {
+  return (
+    <section className="public-home-content-group" aria-label={title}>
+      <h3>{title}</h3>
+      {items.length === 0 ? <p className="public-home-empty">{emptyMessage}</p> : (
+        <div className="public-home-content-grid">
+          {items.map((item) => (
+            <article className="public-home-content-item" key={item.content_id}>
+              <h4>{item.title}</h4>
+              {(item.summary || item.body) && <p>{item.summary || item.body}</p>}
+              {type === 'emergency_contact' && <div className="public-home-contact-links">
+                {item.contact_name && <span>{item.contact_name}</span>}
+                {item.phone && <a href={`tel:${item.phone.replace(/[^\d+]/g, '')}`}>{item.phone}</a>}
+                {item.email && <a href={`mailto:${item.email}`}>{item.email}</a>}
+              </div>}
+              {item.url && <a className="public-home-content-link" href={item.url} target="_blank" rel="noreferrer">View details <ArrowRight size={15} /></a>}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PublicHomeContent({ copy }) {
+  const [reloadKey, setReloadKey] = useState(0);
+  const [state, setState] = useState({
+    loading: true,
+    announcements: [],
+    content: [],
+    announcementError: '',
+    contentError: ''
+  });
+
+  useEffect(() => {
+    let active = true;
+    setState((current) => ({ ...current, loading: true, announcementError: '', contentError: '' }));
+
+    loadPublicHomeData().then(([announcementResult, contentResult]) => {
+      if (!active) return;
+      const now = Date.now();
+      setState({
+        loading: false,
+        announcements: announcementResult.status === 'fulfilled'
+          ? (findResponseArray(announcementResult.value?.data) || []).filter((item) => isPublicAnnouncement(item, now))
+          : [],
+        content: contentResult.status === 'fulfilled'
+          ? (findResponseArray(contentResult.value?.data) || []).filter((item) => item.is_active === true)
+          : [],
+        announcementError: announcementResult.status === 'rejected'
+          ? announcementResult.reason?.response?.data?.message || 'Unable to load public announcements.'
+          : '',
+        contentError: contentResult.status === 'rejected'
+          ? contentResult.reason?.response?.data?.message || 'Unable to load public information.'
+          : ''
+      });
+    });
+
+    return () => { active = false; };
+  }, [reloadKey]);
+
+  const retry = () => setReloadKey((current) => current + 1);
+  const contentByType = (type) => state.content.filter((item) => item.type === type);
+
+  return (
+    <>
+      <section className="section home-public-data motion-reveal" aria-labelledby="public-announcements-title">
+        <div className="section-heading"><div><p className="eyebrow">{copy.publicInformation}</p><h2 id="public-announcements-title">{copy.publicAnnouncements}</h2></div></div>
+        {state.loading && <p className="public-home-status" role="status">{copy.loadingPublicContent}</p>}
+        {state.announcementError && <div className="public-home-error" role="alert"><span>{state.announcementError}</span><button type="button" onClick={retry}>{copy.retry}</button></div>}
+        {!state.loading && !state.announcementError && state.announcements.length === 0 && <p className="public-home-empty">{copy.noPublicAnnouncements}</p>}
+        {!state.loading && !state.announcementError && state.announcements.length > 0 && <div className="public-home-content-grid">
+          {state.announcements.map((announcement) => (
+            <article className="public-home-content-item public-home-announcement" key={announcement.announcement_id}>
+              <p className="public-home-announcement-meta">{announcement.published_at && new Date(announcement.published_at).toLocaleDateString()}</p>
+              <h3>{announcement.title}</h3>
+              <p>{announcement.content}</p>
+            </article>
+          ))}
+        </div>}
+      </section>
+      <section className="section home-public-data home-public-information motion-reveal" aria-labelledby="public-information-title">
+        <div className="section-heading"><div><p className="eyebrow">{copy.publicInformation}</p><h2 id="public-information-title">{copy.servicesInformation}</h2></div></div>
+        {state.loading && <p className="public-home-status" role="status">{copy.loadingPublicContent}</p>}
+        {state.contentError && <div className="public-home-error" role="alert"><span>{state.contentError}</span><button type="button" onClick={retry}>{copy.retry}</button></div>}
+        {!state.loading && !state.contentError && <div className="public-home-groups">
+          <PublicContentGroup title={copy.faq} type="faq" items={contentByType('faq')} emptyMessage={copy.noPublicContent} />
+          <PublicContentGroup title={copy.safetyResources} type="safety_resource" items={contentByType('safety_resource')} emptyMessage={copy.noPublicContent} />
+          <PublicContentGroup title={copy.emergencyContacts} type="emergency_contact" items={contentByType('emergency_contact')} emptyMessage={copy.noPublicContent} />
+          <PublicContentGroup title={copy.servicesInformation} type="service" items={contentByType('service')} emptyMessage={copy.noPublicContent} />
+        </div>}
+      </section>
+    </>
   );
 }
 
@@ -703,6 +832,7 @@ function HomePage({ language, copy }) {
       <span>{copy.securityTeams}</span>
       <span>{copy.campusLeaders}</span>
     </section>
+    <PublicHomeContent copy={copy} />
     <section className="home-benefits motion-reveal" aria-label={copy.homeEyebrow}>
       <div className="home-benefit"><span className="home-benefit-icon"><FileText size={20} /></span><div><h3 role="presentation">{copy.benefitReport}</h3><p>{copy.benefitReportText}</p></div></div>
       <div className="home-benefit"><span className="home-benefit-icon"><Siren size={20} /></span><div><h3>{copy.benefitResponse}</h3><p>{copy.benefitResponseText}</p></div></div>
