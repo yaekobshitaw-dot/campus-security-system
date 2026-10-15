@@ -1,4 +1,5 @@
 const { Alert, Incident, IncidentHistoryClear, Response, User, sequelize } = require('../models');
+const { v4: uuidv4 } = require('uuid');
 const { attachCampusLocationMatches } = require('../services/campusLocationMatchingService');
 const { predictRiskLevel } = require('../services/mlService');
 const { haversineDistanceMeters } = require('../utils/geoUtils');
@@ -11,9 +12,11 @@ const { getActiveAdmins, notifyUsers } = require('../services/notificationPersis
 const { getSetting } = require('../services/settingsService');
 const {
     canAccessIncidentEvidence,
+    cleanupUploadedEvidence,
     evidenceExists,
     getProtectedEvidenceUrl,
     isStoredEvidence,
+    normalizePhotos: normalizeEvidencePhotos,
     resolveEvidencePath
 } = require('../services/evidenceService');
 
@@ -69,16 +72,6 @@ const normalizeSecurityRoleList = (role) => isSecurityRole(role) ? ['security', 
 const normalizeSecurityFilter = (role) => ({
     [Op.or]: [{ role: 'security' }, { role: 'security_officer' }]
 });
-const normalizePhotos = (photos) => {
-    if (Array.isArray(photos)) return photos.filter((photo) => typeof photo === 'string');
-    if (typeof photos !== 'string' || !photos.trim()) return [];
-    try {
-        const parsed = JSON.parse(photos);
-        return Array.isArray(parsed) ? parsed.filter((photo) => typeof photo === 'string') : [];
-    } catch (error) {
-        return [];
-    }
-};
 const findNearestAvailableOfficer = async(latitude, longitude) => {
     const incidentLatitude = toCoordinate(latitude);
     const incidentLongitude = toCoordinate(longitude);
@@ -579,6 +572,8 @@ exports.updateResponseStatus = async(req, res) => {
 };
 
 exports.create = async(req, res) => {
+    let incidentPersisted = false;
+    let incidentIdForPersistence = null;
         try {
             const {
                 type,
@@ -607,19 +602,26 @@ exports.create = async(req, res) => {
             if (locationValidationError) {
                 return res.status(400).json({ success: false, message: locationValidationError });
             }
-            let photoReferences = [];
-            try {
-                photoReferences = Array.isArray(req.body.photos) ?
-                    req.body.photos :
-                    typeof req.body.photos === 'string' ?
-                    JSON.parse(req.body.photos) :
-                    [];
-            } catch (error) {
-                return res.status(400).json({ success: false, message: 'Invalid photos payload' });
+            if (!req.files?.length && req.body.photos !== undefined && req.body.photos !== null && req.body.photos !== '') {
+                let photoReferences;
+                try {
+                    photoReferences = Array.isArray(req.body.photos) ? req.body.photos : JSON.parse(req.body.photos);
+                } catch (error) {
+                    return res.status(400).json({ success: false, message: 'Invalid photos payload' });
+                }
+                if (!Array.isArray(photoReferences)) {
+                    return res.status(400).json({ success: false, message: 'Invalid photos payload' });
+                }
+                if (photoReferences.length) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Evidence references are not accepted; upload photo files instead'
+                    });
+                }
             }
             const photos = req.files?.length ?
-                (await processIncidentPhotos(req.files, undefined)).map((photo) => `${req.protocol}://${req.get('host')}${photo}`) :
-                photoReferences.filter((photo) => typeof photo === 'string');
+                await processIncidentPhotos(req.files, undefined) :
+                [];
 
             const requestedSeverity = ['low', 'medium', 'high', 'critical'].includes(
                     String(severity || '').trim().toLowerCase()
@@ -655,7 +657,9 @@ exports.create = async(req, res) => {
                 }
             }
 
+            incidentIdForPersistence = uuidv4();
             const incident = await Incident.create({
+                incident_id: incidentIdForPersistence,
                 user_id: asBoolean(is_anonymous) ? null : req.user.user_id,
                 type,
                 description: description || '',
@@ -673,6 +677,7 @@ exports.create = async(req, res) => {
                 is_anonymous: asBoolean(is_anonymous),
                 status: 'reported'
             });
+            incidentPersisted = true;
             const [incidentPayload] = await attachCampusLocationMatches([incident]);
 
             const alert = await Alert.create({
@@ -714,13 +719,22 @@ exports.create = async(req, res) => {
       message: 'Incident reported successfully',
       data: {
         ...incidentPayload,
-        photos: normalizePhotos(incident.photos)
+        photos: normalizeEvidencePhotos(incident.photos)
           .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
           .filter(Boolean)
       }
     });
   } catch (error) {
+        if (!incidentPersisted && incidentIdForPersistence) {
+            try {
+                incidentPersisted = Boolean(await Incident.findByPk(incidentIdForPersistence));
+            } catch (_verificationError) {
+                incidentPersisted = true;
+            }
+        }
     res.status(500).json({ success: false, message: 'Failed to report incident' });
+    } finally {
+        if (!incidentPersisted) await cleanupUploadedEvidence(req.files);
   }
 };
 
@@ -854,7 +868,7 @@ exports.getAll = async (req, res) => {
       success: true,
       data: matchedIncidents.map((incident) => ({
         ...incident,
-        photos: normalizePhotos(incident.photos)
+        photos: normalizeEvidencePhotos(incident.photos)
           .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
           .filter(Boolean)
       }))
@@ -862,6 +876,49 @@ exports.getAll = async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to fetch incidents' });
   }
+};
+
+exports.getById = async (req, res) => {
+    const incidentId = req.params.incident_id;
+    if (!isUuid(incidentId)) {
+        return res.status(400).json({ success: false, message: 'incident_id must be a valid UUID' });
+    }
+
+    try {
+        const role = normalizeRole(req.user.role);
+        const where = { incident_id: incidentId };
+        if (role !== 'admin' && !isSecurityRole(role)) where.user_id = req.user.user_id;
+
+        const incident = await Incident.findOne({
+            where,
+            include: [{
+                model: Response,
+                as: 'responses',
+                include: [{
+                    model: User,
+                    as: 'responder',
+                    attributes: ['user_id', 'name', 'role', 'latitude', 'longitude', 'availability_status']
+                }]
+            }, {
+                model: User,
+                as: 'reporter',
+                attributes: ['user_id', 'name', 'role']
+            }]
+        });
+        if (!incident) return res.status(404).json({ success: false, message: 'Incident not found' });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                ...incident.toJSON(),
+                photos: normalizeEvidencePhotos(incident.photos)
+                    .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
+                    .filter(Boolean)
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Failed to fetch incident' });
+    }
 };
 
 exports.getHistory = async (req, res) => {
@@ -896,7 +953,7 @@ exports.getHistory = async (req, res) => {
       success: true,
       data: matchedIncidents.map((incident) => ({
         ...incident,
-        photos: normalizePhotos(incident.photos)
+        photos: normalizeEvidencePhotos(incident.photos)
           .map((photo) => getProtectedEvidenceUrl(incident.incident_id, photo))
           .filter(Boolean)
       }))

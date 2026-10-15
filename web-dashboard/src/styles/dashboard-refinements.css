@@ -739,18 +739,8 @@
     background-color: var(--metric-tint) !important;
 }
 
-.dashboard-app .dashboard-overview-content :is(
-    .dashboard-overview-metric-total,
-    .dashboard-overview-metric-active,
-    .dashboard-overview-metric-critical,
-    .dashboard-overview-metric-officers
-) > span,
-.dashboard-app .dashboard-overview-content :is(
-    .dashboard-overview-metric-total,
-    .dashboard-overview-metric-active,
-    .dashboard-overview-metric-critical,
-    .dashboard-overview-metric-officers
-) > strong,
+.dashboard-app .dashboard-overview-content :is( .dashboard-overview-metric-total, .dashboard-overview-metric-active, .dashboard-overview-metric-critical, .dashboard-overview-metric-officers)>span,
+.dashboard-app .dashboard-overview-content :is( .dashboard-overview-metric-total, .dashboard-overview-metric-active, .dashboard-overview-metric-critical, .dashboard-overview-metric-officers)>strong,
 .dashboard-app .dashboard-overview-metric-icon {
     color: var(--metric-accent);
 }
@@ -784,20 +774,7 @@
     --metric-border: #51406f;
 }
 
-.dashboard-app :is(
-    .dashboard-panel,
-    .detail-panel,
-    .evidence-card,
-    .officer-card,
-    .announcement-card,
-    .announcement-form,
-    .content-management-card,
-    .dashboard-overview-metric,
-    .dashboard-metric,
-    .analytics-summary-card,
-    .analytics-chart-panel,
-    .dashboard-incident-chart-panel
-) {
+.dashboard-app :is( .dashboard-panel, .detail-panel, .evidence-card, .officer-card, .announcement-card, .announcement-form, .content-management-card, .dashboard-overview-metric, .dashboard-metric, .analytics-summary-card, .analytics-chart-panel, .dashboard-incident-chart-panel) {
     animation: dashboard-card-enter 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
     transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 220ms ease;
 }
@@ -813,57 +790,31 @@
     }
 }
 
-.dashboard-app .dashboard-overview-metrics > :nth-child(2) {
+.dashboard-app .dashboard-overview-metrics> :nth-child(2) {
     animation-delay: 45ms;
 }
 
-.dashboard-app .dashboard-overview-metrics > :nth-child(3) {
+.dashboard-app .dashboard-overview-metrics> :nth-child(3) {
     animation-delay: 90ms;
 }
 
-.dashboard-app .dashboard-overview-metrics > :nth-child(4) {
+.dashboard-app .dashboard-overview-metrics> :nth-child(4) {
     animation-delay: 135ms;
 }
 
-.dashboard-app .dashboard-overview-charts > :nth-child(2) {
+.dashboard-app .dashboard-overview-charts> :nth-child(2) {
     animation-delay: 65ms;
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    .dashboard-app :is(
-        .dashboard-panel,
-        .detail-panel,
-        .evidence-card,
-        .officer-card,
-        .announcement-card,
-        .announcement-form,
-        .content-management-card,
-        .dashboard-overview-metric,
-        .dashboard-metric,
-        .analytics-summary-card,
-        .analytics-chart-panel,
-        .dashboard-incident-chart-panel
-    ):hover {
+    .dashboard-app :is( .dashboard-panel, .detail-panel, .evidence-card, .officer-card, .announcement-card, .announcement-form, .content-management-card, .dashboard-overview-metric, .dashboard-metric, .analytics-summary-card, .analytics-chart-panel, .dashboard-incident-chart-panel):hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 22px rgb(15 23 42 / 0.11) !important;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .dashboard-app :is(
-        .dashboard-panel,
-        .detail-panel,
-        .evidence-card,
-        .officer-card,
-        .announcement-card,
-        .announcement-form,
-        .content-management-card,
-        .dashboard-overview-metric,
-        .dashboard-metric,
-        .analytics-summary-card,
-        .analytics-chart-panel,
-        .dashboard-incident-chart-panel
-    ) {
+    .dashboard-app :is( .dashboard-panel, .detail-panel, .evidence-card, .officer-card, .announcement-card, .announcement-form, .content-management-card, .dashboard-overview-metric, .dashboard-metric, .analytics-summary-card, .analytics-chart-panel, .dashboard-incident-chart-panel) {
         animation: none;
         transition: none;
         translate: none;

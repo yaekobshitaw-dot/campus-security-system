@@ -203,8 +203,33 @@ test('rejects invalid GPS coordinates and persists a valid update for the second
     async update(values) { Object.assign(this, values); }
   };
   const validResponse = makeResponse();
-  await locationHandler({ body: { latitude: 9.02, longitude: 38.75 }, user, app: { get: () => null } }, validResponse);
+  const capturedAt = new Date();
+  await locationHandler({ body: { latitude: 9.02, longitude: 38.75, location_timestamp: capturedAt.toISOString() }, user, app: { get: () => null } }, validResponse);
   assert.equal(validResponse.statusCode, 200);
   assert.equal(validResponse.payload.data.availability_status, 'responding');
   assert.equal(validResponse.payload.data.latitude, 9.02);
+  assert.equal(new Date(validResponse.payload.data.location_updated_at).getTime(), capturedAt.getTime());
+});
+
+test('rejects stale device coordinates without persisting them as current', async () => {
+  let updateCalled = false;
+  const user = {
+    user_id: 'officer-1',
+    availability_status: 'available',
+    latitude: null,
+    longitude: null,
+    location_updated_at: null,
+    async update() { updateCalled = true; }
+  };
+  const response = makeResponse();
+
+  await locationHandler({
+    body: { latitude: 9.02, longitude: 38.75, location_timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString() },
+    user,
+    app: { get: () => null }
+  }, response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.payload.message, 'Location fix is stale. Please try again.');
+  assert.equal(updateCalled, false);
 });

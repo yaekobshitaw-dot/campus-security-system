@@ -359,6 +359,112 @@ describe('Dashboard', () => {
     expect(await screen.findByText('On Scene')).toBeInTheDocument();
   });
 
+  it('opens the accepted assignment incident and fetches its current detail record', async () => {
+    const incidentId = '11111111-1111-4111-8111-111111111111';
+    const responseId = '44444444-4444-4444-8444-444444444444';
+    const pendingAssignment = {
+      response_id: responseId,
+      responder_id: '22222222-2222-4222-8222-222222222222',
+      incident_id: incidentId,
+      assignment_status: 'pending',
+      status: 'assigned',
+      incident: { incident_id: incidentId, type: 'theft', status: 'reported', location_name: 'Library' },
+    };
+    const acceptedAssignment = {
+      ...pendingAssignment,
+      assignment_status: 'accepted',
+      status: 'responding',
+      incident: { ...pendingAssignment.incident, status: 'investigating' },
+    };
+    const currentIncident = {
+      incident_id: incidentId,
+      type: 'theft',
+      status: 'investigating',
+      severity: 'high',
+      location_name: 'Library',
+      description: 'Loaded from the current backend record.',
+      created_at: '2026-09-30T12:00:00.000Z',
+      responses: [{ response_id: responseId, responder_id: pendingAssignment.responder_id, assignment_status: 'accepted', status: 'responding' }],
+      photos: [],
+    };
+    let pendingRequestCount = 0;
+    apiGet.mockImplementation((url) => {
+      if (url === '/incidents/responses/pending') {
+        pendingRequestCount += 1;
+        return Promise.resolve({ data: { data: pendingRequestCount === 1 ? [pendingAssignment] : [acceptedAssignment] } });
+      }
+      if (url === `/incidents/${incidentId}`) return Promise.resolve({ data: { data: currentIncident } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+    apiPost.mockResolvedValue({ data: { data: {
+      response_id: responseId,
+      incident_id: incidentId,
+      incident_status: 'investigating',
+      assignment_status: 'accepted',
+      status: 'responding',
+    } } });
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: pendingAssignment.responder_id, role: 'security', name: 'Officer Test' }} />
+        <CurrentPath />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Assignment' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'View incident' }));
+
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/incidents/${incidentId}`);
+    expect(await screen.findByText('Loaded from the current backend record.')).toBeInTheDocument();
+    expect(apiGet).toHaveBeenCalledWith(`/incidents/${incidentId}`);
+  });
+
+  it('shows distinct forbidden and missing-incident detail errors', async () => {
+    apiGet.mockImplementation((url) => url === '/incidents/forbidden-id'
+      ? Promise.reject({ response: { status: 403 } })
+      : Promise.resolve({ data: { data: [] } }));
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/incidents/forbidden-id']}>
+        <Dashboard user={{ user_id: 'officer-1', role: 'security', name: 'Officer Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('You are not authorized to view this incident.');
+    unmount();
+
+    apiGet.mockImplementation((url) => url === '/incidents/missing-id'
+      ? Promise.reject({ response: { status: 404 } })
+      : Promise.resolve({ data: { data: [] } }));
+    render(
+      <MemoryRouter initialEntries={['/incidents/missing-id']}>
+        <Dashboard user={{ user_id: 'officer-1', role: 'security', name: 'Officer Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('This incident was deleted or is unavailable.');
+  });
+
+  it('shows separate session-expired and network errors for incident details', async () => {
+    const cases = [
+      ['expired-id', { response: { status: 401 } }, 'Your session has expired. Sign in again to view this incident.'],
+      ['network-id', new Error('offline'), 'Unable to load this incident. Check your connection and retry.'],
+    ];
+
+    for (const [incidentId, failure, expectedMessage] of cases) {
+      apiGet.mockImplementation((url) => url === `/incidents/${incidentId}`
+        ? Promise.reject(failure)
+        : Promise.resolve({ data: { data: [] } }));
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[`/incidents/${incidentId}`]}>
+          <Dashboard user={{ user_id: 'officer-1', role: 'security', name: 'Officer Test' }} />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+      unmount();
+    }
+  });
+
   it('does not offer arrival while the assignment is pending', async () => {
     const assignment = {
       response_id: '44444444-4444-4444-8444-444444444444',
@@ -446,7 +552,9 @@ describe('Dashboard', () => {
       severity: 'critical',
     };
     apiGet.mockImplementation((url) => (
-      url === '/incidents'
+      url === `/incidents/${incident.incident_id}`
+        ? Promise.resolve({ data: { data: incident } })
+        : url === '/incidents'
         ? Promise.resolve({ data: { data: [incident] } })
         : Promise.resolve({ data: { data: [] } })
     ));
@@ -897,6 +1005,24 @@ describe('Dashboard', () => {
 
     expect((await screen.findAllByText('Officer Test')).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Location unavailable|Location:/)).toBeInTheDocument();
+  });
+
+  it('renders real officer coordinates from the security-officers response', async () => {
+    apiGet.mockImplementation((url) => url === '/users/security-officers'
+      ? Promise.resolve({ data: { data: [{
+        user_id: 'officer-1',
+        name: 'Officer Test',
+        role: 'security_officer',
+        availability_status: 'available',
+        location_status: 'live',
+        latitude: '9.02000',
+        longitude: '38.75000',
+      }] } })
+      : Promise.resolve({ data: { data: [] } }));
+
+    render(<MemoryRouter initialEntries={['/officers']}><Dashboard user={{ role: 'security', name: 'Security Test' }} /></MemoryRouter>);
+
+    expect(await screen.findByText('Location: 9.02000, 38.75000')).toBeInTheDocument();
   });
 
   it('keeps an accepted assignment active through arrival on the overview', async () => {

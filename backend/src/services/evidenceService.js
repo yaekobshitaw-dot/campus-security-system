@@ -1,21 +1,29 @@
 const fs = require('fs');
 const path = require('path');
+const { incidentEvidenceDirectory: uploadDirectory } = require('../config/incidentEvidenceStorage');
 
-const uploadDirectory = path.resolve(__dirname, '../../uploads');
 const privilegedRoles = new Set(['admin', 'security', 'security_officer']);
 
 const normalizePhotos = (photos) => {
-  if (Array.isArray(photos)) return photos.filter((photo) => typeof photo === 'string');
+  const isReference = (photo) => typeof photo === 'string'
+    || (photo && typeof photo === 'object' && typeof photo.storage_key === 'string');
+  if (Array.isArray(photos)) return photos.filter(isReference);
   if (typeof photos !== 'string' || !photos.trim()) return [];
   try {
     const parsed = JSON.parse(photos);
-    return Array.isArray(parsed) ? parsed.filter((photo) => typeof photo === 'string') : [];
+    return Array.isArray(parsed) ? parsed.filter(isReference) : [];
   } catch {
     return [];
   }
 };
 
 const getEvidenceFilename = (reference) => {
+  if (reference && typeof reference === 'object' && !Array.isArray(reference)) {
+    const storageKey = reference.storage_key;
+    return typeof storageKey === 'string' && storageKey && path.basename(storageKey) === storageKey
+      ? storageKey
+      : null;
+  }
   if (typeof reference !== 'string' || !reference.trim()) return null;
 
   try {
@@ -63,8 +71,17 @@ const evidenceExists = (filePath) => {
   return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 };
 
+const cleanupUploadedEvidence = async (files = []) => {
+  await Promise.all(files.map(async (file) => {
+    const filePath = resolveEvidencePath(file?.filename);
+    if (!filePath || typeof file?.path !== 'string' || path.resolve(file.path) !== filePath) return;
+    await fs.promises.unlink(filePath).catch(() => undefined);
+  }));
+};
+
 module.exports = {
   canAccessIncidentEvidence,
+  cleanupUploadedEvidence,
   evidenceExists,
   getEvidenceFilename,
   getProtectedEvidenceUrl,

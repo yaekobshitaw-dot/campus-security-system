@@ -1578,8 +1578,8 @@ em {
     align-items: center;
 }
 
-.about-grid > .page-image-carousel,
-.contact-grid > .page-image-carousel {
+.about-grid>.page-image-carousel,
+.contact-grid>.page-image-carousel {
     height: clamp(440px, 52vw, 680px);
     border-radius: var(--radius-lg);
 }
@@ -1654,7 +1654,7 @@ em {
     align-items: start;
 }
 
-.contact-grid + .contact-form {
+.contact-grid+.contact-form {
     margin-top: 42px;
 }
 
@@ -2186,9 +2186,8 @@ em {
     .contact-grid {
         grid-template-columns: 1fr;
     }
-
-    .about-grid > .page-image-carousel,
-    .contact-grid > .page-image-carousel {
+    .about-grid>.page-image-carousel,
+    .contact-grid>.page-image-carousel {
         height: clamp(360px, 62svh, 520px);
     }
 }

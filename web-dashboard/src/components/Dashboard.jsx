@@ -390,6 +390,8 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const location = useLocation();
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState([]);
+  const [detailRequest, setDetailRequest] = useState({ status: 'idle', incidentId: '', incident: null, error: '' });
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
   const [historyIncidents, setHistoryIncidents] = useState([]);
   const [serverStats, setServerStats] = useState(null);
   const [alerts, setAlerts] = useState([]);
@@ -438,6 +440,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const [resourceState, setResourceState] = useState(initialResourceState);
   const [createOpen, setCreateOpen] = useState(false);
   const section = routes[location.pathname] || (location.pathname.startsWith('/incidents/') ? 'detail' : 'overview');
+  const detailIncidentId = section === 'detail' ? location.pathname.split('/').pop() : '';
   const canViewOperations = ['security', 'security_officer', 'admin'].includes(String(user.role || '').toLowerCase());
   const canViewMap = ['security', 'security_officer', 'admin'].includes(String(user.role || '').trim().toLowerCase());
   const canReviewAssignments = ['security', 'security_officer', 'admin'].includes(String(user.role || '').toLowerCase());
@@ -457,6 +460,37 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     || (section === 'locations' && !canViewCampusLocations)
     || (section === 'analytics' && !canViewOperations && !isStudent)
     || (section === 'map' && !canViewMap);
+
+  useEffect(() => {
+    if (!detailIncidentId) {
+      setDetailRequest({ status: 'idle', incidentId: '', incident: null, error: '' });
+      return undefined;
+    }
+
+    let active = true;
+    setDetailRequest({ status: 'loading', incidentId: detailIncidentId, incident: null, error: '' });
+    api.get(`/incidents/${encodeURIComponent(detailIncidentId)}`)
+      .then((response) => {
+        if (!active) return;
+        const incident = response.data?.data;
+        if (!incident?.incident_id) throw new Error('The incident response was incomplete.');
+        setDetailRequest({ status: 'loaded', incidentId: detailIncidentId, incident, error: '' });
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        const status = requestError.response?.status;
+        const message = status === 401
+          ? 'Your session has expired. Sign in again to view this incident.'
+          : status === 403
+            ? 'You are not authorized to view this incident.'
+            : status === 404
+              ? 'This incident was deleted or is unavailable.'
+              : requestError.response?.data?.message || 'Unable to load this incident. Check your connection and retry.';
+        setDetailRequest({ status: 'error', incidentId: detailIncidentId, incident: null, error: message });
+      });
+
+    return () => { active = false; };
+  }, [detailIncidentId, detailReloadKey]);
 
   const loadNotifications = useCallback(async () => {
     if (notificationClearInProgress.current) return;
@@ -769,7 +803,8 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   ));
   const active = useMemo(() => incidents.filter((incident) => activeStatuses.includes(incident.status)), [incidents]);
   const critical = useMemo(() => incidents.filter((incident) => incident.is_sos || incident.severity === 'critical'), [incidents]);
-  const detail = incidents.find((incident) => String(incident.incident_id) === location.pathname.split('/').pop());
+  const detailMatchesPath = detailRequest.incidentId === detailIncidentId;
+  const detail = detailMatchesPath ? detailRequest.incident : null;
   const detailAssignmentDeclined = ['declined'].includes(
     String(detail?.responses?.[0]?.assignment_status || detail?.responses?.[0]?.status || '').toLowerCase(),
   );
@@ -1230,7 +1265,9 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     }
   };
   const map = <div className="space-y-8"><Heading eyebrow="Geospatial response" title="Live campus map" description="Campus places, security zones, current officer locations, and incident coordinates." />{resourceState.incidents.status === 'loading' ? <div className="inline-loading">Loading map data...</div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-2 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"><SecurityMap campusLocations={campusLocations} incidents={incidents} officers={canViewOperations ? officers : []} zones={zones} focusedIncidentId={location.state?.selectedIncidentId} focusRequestKey={location.state?.focusRequestKey} defaultMapStyle={userPreferences.mapDefault} defaultOfficerAvailability={userPreferences.officerAvailability} canManageZones={String(user.role || '').trim().toLowerCase() === 'admin'} onDeleteZone={deleteZoneFromMap} /></div>}</div>;
-  const detailView = detail ? (
+  const detailView = section === 'detail' && (!detailMatchesPath || detailRequest.status === 'loading') ? <div className="inline-loading" role="status">Loading incident...</div>
+    : detailRequest.status === 'error' ? <RequestError message={detailRequest.error} onRetry={() => setDetailReloadKey((current) => current + 1)} />
+      : detail ? (
     <div className="incident-detail-view space-y-8">
       <Heading
         eyebrow="Incident record"
@@ -1269,9 +1306,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
         </section>
       </div>
     </div>
-  ) : resourceState.incidents.status === 'error'
-    ? <RequestError message={resourceState.incidents.error} onRetry={loadData} />
-    : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
+      ) : <EmptyState icon={ReportProblemOutlined} title="Incident not found" message="The requested incident is unavailable." />;
   const evidence = <div className="space-y-6"><Heading eyebrow="Evidence review" title="Incident evidence" description="Uploaded photos associated with incident records." />{resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : incidents.filter((incident) => incident.photos?.length).length ? <div className="evidence-grid">{incidents.filter((incident) => incident.photos?.length).map((incident) => <article className="evidence-card" key={incident.incident_id}><div className="mb-4 flex items-start justify-between"><div><h3 className="font-black text-slate-900">{titleCase(incident.type)}</h3><p className="mt-1 text-xs text-slate-500">{incident.location_name || 'Campus'}</p></div><button type="button" className="table-action" onClick={() => view(incident)}>View</button></div><EvidencePreview photos={incident.photos} /></article>)}</div> : <EmptyState title="No evidence available" message="Photo evidence will appear here when incidents include uploads." />}</div>;
   const usersView = (
     <div className="space-y-8">

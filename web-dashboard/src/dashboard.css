@@ -556,11 +556,7 @@
     flex-direction: column;
 }
 
-.dashboard-content>.mx-auto>.space-y-6:has(.dashboard-table,
-.incident-table,
-.officer-grid,
-.evidence-grid,
-article) {
+.dashboard-content>.mx-auto>.space-y-6:has(.dashboard-table, .incident-table, .officer-grid, .evidence-grid, article) {
     display: flex;
     min-height: auto;
     flex: 0 0 auto;
@@ -568,11 +564,7 @@ article) {
     overflow: visible;
 }
 
-.dashboard-content .space-y-8:has(.dashboard-table,
-.incident-table,
-.officer-grid,
-.evidence-grid,
-article) {
+.dashboard-content .space-y-8:has(.dashboard-table, .incident-table, .officer-grid, .evidence-grid, article) {
     display: flex;
     min-height: auto;
     flex: 0 0 auto;
@@ -1117,10 +1109,8 @@ article) {
 }
 
 .dashboard-app .dashboard-button.success,
-.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-emerald-"],
-[class*=" bg-emerald-"]),
-.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-green-"],
-[class*=" bg-green-"]) {
+.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-emerald-"], [class*=" bg-emerald-"]),
+.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-green-"], [class*=" bg-green-"]) {
     border-color: var(--button-success-bg);
     background: var(--button-success-bg);
     color: var(--button-primary-text);
@@ -1128,23 +1118,17 @@ article) {
 
 .dashboard-app .dashboard-button.success:hover,
 .dashboard-app .dashboard-button.success:active,
-.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-emerald-"],
-[class*=" bg-emerald-"]):hover:not(:disabled),
-.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-emerald-"],
-[class*=" bg-emerald-"]):active,
-.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-green-"],
-[class*=" bg-green-"]):hover:not(:disabled),
-.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-green-"],
-[class*=" bg-green-"]):active {
+.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-emerald-"], [class*=" bg-emerald-"]):hover:not(:disabled),
+.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-emerald-"], [class*=" bg-emerald-"]):active,
+.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-green-"], [class*=" bg-green-"]):hover:not(:disabled),
+.dashboard-app button:not(.dashboard-notification-action):is([class^="bg-green-"], [class*=" bg-green-"]):active {
     border-color: var(--button-success-hover);
     background: var(--button-success-hover);
 }
 
 .dashboard-app .dashboard-button.danger,
-.dashboard-app button:is([class^="bg-red-"],
-[class*=" bg-red-"]),
-.dashboard-app button:is([class^="bg-rose-"],
-[class*=" bg-rose-"]) {
+.dashboard-app button:is([class^="bg-red-"], [class*=" bg-red-"]),
+.dashboard-app button:is([class^="bg-rose-"], [class*=" bg-rose-"]) {
     border-color: var(--button-danger-bg);
     background: var(--button-danger-bg);
     color: var(--button-primary-text);
@@ -1152,25 +1136,18 @@ article) {
 
 .dashboard-app .dashboard-button.danger:hover,
 .dashboard-app .dashboard-button.danger:active,
-.dashboard-app button:is([class^="bg-red-"],
-[class*=" bg-red-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-red-"],
-[class*=" bg-red-"]):active,
-.dashboard-app button:is([class^="bg-rose-"],
-[class*=" bg-rose-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-rose-"],
-[class*=" bg-rose-"]):active {
+.dashboard-app button:is([class^="bg-red-"], [class*=" bg-red-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-red-"], [class*=" bg-red-"]):active,
+.dashboard-app button:is([class^="bg-rose-"], [class*=" bg-rose-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-rose-"], [class*=" bg-rose-"]):active {
     border-color: var(--button-danger-hover);
     background: var(--button-danger-hover);
 }
 
 .dashboard-app .dashboard-button.warning,
-.dashboard-app button:is([class^="bg-amber-"],
-[class*=" bg-amber-"]),
-.dashboard-app button:is([class^="bg-orange-"],
-[class*=" bg-orange-"]),
-.dashboard-app button:is([class^="bg-yellow-"],
-[class*=" bg-yellow-"]) {
+.dashboard-app button:is([class^="bg-amber-"], [class*=" bg-amber-"]),
+.dashboard-app button:is([class^="bg-orange-"], [class*=" bg-orange-"]),
+.dashboard-app button:is([class^="bg-yellow-"], [class*=" bg-yellow-"]) {
     border-color: var(--button-warning-bg);
     background: var(--button-warning-bg);
     color: var(--button-primary-text);
@@ -1178,27 +1155,19 @@ article) {
 
 .dashboard-app .dashboard-button.warning:hover,
 .dashboard-app .dashboard-button.warning:active,
-.dashboard-app button:is([class^="bg-amber-"],
-[class*=" bg-amber-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-amber-"],
-[class*=" bg-amber-"]):active,
-.dashboard-app button:is([class^="bg-orange-"],
-[class*=" bg-orange-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-orange-"],
-[class*=" bg-orange-"]):active,
-.dashboard-app button:is([class^="bg-yellow-"],
-[class*=" bg-yellow-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-yellow-"],
-[class*=" bg-yellow-"]):active {
+.dashboard-app button:is([class^="bg-amber-"], [class*=" bg-amber-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-amber-"], [class*=" bg-amber-"]):active,
+.dashboard-app button:is([class^="bg-orange-"], [class*=" bg-orange-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-orange-"], [class*=" bg-orange-"]):active,
+.dashboard-app button:is([class^="bg-yellow-"], [class*=" bg-yellow-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-yellow-"], [class*=" bg-yellow-"]):active {
     border-color: var(--button-warning-hover);
     background: var(--button-warning-hover);
 }
 
 .dashboard-app .dashboard-button.neutral,
-.dashboard-app button:is([class^="bg-slate-"],
-[class*=" bg-slate-"]),
-.dashboard-app button:is([class^="bg-gray-"],
-[class*=" bg-gray-"]) {
+.dashboard-app button:is([class^="bg-slate-"], [class*=" bg-slate-"]),
+.dashboard-app button:is([class^="bg-gray-"], [class*=" bg-gray-"]) {
     border-color: var(--button-neutral-bg);
     background: var(--button-neutral-bg);
     color: var(--button-primary-text);
@@ -1206,45 +1175,32 @@ article) {
 
 .dashboard-app .dashboard-button.neutral:hover,
 .dashboard-app .dashboard-button.neutral:active,
-.dashboard-app button:is([class^="bg-slate-"],
-[class*=" bg-slate-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-slate-"],
-[class*=" bg-slate-"]):active,
-.dashboard-app button:is([class^="bg-gray-"],
-[class*=" bg-gray-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-gray-"],
-[class*=" bg-gray-"]):active {
+.dashboard-app button:is([class^="bg-slate-"], [class*=" bg-slate-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-slate-"], [class*=" bg-slate-"]):active,
+.dashboard-app button:is([class^="bg-gray-"], [class*=" bg-gray-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-gray-"], [class*=" bg-gray-"]):active {
     border-color: var(--button-neutral-hover);
     background: var(--button-neutral-hover);
 }
 
 .dashboard-app .dashboard-button.primary:active,
-.dashboard-app button:is([class^="bg-blue-"],
-[class*=" bg-blue-"]):active,
-.dashboard-app button:is([class^="bg-cyan-"],
-[class*=" bg-cyan-"]):active,
-.dashboard-app button:is([class^="bg-sky-"],
-[class*=" bg-sky-"]):active {
+.dashboard-app button:is([class^="bg-blue-"], [class*=" bg-blue-"]):active,
+.dashboard-app button:is([class^="bg-cyan-"], [class*=" bg-cyan-"]):active,
+.dashboard-app button:is([class^="bg-sky-"], [class*=" bg-sky-"]):active {
     background: var(--button-primary-active);
 }
 
-.dashboard-app button:is([class^="bg-blue-"],
-[class*=" bg-blue-"]),
-.dashboard-app button:is([class^="bg-cyan-"],
-[class*=" bg-cyan-"]),
-.dashboard-app button:is([class^="bg-sky-"],
-[class*=" bg-sky-"]) {
+.dashboard-app button:is([class^="bg-blue-"], [class*=" bg-blue-"]),
+.dashboard-app button:is([class^="bg-cyan-"], [class*=" bg-cyan-"]),
+.dashboard-app button:is([class^="bg-sky-"], [class*=" bg-sky-"]) {
     border-color: var(--button-primary-bg);
     background: var(--button-primary-bg);
     color: var(--button-primary-text);
 }
 
-.dashboard-app button:is([class^="bg-blue-"],
-[class*=" bg-blue-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-cyan-"],
-[class*=" bg-cyan-"]):hover:not(:disabled),
-.dashboard-app button:is([class^="bg-sky-"],
-[class*=" bg-sky-"]):hover:not(:disabled) {
+.dashboard-app button:is([class^="bg-blue-"], [class*=" bg-blue-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-cyan-"], [class*=" bg-cyan-"]):hover:not(:disabled),
+.dashboard-app button:is([class^="bg-sky-"], [class*=" bg-sky-"]):hover:not(:disabled) {
     border-color: var(--button-primary-hover);
     background: var(--button-primary-hover);
 }
@@ -1255,12 +1211,9 @@ article) {
 }
 
 .dashboard-app .dashboard-button.primary:active,
-.dashboard-app button:is([class^="bg-blue-"],
-[class*=" bg-blue-"]):active,
-.dashboard-app button:is([class^="bg-cyan-"],
-[class*=" bg-cyan-"]):active,
-.dashboard-app button:is([class^="bg-sky-"],
-[class*=" bg-sky-"]):active {
+.dashboard-app button:is([class^="bg-blue-"], [class*=" bg-blue-"]):active,
+.dashboard-app button:is([class^="bg-cyan-"], [class*=" bg-cyan-"]):active,
+.dashboard-app button:is([class^="bg-sky-"], [class*=" bg-sky-"]):active {
     border-color: var(--button-primary-active);
     background: var(--button-primary-active);
 }
@@ -1318,25 +1271,15 @@ article) {
 
 /* Keep text on navy surfaces readable without changing light controls or badges. */
 
-.dashboard-app .dashboard-panel :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action),
-.dashboard-app .detail-panel :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.dashboard-button):not(.table-action),
-.dashboard-app .evidence-card :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.dashboard-button):not(.table-action),
-.dashboard-app .officer-card :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
+.dashboard-app .dashboard-panel :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action),
+.dashboard-app .detail-panel :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.dashboard-button):not(.table-action),
+.dashboard-app .evidence-card :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.dashboard-button):not(.table-action),
+.dashboard-app .officer-card :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
     color: #e9f8fc;
 }
 
 .dashboard-app .dashboard-content>.mx-auto> :not(.fixed) [class~="text-[#0b1f3a]"],
-.dashboard-app .dashboard-content>.mx-auto> :not(.fixed) :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
+.dashboard-app .dashboard-content>.mx-auto> :not(.fixed) :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
     color: var(--dashboard-text);
 }
 
@@ -1926,11 +1869,7 @@ article) {
 
 /* Accessibility and focus states */
 
-.dashboard-app :is(button,
-a,
-input,
-select,
-textarea):focus-visible {
+.dashboard-app :is(button, a, input, select, textarea):focus-visible {
     outline: 3px solid var(--button-secondary-bg);
     outline-offset: 2px;
     box-shadow: 0 0 0 2px #ffffff;
@@ -1944,8 +1883,7 @@ textarea):focus-visible {
     text-align: center;
 }
 
-.dashboard-app .dashboard-content button:is(.dashboard-button,
-.table-action) {
+.dashboard-app .dashboard-content button:is(.dashboard-button, .table-action) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2168,9 +2106,7 @@ textarea):focus-visible {
 .dashboard-app .dashboard-panel h4,
 .dashboard-app .dashboard-metric p:last-child,
 .dashboard-app .dashboard-content>.mx-auto> :not(.fixed) [class~="text-[#0b1f3a]"],
-.dashboard-app .dashboard-content>.mx-auto> :not(.fixed) :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
+.dashboard-app .dashboard-content>.mx-auto> :not(.fixed) :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
     color: var(--ink-900) !important;
 }
 
@@ -2500,9 +2436,7 @@ textarea):focus-visible {
 }
 
 [data-theme="dark"].dashboard-app .dashboard-content>.mx-auto> :not(.fixed) [class~="text-[#0b1f3a]"],
-[data-theme="dark"].dashboard-app .dashboard-content>.mx-auto> :not(.fixed) :is(.text-slate-900,
-.text-slate-800,
-.text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action),
+[data-theme="dark"].dashboard-app .dashboard-content>.mx-auto> :not(.fixed) :is(.text-slate-900, .text-slate-800, .text-slate-700):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action),
 [data-theme="dark"].dashboard-app .dashboard-panel [class~="text-[#0b1f3a]"],
 [data-theme="dark"].dashboard-app .detail-panel [class~="text-[#0b1f3a]"],
 [data-theme="dark"].dashboard-app .evidence-card [class~="text-[#0b1f3a]"],
@@ -2558,27 +2492,15 @@ textarea):focus-visible {
 
 /* Keep secondary dashboard copy legible in both palette modes. */
 
-.dashboard-app :is([class~="text-slate-400"],
-[class~="text-slate-500"],
-[class~="text-slate-600"],
-[class~="text-gray-400"],
-[class~="text-gray-500"]):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
+.dashboard-app :is([class~="text-slate-400"], [class~="text-slate-500"], [class~="text-slate-600"], [class~="text-gray-400"], [class~="text-gray-500"]):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
     color: var(--dashboard-muted);
 }
 
-.dashboard-app :is([class~="text-slate-700"],
-[class~="text-slate-800"],
-[class~="text-slate-900"]):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action):not(button):not(a) {
+.dashboard-app :is([class~="text-slate-700"], [class~="text-slate-800"], [class~="text-slate-900"]):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action):not(button):not(a) {
     color: var(--dashboard-text);
 }
 
-.dashboard-app :is(.dashboard-heading,
-.dashboard-panel,
-.detail-panel,
-.evidence-card,
-.officer-card) :is(h2,
-h3,
-h4) {
+.dashboard-app :is(.dashboard-heading, .dashboard-panel, .detail-panel, .evidence-card, .officer-card) :is(h2, h3, h4) {
     color: var(--dashboard-text);
     font-weight: 700;
 }
@@ -2591,14 +2513,11 @@ h4) {
     color: var(--dashboard-muted) !important;
 }
 
-.dashboard-app :is(input,
-select,
-textarea) {
+.dashboard-app :is(input, select, textarea) {
     color: var(--dashboard-text);
 }
 
-.dashboard-app :is(input,
-textarea)::placeholder {
+.dashboard-app :is(input, textarea)::placeholder {
     color: var(--dashboard-muted);
     opacity: 1;
 }
@@ -2626,19 +2545,11 @@ textarea)::placeholder {
     color: #ffffff;
 }
 
-.dashboard-app .dashboard-content :is(.text-slate-400,
-.text-slate-500,
-.text-slate-600,
-.text-gray-400,
-.text-gray-500):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
+.dashboard-app .dashboard-content :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-gray-400, .text-gray-500):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
     color: #334155 !important;
 }
 
-[data-theme="dark"].dashboard-app .dashboard-content :is(.text-slate-400,
-.text-slate-500,
-.text-slate-600,
-.text-gray-400,
-.text-gray-500):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
+[data-theme="dark"].dashboard-app .dashboard-content :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-gray-400, .text-gray-500):not(.status-badge):not(.severity-badge):not(.officer-status):not(.dashboard-button):not(.table-action) {
     color: var(--dashboard-muted) !important;
 }
 
@@ -3107,18 +3018,12 @@ textarea)::placeholder {
     animation: dashboard-content-enter 360ms ease-out both;
 }
 
-.dashboard-app :is(.dashboard-panel,
-.detail-panel,
-.evidence-card,
-.officer-card) {
+.dashboard-app :is(.dashboard-panel, .detail-panel, .evidence-card, .officer-card) {
     animation: dashboard-item-enter 380ms ease-out both;
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.dashboard-app :is(.dashboard-panel,
-.detail-panel,
-.evidence-card,
-.officer-card):hover {
+.dashboard-app :is(.dashboard-panel, .detail-panel, .evidence-card, .officer-card):hover {
     transform: translateY(-2px);
     box-shadow: 0 14px 32px rgb(0 0 0 / 0.24), 0 2px 5px rgb(0 0 0 / 0.16) !important;
 }
@@ -3222,10 +3127,7 @@ textarea)::placeholder {
     .dashboard-sidebar .dashboard-nav-item>span:first-child,
     .dashboard-app .dashboard-panel article,
     .dashboard-app .dashboard-panel>div.space-y-3>div,
-    .dashboard-app :is(.dashboard-panel,
-    .detail-panel,
-    .evidence-card,
-    .officer-card),
+    .dashboard-app :is(.dashboard-panel, .detail-panel, .evidence-card, .officer-card),
     .dashboard-app .dashboard-metric,
     .dashboard-app .dashboard-button,
     .dashboard-app .table-action,
@@ -3239,10 +3141,7 @@ textarea)::placeholder {
         animation: none !important;
         transition: none !important;
     }
-    .dashboard-app :is(.dashboard-panel,
-    .detail-panel,
-    .evidence-card,
-    .officer-card):hover,
+    .dashboard-app :is(.dashboard-panel, .detail-panel, .evidence-card, .officer-card):hover,
     .dashboard-app .dashboard-metric:hover,
     .dashboard-app .dashboard-panel article:hover,
     .dashboard-app .dashboard-panel>div.space-y-3>div:hover,
@@ -3419,11 +3318,8 @@ textarea)::placeholder {
         flex: 1 1 0;
         padding-inline: clamp(0.75rem, 3vw, 1.5rem);
     }
-    .dashboard-app .dashboard-content :is(.grid,
-    .flex),
-    .dashboard-app .dashboard-content :is(input,
-    select,
-    textarea) {
+    .dashboard-app .dashboard-content :is(.grid, .flex),
+    .dashboard-app .dashboard-content :is(input, select, textarea) {
         min-width: 0;
         max-width: 100%;
     }
@@ -3445,8 +3341,7 @@ textarea)::placeholder {
         margin-inline: auto;
         overscroll-behavior: contain;
     }
-    .dashboard-app [role="dialog"]>:is(form,
-    div) {
+    .dashboard-app [role="dialog"]>:is(form, div) {
         max-width: 100%;
         min-width: 0;
         max-height: calc(100vh - var(--dashboard-header-height, 76px) - 2rem);

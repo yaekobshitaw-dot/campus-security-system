@@ -30,6 +30,7 @@ function makeIncident() {
 }
 
 const originalIncidentFindByPk = Incident.findByPk;
+const originalIncidentFindOne = Incident.findOne;
 const originalResponseFindOne = Response.findOne;
 const originalResponseCreate = Response.create;
 const originalResponseFindAll = Response.findAll;
@@ -44,6 +45,7 @@ const originalTransaction = sequelize.transaction;
 
 test.afterEach(() => {
   Incident.findByPk = originalIncidentFindByPk;
+  Incident.findOne = originalIncidentFindOne;
   Response.findOne = originalResponseFindOne;
   Response.create = originalResponseCreate;
   Response.findAll = originalResponseFindAll;
@@ -306,6 +308,7 @@ test('returns only the authenticated officer pending assignments', async () => {
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.data[0].assignment_status, 'pending');
   assert.equal(response.payload.data[0].responder.user_id, officerId);
+  assert.equal(response.payload.data[0].incident.incident_id, incidentId);
 });
 
 test('allows an officer to accept their pending assignment', async () => {
@@ -327,8 +330,54 @@ test('allows an officer to accept their pending assignment', async () => {
   await incidentController.acceptAssignment({ params: { response_id: assignment.response_id }, user: { role: 'security', user_id: officerId }, app: { get: () => null } }, response);
 
   assert.equal(response.statusCode, 200);
+  assert.equal(response.payload.data.incident_id, incident.incident_id);
   assert.equal(assignment.assignment_status, 'accepted');
   assert.equal(assignment.status, 'responding');
+  assert.equal(incident.status, 'investigating');
+});
+
+test('loads fresh incident details for its reporter and privileged security roles', async () => {
+  const incident = makeIncident();
+  incident.user_id = 'student-owner';
+  incident.photos = [{ storage_key: 'evidence-photo.png' }];
+  incident.toJSON = () => ({
+    incident_id: incident.incident_id,
+    user_id: incident.user_id,
+    type: 'theft',
+    status: incident.status,
+    photos: incident.photos,
+    responses: [],
+    created_at: incident.created_at,
+  });
+  Incident.findOne = async ({ where }) => {
+    assert.equal(where.incident_id, incidentId);
+    if (where.user_id) assert.equal(where.user_id, 'student-owner');
+    return incident;
+  };
+
+  const reporterResponse = makeResponse();
+  await incidentController.getById({ params: { incident_id: incidentId }, user: { user_id: 'student-owner', role: 'student' } }, reporterResponse);
+  assert.equal(reporterResponse.statusCode, 200);
+  assert.equal(reporterResponse.payload.data.incident_id, incidentId);
+  assert.deepEqual(reporterResponse.payload.data.photos, [`/api/incidents/${incidentId}/evidence/evidence-photo.png`]);
+
+  const officerResponse = makeResponse();
+  await incidentController.getById({ params: { incident_id: incidentId }, user: { user_id: officerId, role: 'security_officer' } }, officerResponse);
+  assert.equal(officerResponse.statusCode, 200);
+  assert.equal(officerResponse.payload.data.incident_id, incidentId);
+});
+
+test('does not return another reporter incident to a regular account', async () => {
+  Incident.findOne = async ({ where }) => {
+    assert.deepEqual(where, { incident_id: incidentId, user_id: 'student-other' });
+    return null;
+  };
+
+  const response = makeResponse();
+  await incidentController.getById({ params: { incident_id: incidentId }, user: { user_id: 'student-other', role: 'student' } }, response);
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.payload.message, 'Incident not found');
 });
 
 test('allows an officer to decline their pending assignment', async () => {

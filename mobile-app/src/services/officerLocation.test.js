@@ -4,17 +4,17 @@ jest.mock('./api', () => ({
 }));
 
 jest.mock('./location', () => ({
-  getLocation: jest.fn(),
+  getFreshLocation: jest.fn(),
 }));
 
 import api from './api';
-import { getLocation } from './location';
-import { startOfficerLocationUpdates } from './officerLocation';
+import { getFreshLocation } from './location';
+import { isOfficerLocationRole, startOfficerLocationUpdates } from './officerLocation';
 
 describe('startOfficerLocationUpdates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getLocation.mockResolvedValue({ latitude: 9, longitude: 38 });
+    getFreshLocation.mockResolvedValue({ latitude: 9, longitude: 38, timestamp: Date.now() });
     api.patch.mockResolvedValue({});
   });
 
@@ -26,7 +26,7 @@ describe('startOfficerLocationUpdates', () => {
     const stop = startOfficerLocationUpdates({ shareLocation: false });
 
     expect(stop).toBeUndefined();
-    expect(getLocation).not.toHaveBeenCalled();
+    expect(getFreshLocation).not.toHaveBeenCalled();
     expect(api.patch).not.toHaveBeenCalled();
   });
 
@@ -50,5 +50,60 @@ describe('startOfficerLocationUpdates', () => {
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 30000);
     stop();
     setIntervalSpy.mockRestore();
+  });
+
+  it('starts location sharing only for the recognized security roles', () => {
+    expect(isOfficerLocationRole('security')).toBe(true);
+    expect(isOfficerLocationRole('security_officer')).toBe(true);
+    expect(isOfficerLocationRole('student')).toBe(false);
+  });
+
+  it('sends actual coordinates and the device capture time to the existing endpoint', async () => {
+    const timestamp = Date.now();
+    getFreshLocation.mockResolvedValue({ latitude: 9.02, longitude: 38.75, timestamp });
+    const stop = startOfficerLocationUpdates();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(api.patch).toHaveBeenCalledWith('/users/me/location', {
+      latitude: 9.02,
+      longitude: 38.75,
+      location_timestamp: new Date(timestamp).toISOString(),
+    });
+    stop();
+  });
+
+  it('does not send stale or missing coordinates and reports the problem', async () => {
+    getFreshLocation.mockResolvedValue({ latitude: 9.02, longitude: 38.75, timestamp: Date.now() - 121000 });
+    const onStatusChange = jest.fn();
+    const stop = startOfficerLocationUpdates({ onStatusChange });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(onStatusChange).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Waiting for a fresh, valid device location.',
+      code: 'LOCATION_FIX_STALE',
+    }));
+    stop();
+  });
+
+  it('reports a network failure without sending a fabricated location', async () => {
+    api.patch.mockRejectedValue(new Error('Network Error'));
+    const onStatusChange = jest.fn();
+    const stop = startOfficerLocationUpdates({ onStatusChange });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(api.patch).toHaveBeenCalledWith('/users/me/location', expect.objectContaining({
+      latitude: 9,
+      longitude: 38,
+    }));
+    expect(onStatusChange).toHaveBeenCalledWith({
+      message: 'Location could not be shared. Check your network connection and try again.',
+      code: null,
+    });
+    stop();
   });
 });

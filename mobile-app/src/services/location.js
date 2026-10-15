@@ -8,6 +8,7 @@ const LOCATION_WATCH_FASTEST_INTERVAL_MS = 500;
 const MAX_FUTURE_TIMESTAMP_SKEW_MS = 1000;
 export const LOCATION_PERMISSION_DENIED = 'LOCATION_PERMISSION_DENIED';
 export const LOCATION_SERVICES_DISABLED = 'LOCATION_SERVICES_DISABLED';
+export const LOCATION_UNAVAILABLE = 'LOCATION_UNAVAILABLE';
 
 const logLocationDebug = (event, details) => {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
@@ -31,10 +32,11 @@ const requestLocationPermission = async () => {
 
   const finePermission = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION;
   const coarsePermission = PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION;
-  if (await PermissionsAndroid.check(finePermission)) return true;
+  if (await PermissionsAndroid.check(finePermission) || await PermissionsAndroid.check(coarsePermission)) return true;
 
   const granted = await PermissionsAndroid.requestMultiple([finePermission, coarsePermission]);
-  return granted[finePermission] === PermissionsAndroid.RESULTS.GRANTED;
+  return granted[finePermission] === PermissionsAndroid.RESULTS.GRANTED
+    || granted[coarsePermission] === PermissionsAndroid.RESULTS.GRANTED;
 };
 
 const withTimeout = (promise, timeoutMs) => {
@@ -79,7 +81,9 @@ const getLocationError = (error) => {
     servicesError.code = LOCATION_SERVICES_DISABLED;
     return servicesError;
   }
-  return new Error('Unable to get your current location. Please enable GPS/Location and try again.');
+  const unavailableError = new Error('Unable to get your current location. Please enable GPS/Location and try again.');
+  unavailableError.code = LOCATION_UNAVAILABLE;
+  return unavailableError;
 };
 
 export const getLocation = async () => {

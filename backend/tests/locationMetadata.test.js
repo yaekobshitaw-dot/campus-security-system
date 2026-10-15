@@ -1,9 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const incidentController = require('../src/controllers/incidentController');
 const { Alert, CampusLocation, Incident, User } = require('../src/models');
+const { uploadDirectory } = require('../src/services/evidenceService');
 
 const originalIncidentCreate = Incident.create;
+const originalIncidentFindByPk = Incident.findByPk;
 const originalAlertCreate = Alert.create;
 const originalUserFindAll = User.findAll;
 const { AuditLog, SystemSetting } = require('../src/models');
@@ -13,6 +17,7 @@ const originalCampusLocationFindAll = CampusLocation.findAll;
 
 test.afterEach(() => {
   Incident.create = originalIncidentCreate;
+  Incident.findByPk = originalIncidentFindByPk;
   Alert.create = originalAlertCreate;
   User.findAll = originalUserFindAll;
   AuditLog.create = originalAuditCreate;
@@ -115,6 +120,87 @@ test('allows existing incident API clients to omit optional location metadata', 
   assert.equal(response.statusCode, 201);
   assert.equal(response.payload.data.location_accuracy, null);
   assert.equal(response.payload.data.location_timestamp, null);
+});
+
+test('rejects client-supplied evidence references without creating an incident', async () => {
+  let createCalled = false;
+  Incident.create = async () => { createCalled = true; };
+  for (const photos of [
+    ['/uploads/private.png'],
+    ['C:\\private\\evidence.png'],
+    [{ storage_key: 'private.png' }],
+    ['../private.png'],
+  ]) {
+    const response = makeResponse();
+    await incidentController.create(makeRequest({ type: 'theft', photos }), response);
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(createCalled, false);
+  }
+});
+
+test('associates only uploaded file metadata with a new incident', async () => {
+  stubCreationDependencies();
+  const created = [];
+  Incident.create = async (values) => {
+    created.push(values);
+    return fakeIncident(values);
+  };
+  const request = makeRequest({ type: 'theft', photos: ['/uploads/untrusted.png'] });
+  request.files = [{
+    path: '/server-uploads/generated-photo.png',
+    originalname: 'photo.png',
+    mimetype: 'image/png',
+  }];
+  const response = makeResponse();
+  await incidentController.create(request, response);
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(created[0].photos.length, 1);
+  assert.equal(created[0].photos[0].storage_key, 'generated-photo.png');
+  assert.deepEqual(response.payload.data.photos, [
+    '/api/incidents/incident-location-test/evidence/generated-photo.png'
+  ]);
+});
+
+test('removes newly uploaded evidence when incident persistence fails', async () => {
+  const filename = `incident-create-failure-${process.pid}-${Date.now()}.png`;
+  const filePath = path.join(uploadDirectory, filename);
+  fs.mkdirSync(uploadDirectory, { recursive: true });
+  fs.writeFileSync(filePath, 'new request evidence');
+  Incident.create = async () => { throw new Error('database unavailable'); };
+  Incident.findByPk = async () => null;
+  const request = makeRequest({ type: 'theft' });
+  request.files = [{ filename, path: filePath, originalname: 'photo.png', mimetype: 'image/png' }];
+  const response = makeResponse();
+
+  try {
+    await incidentController.create(request, response);
+    assert.equal(response.statusCode, 500);
+    assert.equal(fs.existsSync(filePath), false);
+  } finally {
+    fs.rmSync(filePath, { force: true });
+  }
+});
+
+test('retains uploaded evidence when incident persistence cannot be disproved', async () => {
+  const filename = `incident-create-uncertain-${process.pid}-${Date.now()}.png`;
+  const filePath = path.join(uploadDirectory, filename);
+  fs.mkdirSync(uploadDirectory, { recursive: true });
+  fs.writeFileSync(filePath, 'possibly referenced evidence');
+  Incident.create = async () => { throw new Error('connection lost after insert'); };
+  Incident.findByPk = async () => ({ incident_id: 'possibly-persisted' });
+  const request = makeRequest({ type: 'theft' });
+  request.files = [{ filename, path: filePath, originalname: 'photo.png', mimetype: 'image/png' }];
+  const response = makeResponse();
+
+  try {
+    await incidentController.create(request, response);
+    assert.equal(response.statusCode, 500);
+    assert.equal(fs.existsSync(filePath), true);
+  } finally {
+    fs.rmSync(filePath, { force: true });
+  }
 });
 
 test('stores SOS location metadata and emits it with the existing sos_alert event', async () => {

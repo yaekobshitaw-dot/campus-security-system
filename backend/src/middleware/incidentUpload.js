@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { incidentEvidenceDirectory: uploadDirectory } = require('../config/incidentEvidenceStorage');
+const { cleanupUploadedEvidence } = require('../services/evidenceService');
+const { hasValidImageSignature } = require('../utils/imageSignature');
 
-const uploadDirectory = path.resolve(__dirname, '../../uploads');
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -27,7 +29,10 @@ const imageOnly = (_req, file, callback) => {
     return callback(null, true);
   }
 
-  return callback(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'photos'));
+  const error = new Error('Incident evidence must be a supported image type with a matching extension');
+  error.statusCode = 400;
+  error.code = 'INVALID_INCIDENT_PHOTO_TYPE';
+  return callback(error);
 };
 
 const uploadIncidentPhotos = multer({
@@ -36,4 +41,18 @@ const uploadIncidentPhotos = multer({
   limits: { files: 5, fileSize: 10 * 1024 * 1024 }
 });
 
-module.exports = { uploadIncidentPhotos };
+const validateIncidentPhotoContents = (req, res, next) => Promise.resolve().then(async () => {
+  for (const file of req.files || []) {
+    if (!await hasValidImageSignature(file.path, file.mimetype)) {
+      const error = new Error('Incident evidence content does not match its image type');
+      error.statusCode = 400;
+      error.code = 'INVALID_INCIDENT_PHOTO_CONTENT';
+      throw error;
+    }
+  }
+}).then(() => next()).catch(async (error) => {
+  await cleanupUploadedEvidence(req.files);
+  next(error);
+});
+
+module.exports = { uploadIncidentPhotos, validateIncidentPhotoContents };

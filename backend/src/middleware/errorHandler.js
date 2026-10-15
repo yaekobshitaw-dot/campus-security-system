@@ -45,11 +45,13 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (err.code === 'LIMIT_FILE_SIZE') {
-    error = new AppError('Uploaded image must be 5 MB or smaller', 400);
+    const incidentUpload = req.path.startsWith('/api/incidents') && err.field === 'photos';
+    error = new AppError(incidentUpload ? 'Incident photos must be 10 MB or smaller' : 'Uploaded image must be 5 MB or smaller', 400);
   }
 
   if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-    error = new AppError('Only one profile photo may be uploaded', 400);
+    const incidentUpload = req.path.startsWith('/api/incidents') && err.field === 'photos';
+    error = new AppError(incidentUpload ? 'Up to five incident photos may be uploaded' : 'Only one profile photo may be uploaded', 400);
   }
 
   res.status(error.statusCode || 500).json({

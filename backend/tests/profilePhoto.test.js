@@ -3,7 +3,7 @@ const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const profilePhotoController = require('../src/controllers/profilePhotoController');
-const { profilePhotoDirectory, profilePhotoFileFilter } = require('../src/middleware/profilePhotoUpload');
+const { profilePhotoDirectory, profilePhotoFileFilter, validateProfilePhotoContent } = require('../src/middleware/profilePhotoUpload');
 
 const makeResponse = () => ({
     statusCode: null,
@@ -35,6 +35,23 @@ test('accepts supported profile photo types with matching extensions', () => {
     assert.equal(filterError, null);
     assert.equal(accepted, true);
 });
+
+test('rejects and removes profile photo files whose bytes do not match the declared image type', async() => {
+    const filename = `profile-photo-invalid-${process.pid}-${Date.now()}.jpg`;
+    const filePath = path.join(profilePhotoDirectory, filename);
+    fs.mkdirSync(profilePhotoDirectory, { recursive: true });
+    fs.writeFileSync(filePath, 'not a jpeg');
+    let validationError;
+
+    await validateProfilePhotoContent({ file: { filename, path: filePath, mimetype: 'image/jpeg' } }, {}, (error) => {
+        validationError = error;
+    });
+
+    assert.equal(validationError.statusCode, 400);
+    assert.equal(validationError.code, 'INVALID_PROFILE_PHOTO_CONTENT');
+    assert.equal(fs.existsSync(filePath), false);
+});
+
 
 test('updates and removes an authenticated user profile photo', async() => {
     fs.mkdirSync(profilePhotoDirectory, { recursive: true });

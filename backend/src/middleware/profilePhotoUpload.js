@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { hasValidImageSignature } = require('../utils/imageSignature');
 
 const configuredProfilePhotoDirectory = String(process.env.PROFILE_PHOTO_STORAGE_DIR || '').trim();
 const profilePhotoDirectory = configuredProfilePhotoDirectory ?
@@ -40,4 +41,17 @@ const uploadProfilePhoto = multer({
     limits: { files: 1, fileSize: 5 * 1024 * 1024 }
 });
 
-module.exports = { profilePhotoDirectory, uploadProfilePhoto, profilePhotoFileFilter: fileFilter };
+const validateProfilePhotoContent = (req, res, next) => Promise.resolve().then(async () => {
+    if (!req.file || await hasValidImageSignature(req.file.path, req.file.mimetype)) return;
+    const error = new Error('Profile photo content does not match its image type');
+    error.statusCode = 400;
+    error.code = 'INVALID_PROFILE_PHOTO_CONTENT';
+    throw error;
+}).then(() => next()).catch(async (error) => {
+    if (req.file?.path && path.resolve(req.file.path) === path.resolve(profilePhotoDirectory, req.file.filename)) {
+        await fs.promises.unlink(req.file.path).catch(() => undefined);
+    }
+    next(error);
+});
+
+module.exports = { profilePhotoDirectory, uploadProfilePhoto, profilePhotoFileFilter: fileFilter, validateProfilePhotoContent };

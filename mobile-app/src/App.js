@@ -1,10 +1,11 @@
 ﻿import { NavigationContainer } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, useColorScheme, View, Vibration } from 'react-native';
+import { ActivityIndicator, StatusBar, Text, TouchableOpacity, useColorScheme, View, Vibration } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AppNavigator from './navigation/AppNavigator';
 import { clearAuthSession, setAuthInvalidationHandler } from './services/api';
-import { startOfficerLocationUpdates } from './services/officerLocation';
+import { isOfficerLocationRole, startOfficerLocationUpdates } from './services/officerLocation';
+import { LOCATION_PERMISSION_DENIED, LOCATION_SERVICES_DISABLED, openLocationSettings } from './services/location';
 import { getPendingSms, sendSmsResult } from './services/smsService';
 import { store } from './store';
 import { hydrateAuth, sessionExpired, sessionRevoked } from './store/authSlice';
@@ -19,6 +20,7 @@ function AppContent() {
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const isHydrated = useSelector((state) => state.auth.isHydrated);
   const notificationPreferences = useSelector((state) => state.settings.preferences);
+  const [officerLocationError, setOfficerLocationError] = useState(null);
   const deviceColorScheme = useColorScheme();
   const isDarkTheme = notificationPreferences.theme === 'dark'
     || (notificationPreferences.theme === 'system' && deviceColorScheme === 'dark');
@@ -67,10 +69,14 @@ function AppContent() {
   }, [dispatch, notificationPreferences]);
 
   useEffect(() => {
-    if (userRole !== 'security') return undefined;
+    if (!isOfficerLocationRole(userRole) || !notificationPreferences.shareLocation) {
+      setOfficerLocationError(null);
+      return undefined;
+    }
     return startOfficerLocationUpdates({
       shareLocation: notificationPreferences.shareLocation,
       dataSaving: notificationPreferences.dataSaving,
+      onStatusChange: setOfficerLocationError,
     });
   }, [userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
 
@@ -117,6 +123,10 @@ function AppContent() {
     <NavigationContainer>
       <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
       {banner && <NotificationBanner title={banner.title} message={banner.message} isDark={isDarkTheme} onClose={() => setBanner(null)} />}
+      {officerLocationError && <View accessibilityRole="alert" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFF4D6' }}>
+        <Text style={{ flex: 1, color: '#604A10', fontSize: 13 }}>{officerLocationError.message}</Text>
+        {[LOCATION_PERMISSION_DENIED, LOCATION_SERVICES_DISABLED].includes(officerLocationError.code) && <TouchableOpacity onPress={() => openLocationSettings(officerLocationError.code).catch(() => undefined)}><Text style={{ color: '#116B5F', fontSize: 13, fontWeight: '700' }}>Location settings</Text></TouchableOpacity>}
+      </View>}
       <AppNavigator />
     </NavigationContainer>
   );

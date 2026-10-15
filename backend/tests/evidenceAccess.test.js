@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 const incidentController = require('../src/controllers/incidentController');
 const { authenticate } = require('../src/middleware/auth');
 const { Incident } = require('../src/models');
-const { uploadDirectory } = require('../src/services/evidenceService');
+const { getProtectedEvidenceUrl, uploadDirectory } = require('../src/services/evidenceService');
+const { processIncidentPhotos } = require('../src/services/uploadService');
 
 const originalFindByPk = Incident.findByPk;
 const filename = `evidence-access-${Date.now()}.png`;
@@ -70,6 +71,27 @@ test('rejects student A from accessing student B evidence', async () => {
 });
 
 test('allows a student to access their own evidence', async () => {
+  const response = makeResponse();
+  await incidentController.serveEvidence(requestFor({ user_id: 'student-b', role: 'student' }), response);
+
+  assert.equal(response.statusCode, null);
+  assert.equal(response.sentFile, filePath);
+});
+
+test('persists file metadata and serves metadata-backed evidence after reload', async () => {
+  const [metadata] = await processIncidentPhotos([{
+    path: filePath,
+    originalname: 'phone photo.png',
+    mimetype: 'image/png'
+  }], 'incident-1');
+
+  assert.equal(metadata.storage_key, filename);
+  assert.equal(metadata.original_filename, 'phone photo.png');
+  assert.equal(metadata.content_type, 'image/png');
+  assert.equal(Number.isFinite(Date.parse(metadata.created_at)), true);
+  assert.equal(getProtectedEvidenceUrl('incident-1', metadata), `/api/incidents/incident-1/evidence/${filename}`);
+
+  Incident.findByPk = async () => ({ ...makeIncident(), photos: [metadata] });
   const response = makeResponse();
   await incidentController.serveEvidence(requestFor({ user_id: 'student-b', role: 'student' }), response);
 

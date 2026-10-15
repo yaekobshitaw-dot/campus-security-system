@@ -42,7 +42,18 @@ export const hydrateAuth = createAsyncThunk(
         return { user: null, token: null };
       }
 
-      const user = JSON.parse(storedUser);
+      const cachedUser = JSON.parse(storedUser);
+      let user = cachedUser;
+      try {
+        const response = await api.get('/users/profile');
+        const currentUser = response.data?.data;
+        if (currentUser?.user_id === cachedUser.user_id) {
+          user = currentUser;
+          await AsyncStorage.setItem('user', JSON.stringify(currentUser));
+        }
+      } catch (error) {
+        if (error.response?.status === 401) throw error;
+      }
       await socketService.connect();
       return { user, token };
     } catch (error) {

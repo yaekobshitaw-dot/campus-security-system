@@ -1,10 +1,22 @@
 import api from './api';
-import { getLocation } from './location';
+import { getFreshLocation, LOCATION_PERMISSION_DENIED, LOCATION_SERVICES_DISABLED, LOCATION_UNAVAILABLE } from './location';
 
 const LOCATION_UPDATE_INTERVAL_MS = 30000;
 const DATA_SAVING_LOCATION_UPDATE_INTERVAL_MS = 120000;
+const MAX_LOCATION_AGE_MS = 2 * 60 * 1000;
+const MAX_FUTURE_LOCATION_SKEW_MS = 60000;
 
-export const startOfficerLocationUpdates = ({ shareLocation = true, dataSaving = false } = {}) => {
+export const isOfficerLocationRole = (role) => ['security', 'security_officer']
+  .includes(String(role || '').trim().toLowerCase());
+
+const getLocationErrorMessage = (error) => {
+  if ([LOCATION_PERMISSION_DENIED, LOCATION_SERVICES_DISABLED, LOCATION_UNAVAILABLE, 'LOCATION_FIX_STALE'].includes(error?.code)) return error.message;
+  if (error?.response?.status === 401) return 'Sign in again to share your location with the response team.';
+  if (error?.response) return error.response.data?.message || 'The response team could not receive your location.';
+  return 'Location could not be shared. Check your network connection and try again.';
+};
+
+export const startOfficerLocationUpdates = ({ shareLocation = true, dataSaving = false, onStatusChange } = {}) => {
   if (!shareLocation) return undefined;
 
   let stopped = false;
@@ -14,19 +26,28 @@ export const startOfficerLocationUpdates = ({ shareLocation = true, dataSaving =
     if (stopped || updateInProgress) return;
     updateInProgress = true;
     try {
-      const location = await getLocation();
-      if (__DEV__) console.log('Officer GPS location acquired.');
+      const location = await getFreshLocation();
+      const latitude = Number(location?.latitude);
+      const longitude = Number(location?.longitude);
+      const timestamp = Number(location?.timestamp);
+      const age = Date.now() - timestamp;
+      if (location?.timestamp == null || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
+        || !Number.isFinite(longitude) || longitude < -180 || longitude > 180
+        || !Number.isFinite(timestamp) || age > MAX_LOCATION_AGE_MS || age < -MAX_FUTURE_LOCATION_SKEW_MS) {
+        const staleError = new Error('Waiting for a fresh, valid device location.');
+        staleError.code = 'LOCATION_FIX_STALE';
+        throw staleError;
+      }
       if (!stopped) {
         await api.patch('/users/me/location', {
-          latitude: location.latitude,
-          longitude: location.longitude,
+          latitude,
+          longitude,
+          location_timestamp: new Date(timestamp).toISOString(),
         });
-        if (__DEV__) console.log('Officer location update accepted by the server.');
+        onStatusChange?.(null);
       }
     } catch (error) {
-      if (__DEV__) {
-        console.warn('Officer location update failed:', error?.response?.data?.message || error?.message || 'Unknown location error');
-      }
+      onStatusChange?.({ message: getLocationErrorMessage(error), code: error?.code || null });
     } finally {
       updateInProgress = false;
     }

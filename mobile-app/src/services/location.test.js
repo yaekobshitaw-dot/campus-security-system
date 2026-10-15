@@ -80,15 +80,22 @@ test('rejects when fine location permission is denied', async () => {
   expect(PermissionsAndroid.requestMultiple).toHaveBeenCalledWith(['fine-location', 'coarse-location']);
 });
 
-test('does not allow approximate-only location permission for emergency submissions', async () => {
+test('allows approximate-only location permission when the device returns a valid fix', async () => {
   PermissionsAndroid.check.mockResolvedValue(false);
   PermissionsAndroid.requestMultiple.mockResolvedValue({
     'fine-location': 'denied',
     'coarse-location': 'granted',
   });
+  Geolocation.watchPosition.mockImplementation((success) => {
+    success(freshPosition());
+    return 17;
+  });
 
-  await expect(getFreshLocation()).rejects.toMatchObject({ code: LOCATION_PERMISSION_DENIED });
-  expect(Geolocation.watchPosition).not.toHaveBeenCalled();
+  await expect(getFreshLocation()).resolves.toMatchObject({
+    latitude: 10.1,
+    longitude: 39.2,
+  });
+  expect(Geolocation.watchPosition).toHaveBeenCalled();
 });
 
 test('rejects when the device cannot get a location', async () => {

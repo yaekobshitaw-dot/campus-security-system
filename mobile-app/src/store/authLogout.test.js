@@ -1,11 +1,11 @@
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
-  default: { getItem: jest.fn(), removeItem: jest.fn() },
+  default: { getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() },
 }));
 
 jest.mock('../services/api', () => ({
   __esModule: true,
-  default: { post: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn() },
   clearAuthSession: jest.fn(),
   consumeLogoutRefreshToken: jest.fn(),
   setLogoutRefreshToken: jest.fn(),
@@ -17,7 +17,7 @@ jest.mock('../services/socket', () => ({ socketService: { connect: jest.fn(), di
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureStore } from '@reduxjs/toolkit';
 import api, { clearAuthSession, consumeLogoutRefreshToken } from '../services/api';
-import authReducer, { logout } from './authSlice';
+import authReducer, { hydrateAuth, logout } from './authSlice';
 
 const createStore = () => configureStore({
   reducer: { auth: authReducer },
@@ -38,7 +38,69 @@ describe('mobile logout', () => {
     jest.clearAllMocks();
     AsyncStorage.getItem.mockResolvedValue('access-token');
     consumeLogoutRefreshToken.mockReturnValue('ephemeral-refresh-token');
+    api.get.mockResolvedValue({ data: { data: { user_id: 'user-1' } } });
     api.post.mockResolvedValue({ status: 200 });
+  });
+
+  it('refreshes and persists the current profile during session restoration', async () => {
+    const cachedUser = { user_id: 'user-1', name: 'Cached name', profile_photo_url: null };
+    const currentUser = { ...cachedUser, name: 'Saved name', profile_photo_url: 'https://api.example/uploads/profile-photos/photo.jpg' };
+    AsyncStorage.getItem.mockImplementation(async (key) => ({
+      auth_token: 'access-token',
+      user: JSON.stringify(cachedUser),
+    }[key] || null));
+    api.get.mockResolvedValue({ data: { success: true, data: currentUser } });
+    const store = createStore();
+
+    const result = await store.dispatch(hydrateAuth()).unwrap();
+
+    expect(api.get).toHaveBeenCalledWith('/users/profile');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify(currentUser));
+    expect(result.user).toEqual(currentUser);
+    expect(store.getState().auth.user).toEqual(currentUser);
+    expect(store.getState().auth.isAuthenticated).toBe(true);
+  });
+
+  it('keeps the cached profile when current-user refresh fails without invalidating the session', async () => {
+    const cachedUser = { user_id: 'user-1', name: 'Cached name' };
+    AsyncStorage.getItem.mockImplementation(async (key) => ({
+      auth_token: 'access-token',
+      user: JSON.stringify(cachedUser),
+    }[key] || null));
+    api.get.mockRejectedValue(new Error('network unavailable'));
+    const store = createStore();
+
+    const result = await store.dispatch(hydrateAuth()).unwrap();
+
+    expect(api.get).toHaveBeenCalledWith('/users/profile');
+    expect(result.user).toEqual(cachedUser);
+    expect(store.getState().auth.isAuthenticated).toBe(true);
+    expect(clearAuthSession).not.toHaveBeenCalled();
+  });
+
+  it('clears the stored session when profile refresh returns 401', async () => {
+    const cachedUser = { user_id: 'user-1', name: 'Cached name' };
+    AsyncStorage.getItem.mockImplementation(async (key) => ({
+      auth_token: 'access-token',
+      user: JSON.stringify(cachedUser),
+    }[key] || null));
+    AsyncStorage.removeItem.mockResolvedValue(undefined);
+    clearAuthSession.mockImplementationOnce(async () => {
+      await Promise.all(['auth_token', 'refresh_token', 'user'].map((key) => AsyncStorage.removeItem(key)));
+    });
+    api.get.mockRejectedValue({ response: { status: 401 } });
+    const store = createStore();
+
+    await expect(store.dispatch(hydrateAuth()).unwrap()).rejects.toBe('Session could not be restored. Please sign in again.');
+
+    expect(api.get).toHaveBeenCalledWith('/users/profile');
+    expect(clearAuthSession).toHaveBeenCalledTimes(1);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('auth_token');
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('refresh_token');
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('user');
+    expect(store.getState().auth.user).toBeNull();
+    expect(store.getState().auth.token).toBeNull();
+    expect(store.getState().auth.isAuthenticated).toBe(false);
   });
 
   it('sends the in-memory refresh credential to revoke the server session', async () => {
