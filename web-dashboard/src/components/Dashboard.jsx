@@ -10,7 +10,7 @@
 } from '@mui/icons-material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import api from '../services/api';
 import { DashboardLayout, formatIncidentStatus, IncidentStatusBadge, IncidentTable, UserAvatar } from './DashboardLayout';
 import DashboardBackButton from './DashboardBackButton';
@@ -37,11 +37,34 @@ import { useTranslate } from '../utils/language';
 
 const activeStatuses = ['reported', 'assigned', 'accepted', 'in_progress', 'investigating', 'dispatched', 'on_scene', 'declined', 'unassigned'];
 const overviewMetricColors = {
-  total: '#2563eb',
-  active: '#06b6d4',
-  critical: '#f97316',
-  officers: '#10b981',
+  total: '#0F4778',
+  active: '#155A91',
+  critical: '#B42318',
+  officers: '#15803D',
 };
+const incidentStatusColors = {
+  reported: '#0F4778',
+  assigned: '#155A91',
+  accepted: '#0F766E',
+  in_progress: '#0E7490',
+  investigating: '#B45309',
+  dispatched: '#2563EB',
+  on_scene: '#15803D',
+  resolved: '#64748B',
+  closed: '#475569',
+  declined: '#B91C1C',
+  unassigned: '#A16207',
+  unknown: '#94A3B8',
+};
+const incidentSeverityColors = {
+  critical: '#B42318',
+  high: '#C2410C',
+  medium: '#B7791F',
+  low: '#15803D',
+  unknown: '#64748B',
+};
+const incidentCategoryFallbackColors = ['#0F4778', '#0F766E', '#B45309', '#15803D', '#B91C1C', '#155A91'];
+const severityOrder = ['critical', 'high', 'medium', 'low', 'unknown'];
 const officialCampusImage = '/images/campus-4.jpg';
 const routes = {
   '/dashboard': 'overview', '/profile': 'profile', '/incidents/active': 'incidents', '/incidents/history': 'history',
@@ -86,126 +109,175 @@ function statsFor(incidents) {
   }, { total: 0, active: 0, resolved: 0, critical: 0, high: 0, medium: 0, low: 0, sos: 0 });
 }
 
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => (
-    typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ));
+function countIncidentCategories(incidents, field, colors, order = []) {
+  const counts = new Map();
+  incidents.forEach((incident) => {
+    const category = String(incident?.[field] ?? '').trim().toLowerCase() || 'unknown';
+    counts.set(category, (counts.get(category) || 0) + 1);
+  });
 
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return undefined;
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const updatePreference = (event) => setPrefersReducedMotion(event.matches);
-    setPrefersReducedMotion(mediaQuery.matches);
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', updatePreference);
-      return () => mediaQuery.removeEventListener('change', updatePreference);
-    }
-
-    mediaQuery.addListener(updatePreference);
-    return () => mediaQuery.removeListener(updatePreference);
-  }, []);
-
-  return prefersReducedMotion;
+  return [...counts.entries()]
+    .map(([category, value], index) => ({
+      category,
+      name: field === 'status' ? statusLabel(category) : titleCase(category),
+      value,
+      color: colors[category] || incidentCategoryFallbackColors[index % incidentCategoryFallbackColors.length],
+    }))
+    .sort((left, right) => {
+      if (order.length) {
+        const leftOrder = order.indexOf(left.category);
+        const rightOrder = order.indexOf(right.category);
+        return (leftOrder < 0 ? order.length : leftOrder) - (rightOrder < 0 ? order.length : rightOrder)
+          || left.name.localeCompare(right.name);
+      }
+      return right.value - left.value || left.name.localeCompare(right.name);
+    });
 }
 
-function OverviewMetricTooltip({ active, payload }) {
+function IncidentChartTooltip({ active, payload }) {
+  const t = useTranslate();
   if (!active || !payload?.length) return null;
 
-  const metric = payload[0].payload;
+  const entry = payload[0];
+  const point = entry.payload || {};
   return (
-    <div className="dashboard-overview-tooltip">
-      <span className="dashboard-overview-tooltip-swatch" style={{ '--metric-color': metric.color }} />
-      <span className="dashboard-overview-tooltip-name">{metric.name}</span>
-      <strong>{metric.displayValue}</strong>
+    <div className="dashboard-incident-chart-tooltip">
+      <span className="dashboard-incident-chart-tooltip-swatch" style={{ '--chart-color': point.color || entry.color }} />
+      <span>{t(point.name || entry.name)}</span>
+      <strong>{point.value ?? entry.value}</strong>
     </div>
   );
 }
 
-function OverviewMetricsChart({ metrics, total }) {
-  const prefersReducedMotion = usePrefersReducedMotion();
+function OverviewMetricCards({ metrics }) {
   const t = useTranslate();
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const chartMetrics = metrics.map((metric) => ({
-    ...metric,
-    value: Number.isFinite(Number(metric.value)) ? Math.max(0, Number(metric.value)) : 0,
-  }));
-
   return (
-    <section className="dashboard-panel dashboard-overview-chart">
-      <div className="dashboard-overview-chart-heading">
+    <section className="dashboard-overview-metrics" aria-label="Dashboard summary">
+      {metrics.map((metric) => (
+        <article key={metric.name} className="dashboard-overview-metric" style={{ '--metric-color': metric.color }}>
+          <span>{t(metric.name)}</span>
+          <strong>{metric.displayValue}</strong>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function OverviewChartPanel({ title, description, loading, error, onRetry, isEmpty, children }) {
+  const t = useTranslate();
+  return (
+    <section className="dashboard-panel dashboard-incident-chart-panel">
+      <div className="dashboard-incident-chart-heading">
         <div>
-          <p className="dashboard-eyebrow">{t('Live operations')}</p>
-          <h3>{t('Campus activity')}</h3>
-          <p>{t('Current incident and response metrics at a glance.')}</p>
+          <p className="dashboard-eyebrow">{t('Incident analytics')}</p>
+          <h3>{t(title)}</h3>
+          <p>{t(description)}</p>
         </div>
-        <span className="dashboard-overview-live"><span />{t('Live data')}</span>
       </div>
-      <div className="dashboard-overview-chart-body">
-        <div className="dashboard-overview-donut">
+      <div className="dashboard-incident-chart-content">
+        {loading
+          ? <p className="dashboard-incident-chart-state" role="status">{t('Loading incidents...')}</p>
+          : error
+            ? (
+              <div className="dashboard-incident-chart-state" role="alert">
+                <p>{error}</p>
+                <button type="button" className="dashboard-button" onClick={onRetry}>{t('Retry')}</button>
+              </div>
+            )
+            : isEmpty
+              ? <p className="dashboard-incident-chart-state" role="status">{t('No incidents found')}</p>
+              : children}
+      </div>
+    </section>
+  );
+}
+
+function IncidentDistributionChart({ data, total, loading, error, onRetry }) {
+  const t = useTranslate();
+  return (
+    <OverviewChartPanel
+      title="Incidents by status"
+      description="Distribution of the incident records currently available."
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
+      isEmpty={!data.length}
+    >
+      <div className="dashboard-incident-donut-layout">
+        <div className="dashboard-incident-donut">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={chartMetrics}
+                data={data}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
                 innerRadius="62%"
-                outerRadius="82%"
-                paddingAngle={3}
-                cornerRadius={5}
-                startAngle={90}
-                endAngle={-270}
-                activeIndex={activeIndex}
-                activeShape={prefersReducedMotion ? false : (shape) => (
-                  <Sector
-                    {...shape}
-                    outerRadius={shape.outerRadius + 6}
-                    stroke="var(--dashboard-surface)"
-                    strokeWidth={3}
-                  />
-                )}
-                isAnimationActive={!prefersReducedMotion}
-                animationDuration={900}
-                animationEasing="ease-out"
-                onMouseEnter={(_, index) => setActiveIndex(index)}
-                onMouseLeave={() => setActiveIndex(-1)}
+                outerRadius="84%"
+                paddingAngle={2}
+                stroke="var(--dashboard-surface)"
+                strokeWidth={3}
+                isAnimationActive={false}
               >
-                {chartMetrics.map((metric) => (
-                  <Cell
-                    key={metric.name}
-                    fill={metric.color}
-                    stroke="var(--dashboard-surface)"
-                    strokeWidth={3}
-                  />
-                ))}
+                {data.map((item) => <Cell key={item.category} fill={item.color} />)}
               </Pie>
-              <Tooltip
-                content={<OverviewMetricTooltip />}
-                isAnimationActive={!prefersReducedMotion}
-              />
+              <Tooltip content={<IncidentChartTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="dashboard-overview-donut-center" aria-hidden="true">
-            <span>Total incidents</span>
+          <div className="dashboard-incident-donut-center" aria-hidden="true">
+            <span>{t('Incidents')}</span>
             <strong>{total}</strong>
-            <small>on campus</small>
+            <small>{t('in current data')}</small>
           </div>
         </div>
-        <ul className="dashboard-overview-legend" aria-label="Overview metrics">
-          {metrics.map((metric) => (
-            <li key={metric.name} className="dashboard-overview-legend-item">
-              <span className="dashboard-overview-legend-swatch" style={{ '--metric-color': metric.color }} />
-              <span className="dashboard-overview-legend-label">{metric.name}</span>
-              <strong>{metric.displayValue}</strong>
+        <ul className="dashboard-incident-chart-legend" aria-label="Incident status distribution">
+          {data.map((item) => (
+            <li key={item.category} className="dashboard-incident-chart-legend-item">
+              <span className="dashboard-incident-chart-legend-swatch" style={{ '--chart-color': item.color }} />
+              <span>{t(item.name)}</span>
+              <strong>{item.value}</strong>
             </li>
           ))}
         </ul>
       </div>
-    </section>
+    </OverviewChartPanel>
+  );
+}
+
+function IncidentSeverityAxisTick({ x, y, payload }) {
+  const t = useTranslate();
+  return (
+    <text x={x} y={y} dy={16} textAnchor="middle" fill="var(--dashboard-muted)" fontSize={12}>
+      {t(payload.value)}
+    </text>
+  );
+}
+
+function IncidentSeverityChart({ data, loading, error, onRetry }) {
+  return (
+    <OverviewChartPanel
+      title="Incidents by severity"
+      description="Record counts grouped by reported severity."
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
+      isEmpty={!data.length}
+    >
+      <div className="dashboard-incident-bar-chart" role="img" aria-label="Bar chart of incident counts by severity">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 4 }}>
+            <CartesianGrid vertical={false} stroke="var(--dashboard-line)" strokeDasharray="3 4" />
+            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<IncidentSeverityAxisTick />} tickMargin={8} />
+            <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: 'var(--dashboard-muted)', fontSize: 12 }} width={32} />
+            <Tooltip content={<IncidentChartTooltip />} cursor={{ fill: 'rgb(15 71 120 / 0.06)' }} />
+            <Bar dataKey="value" name="Incidents" radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+              {data.map((item) => <Cell key={item.category} fill={item.color} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </OverviewChartPanel>
   );
 }
 
@@ -998,6 +1070,20 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       color: overviewMetricColors.officers,
     },
   ];
+  const incidentStatusData = useMemo(
+    () => countIncidentCategories(incidents, 'status', incidentStatusColors),
+    [incidents],
+  );
+  const incidentSeverityData = useMemo(() => {
+    if (!incidents.length) return [];
+    const counts = countIncidentCategories(incidents, 'severity', incidentSeverityColors, severityOrder);
+    return severityOrder.map((category) => counts.find((item) => item.category === category) || ({
+      category,
+      name: titleCase(category),
+      value: 0,
+      color: incidentSeverityColors[category],
+    }));
+  }, [incidents]);
   const markAlertRead = async (alertId) => { try { await readAlert(alertId); await loadData(); } catch (requestError) { setOperationsError(requestError.response?.data?.message || 'Unable to mark alert as read.'); } };
   const markNotificationsRead = async () => {
     if (!notifications.some((notification) => !notification.read)) return;
@@ -1073,8 +1159,23 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
           <CampusOverviewImage />
         </div>
       </section>
-      <OverviewMetricsChart metrics={overviewMetrics} total={stats.total} />
-      <div className="grid gap-6 xl:grid-cols-5">
+      <OverviewMetricCards metrics={overviewMetrics} />
+      <div className="dashboard-overview-charts">
+        <IncidentDistributionChart
+          data={incidentStatusData}
+          total={incidents.length}
+          loading={resourceState.incidents.status === 'loading'}
+          error={resourceState.incidents.status === 'error' ? resourceState.incidents.error : ''}
+          onRetry={loadData}
+        />
+        <IncidentSeverityChart
+          data={incidentSeverityData}
+          loading={resourceState.incidents.status === 'loading'}
+          error={resourceState.incidents.status === 'error' ? resourceState.incidents.error : ''}
+          onRetry={loadData}
+        />
+      </div>
+      <div className="dashboard-overview-recent-grid">
         <section className="dashboard-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] xl:col-span-3">
           <Heading
             eyebrow="Priority queue"

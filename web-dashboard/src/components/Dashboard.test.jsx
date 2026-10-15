@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import Dashboard from './Dashboard';
@@ -220,6 +220,52 @@ describe('Dashboard', () => {
     expect(campusImage).toHaveAttribute('src', '/images/campus-4.jpg');
     fireEvent.error(campusImage);
     expect(campusImage).toHaveAttribute('src', '/images/campus-5.jpg');
+  });
+
+  it('charts live incident status and severity while retaining the recent incident table', async () => {
+    localStorage.setItem('campussecure-language', 'am');
+    const incidents = [
+      {
+        incident_id: 'incident-reported',
+        type: 'theft',
+        severity: 'high',
+        status: 'reported',
+        location_name: 'Library',
+        created_at: '2026-10-12T12:00:00.000Z',
+      },
+      {
+        incident_id: 'incident-investigating',
+        type: 'medical_emergency',
+        severity: 'critical',
+        status: 'investigating',
+        location_name: 'Science Hall',
+        created_at: '2026-10-13T12:00:00.000Z',
+      },
+    ];
+    apiGet.mockImplementation((url) => (
+      url === '/incidents'
+        ? Promise.resolve({ data: { data: incidents } })
+        : Promise.resolve({ data: { data: [] } })
+    ));
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: 'student-1', role: 'student', name: 'Student Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Incidents by status' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Incidents by severity' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent incidents' })).toBeInTheDocument();
+    const statusLegend = screen.getByRole('list', { name: 'Incident status distribution' });
+    expect(within(statusLegend).getByText('ሪፖርት ተደርጓል')).toBeInTheDocument();
+    expect(within(statusLegend).getByText('በምርመራ ላይ')).toBeInTheDocument();
+    expect(within(statusLegend).getAllByText('1')).toHaveLength(2);
+    expect(screen.getByRole('img', { name: 'Bar chart of incident counts by severity' })).toBeInTheDocument();
+    expect(screen.getByText('ጠቅላላ ክስተቶች')).toBeInTheDocument();
+    expect(screen.getByText('Library')).toBeInTheDocument();
+    expect(screen.getByText('Science Hall')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'አሳይ' })).toHaveLength(2);
   });
 
   it.each([
