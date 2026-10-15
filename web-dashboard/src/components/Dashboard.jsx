@@ -36,12 +36,6 @@ import { getUserPreferences } from '../utils/appearance';
 import { useTranslate } from '../utils/language';
 
 const activeStatuses = ['reported', 'assigned', 'accepted', 'in_progress', 'investigating', 'dispatched', 'on_scene', 'declined', 'unassigned'];
-const overviewMetricColors = {
-  total: '#0F4778',
-  active: '#155A91',
-  critical: '#B42318',
-  officers: '#15803D',
-};
 const incidentStatusColors = {
   reported: '#0F4778',
   assigned: '#155A91',
@@ -154,7 +148,7 @@ function OverviewMetricCards({ metrics }) {
   return (
     <section className="dashboard-overview-metrics" aria-label="Dashboard summary">
       {metrics.map((metric) => (
-        <article key={metric.name} className="dashboard-overview-metric" style={{ '--metric-color': metric.color }}>
+        <article key={metric.name} className="dashboard-overview-metric">
           <span>{t(metric.name)}</span>
           <strong>{metric.displayValue}</strong>
         </article>
@@ -1060,14 +1054,13 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     ? <button type="button" className="dashboard-button primary" onClick={() => setCreateOpen(true)}>{isSOSSection ? 'Send SOS alert' : 'Report incident'}</button>
     : null;
   const overviewMetrics = [
-    { name: 'Total incidents', value: stats.total, displayValue: stats.total, color: overviewMetricColors.total },
-    { name: 'Active incidents', value: stats.active, displayValue: stats.active, color: overviewMetricColors.active },
-    { name: 'Critical / SOS', value: critical.length, displayValue: critical.length, color: overviewMetricColors.critical },
+    { name: 'Total incidents', value: stats.total, displayValue: stats.total },
+    { name: 'Active incidents', value: stats.active, displayValue: stats.active },
+    { name: 'Critical / SOS', value: critical.length, displayValue: critical.length },
     {
       name: 'Security officers',
       value: resourceState.officers.status === 'error' ? 0 : officers.length,
       displayValue: resourceState.officers.status === 'error' ? '!' : officers.length,
-      color: overviewMetricColors.officers,
     },
   ];
   const incidentStatusData = useMemo(
@@ -1235,12 +1228,12 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   };
   const map = <div className="space-y-8"><Heading eyebrow="Geospatial response" title="Live campus map" description="Campus places, security zones, current officer locations, and incident coordinates." />{resourceState.incidents.status === 'loading' ? <div className="inline-loading">Loading map data...</div> : resourceState.incidents.status === 'error' ? <RequestError message={resourceState.incidents.error} onRetry={loadData} /> : <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-2 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"><SecurityMap campusLocations={campusLocations} incidents={incidents} officers={canViewOperations ? officers : []} zones={zones} focusedIncidentId={location.state?.selectedIncidentId} focusRequestKey={location.state?.focusRequestKey} defaultMapStyle={userPreferences.mapDefault} defaultOfficerAvailability={userPreferences.officerAvailability} canManageZones={String(user.role || '').trim().toLowerCase() === 'admin'} onDeleteZone={deleteZoneFromMap} /></div>}</div>;
   const detailView = detail ? (
-    <div className="space-y-8">
+    <div className="incident-detail-view space-y-8">
       <Heading
         eyebrow="Incident record"
         title={titleCase(detail.type)}
         action={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="incident-detail-actions flex flex-wrap items-center gap-2">
             {canViewMap && (
               <button type="button" className="dashboard-button primary" onClick={() => openIncidentOnMap(detail)}>
                 Open with Map
@@ -1251,15 +1244,15 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
         }
       />
       {mapNavigationError && <p className="dashboard-error" role="alert">{mapNavigationError}</p>}
-      <div className="detail-grid">
-        <section className="detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-          <div className="flex flex-wrap gap-2">
+      <div className="detail-grid incident-detail-grid">
+        <section className="detail-panel incident-detail-panel border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <div className="incident-detail-summary flex flex-wrap gap-2">
             <span className={`severity-badge ${detail.severity}`}>{detail.severity}</span>
             <IncidentStatusBadge status={detail.status || 'reported'}>{statusLabel(detail.status || 'reported')}</IncidentStatusBadge>
             {detailAssignmentDeclined && <IncidentStatusBadge status="declined">Declined</IncidentStatusBadge>}
             {detail.is_sos && <span className="status-badge border-red-200 bg-red-100 text-red-700">SOS</span>}
           </div>
-          <dl className="mt-6 grid gap-5 sm:grid-cols-2">
+          <dl className="incident-detail-fields mt-6 grid gap-5 sm:grid-cols-2">
             <Detail label="Description" value={detail.description || 'No description provided'} wide />
             <Detail label="Location" value={detail.location_name || detail.building || 'Unavailable'} />
             <Detail label="Reporter" value={detail.is_anonymous ? <span>Anonymous</span> : detail.reporter ? <div className="flex items-center gap-2"><UserAvatar user={detail.reporter} size="h-8 w-8" /><span>{detail.reporter.name || 'Campus member'}</span></div> : <span>Campus member</span>} />
@@ -1422,7 +1415,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   </DashboardLayout>;
 }
 
-const Detail = ({ label, value, wide }) => <div className={wide ? 'sm:col-span-2' : ''}><dt className="text-xs font-bold uppercase tracking-[0.12em] text-sky-700">{label}</dt><dd className="mt-2 text-sm font-normal leading-6 text-slate-700">{value}</dd></div>;
+const Detail = ({ label, value, wide }) => <div className={`incident-detail-field${wide ? ' incident-detail-field-wide' : ''}`}><dt className="text-xs font-bold uppercase tracking-[0.12em] text-sky-700">{label}</dt><dd className="mt-2 text-sm font-normal leading-6 text-slate-700">{value}</dd></div>;
 
 export default Dashboard;
 

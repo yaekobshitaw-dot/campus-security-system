@@ -271,6 +271,237 @@
     overflow-wrap: anywhere;
 }
 
+.dashboard-app .incident-detail-view,
+.dashboard-app .incident-detail-grid,
+.dashboard-app .incident-detail-panel {
+    width: 100%;
+    min-width: 0;
+}
+
+.dashboard-app .incident-detail-view>.dashboard-heading {
+    align-items: center;
+    text-align: center;
+}
+
+.dashboard-app .incident-detail-view>.dashboard-heading>div:first-child {
+    width: 100%;
+}
+
+.dashboard-app .incident-detail-actions {
+    justify-content: center;
+}
+
+.dashboard-app .incident-detail-summary {
+    justify-content: center;
+}
+
+.dashboard-app .incident-detail-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem 1.5rem;
+}
+
+.dashboard-app .incident-detail-field {
+    min-width: 0;
+}
+
+.dashboard-app .incident-detail-field-wide {
+    grid-column: 1 / -1;
+}
+
+.dashboard-app .incident-detail-field dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .incident-detail-field dd>.flex {
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.dashboard-app .content-management-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+    align-items: stretch;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.dashboard-app .content-management-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    border-color: #e5e7eb !important;
+    background: #fff !important;
+    color: #1f2937;
+}
+
+.dashboard-app .content-management-card-title,
+.dashboard-app .content-management-card-meta,
+.dashboard-app .content-management-card-description {
+    min-width: 0;
+    max-width: 100%;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .content-management-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.dashboard-app .content-management-card-actions .table-action {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .announcement-card {
+    min-width: 0;
+    border-color: #e5e7eb !important;
+}
+
+.dashboard-app .announcement-card>div:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem 1rem;
+}
+
+.dashboard-app .announcement-card>div:first-child>div:first-child {
+    min-width: 0;
+    text-align: center;
+}
+
+.dashboard-app .announcement-card>div:first-child>div:first-child>div {
+    justify-content: center;
+}
+
+.dashboard-app .announcement-card :is(h3, p) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .announcement-card>p {
+    display: block;
+    overflow: visible;
+    text-align: left;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: unset;
+}
+
+.dashboard-app .announcement-card>div:last-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.dashboard-app .announcement-card>div:last-child>div {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dashboard-app .announcement-card .table-action {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-app .contact-information-heading {
+    text-align: center;
+}
+
+.dashboard-app :is(.incident-detail-panel, .contact-information-panel) {
+    border-color: #e5e7eb !important;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric {
+    min-width: 0;
+    min-height: 8rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 1.25rem;
+    border: 1px solid #e5e7eb;
+    border-color: #e5e7eb !important;
+    border-radius: var(--dashboard-panel-radius);
+    background: #fff;
+    box-shadow: var(--dashboard-panel-shadow);
+    text-align: center;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric>span {
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 650;
+}
+
+.dashboard-app .dashboard-overview-content .dashboard-overview-metric>strong {
+    color: #1f2937;
+    font-size: 1.625rem;
+    line-height: 1.2;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-content .dashboard-overview-metric {
+    border-color: #334155 !important;
+    background: #1e293b;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-content .dashboard-overview-metric>span {
+    color: #91a9bb;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-overview-content .dashboard-overview-metric>strong {
+    color: #e2e8f0;
+}
+
+@media (max-width: 900px) {
+    .dashboard-app .dashboard-overview-content .dashboard-overview-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-app .announcement-card>div:first-child,
+    .dashboard-app .announcement-card>div:last-child {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-app .announcement-card>div:first-child>button {
+        justify-self: center;
+    }
+
+    .dashboard-app .announcement-card>div:last-child>div:last-child {
+        justify-content: center;
+    }
+
+    .dashboard-app .incident-detail-fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-app .incident-detail-field-wide {
+        grid-column: auto;
+    }
+
+    .dashboard-app .dashboard-overview-content .dashboard-overview-metrics {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .dashboard-app .dashboard-metric {
     border-radius: var(--dashboard-panel-radius);
     box-shadow: var(--dashboard-panel-shadow);

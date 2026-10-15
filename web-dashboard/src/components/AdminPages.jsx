@@ -295,28 +295,24 @@ export function ContentManagementPage({ user }) {
         </form>
       </PageShell>
       <State loading={loading} error="" empty={!items.length} onRetry={load}>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="content-management-grid">
           {items.map((item) => (
-            <article className="dashboard-panel border-slate-200/80 bg-white" key={item.content_id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-black text-[#0b1f3a]">{item.title}</h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Priority {item.priority} · {item.is_active ? 'Active' : 'Inactive'} · {formatDate(item.updated_at)}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" className="table-action" onClick={() => edit(item)}>Edit</button>
-                  {item.is_active && (
-                    <button type="button" className="table-action text-red-700" onClick={() => deactivate(item)}>
-                      Deactivate
-                    </button>
-                  )}
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
+            <article className="dashboard-panel content-management-card border-slate-200/80 bg-white" key={item.content_id}>
+              <h3 className="content-management-card-title font-black text-[#0b1f3a]">{item.title}</h3>
+              <p className="content-management-card-meta mt-1 text-xs text-slate-500">
+                Priority {item.priority} · {item.is_active ? 'Active' : 'Inactive'} · {formatDate(item.updated_at)}
+              </p>
+              <p className="content-management-card-description mt-3 text-sm leading-6 text-slate-600">
                 {item.summary || item.body || item.phone || 'No description provided.'}
               </p>
+              <div className="content-management-card-actions">
+                <button type="button" className="table-action" onClick={() => edit(item)}>Edit</button>
+                {item.is_active && (
+                  <button type="button" className="table-action text-red-700" onClick={() => deactivate(item)}>
+                    Deactivate
+                  </button>
+                )}
+              </div>
             </article>
           ))}
         </div>

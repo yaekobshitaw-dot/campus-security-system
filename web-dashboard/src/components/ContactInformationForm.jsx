@@ -61,8 +61,8 @@ export default function ContactInformationForm() {
   if (loading) return <div className="inline-loading" role="status">Loading contact information...</div>;
 
   return (
-    <section className="dashboard-panel space-y-5 border-slate-200/80 bg-white" aria-labelledby="contact-information-heading">
-      <div>
+    <section className="dashboard-panel contact-information-panel space-y-5 border-slate-200/80 bg-white" aria-labelledby="contact-information-heading">
+      <div className="contact-information-heading">
         <p className="dashboard-eyebrow">Public information</p>
         <h3 id="contact-information-heading" className="mt-1 text-lg font-black text-[#0b1f3a]">Contact Us Information</h3>
       </div>
