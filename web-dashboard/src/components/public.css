@@ -1502,7 +1502,7 @@ em {
 
 .public-app-about .inner-page,
 .public-app-contact .inner-page {
-    padding-top: clamp(42px, 6vw, 76px);
+    padding-top: 0;
 }
 
 .page-image-carousel {
@@ -3781,11 +3781,11 @@ em {
 
 .about-page .page-image-carousel .page-image-slide img,
 .contact-page .page-image-carousel .page-image-slide img {
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .about-page .page-image-carousel img[src*="campus-security-about-"] {
-    object-position: center 45%;
+    object-position: center;
 }
 
 .contact-page .page-image-carousel img[src*="campus-security-contact"] {
@@ -3848,9 +3848,9 @@ em {
     position: relative;
     left: auto;
     width: 100%;
-    height: clamp(240px, 34vw, 460px);
+    height: clamp(240px, 56.25vw, 720px);
     border-radius: 0;
-    background: transparent;
+    background: #152b39;
     transform: none;
 }
 
@@ -3858,8 +3858,9 @@ em {
     display: none;
 }
 
-.page-image-band .page-image-slide img {
+.page-image-band .page-image-carousel .page-image-slide img {
     object-fit: contain;
+    object-position: center;
 }
 
 .about-page .about-grid {
@@ -3934,6 +3935,6 @@ em {
     }
 
     .page-image-band .page-image-carousel {
-        height: clamp(220px, 48vw, 340px);
+        height: clamp(240px, 56.25vw, 420px);
     }
 }
