@@ -2,10 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { hasValidImageSignature } = require('../utils/imageSignature');
+const { getUploadDirectories } = require('../config/uploadStorage');
 
-const configuredProfilePhotoDirectory = String(process.env.PROFILE_PHOTO_STORAGE_DIR || '').trim();
-const profilePhotoDirectory = configuredProfilePhotoDirectory ?
-    path.resolve(configuredProfilePhotoDirectory) : path.resolve(__dirname, '../../uploads/profile-photos');
+const { profilePhotoDirectory } = getUploadDirectories();
 fs.mkdirSync(profilePhotoDirectory, { recursive: true });
 
 const allowedTypes = new Map([

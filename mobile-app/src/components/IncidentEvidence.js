@@ -42,20 +42,16 @@ const IncidentEvidence = ({ incidentId, photos }) => {
 
     if (!references.length) return null;
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.heading}>Evidence</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
-                {references.map((uri) => token ? (
-                    <Image
-                        key={uri}
-                        source={{ uri, headers: { Authorization: `Bearer ${token}` } }}
-                        style={styles.image}
-                        accessibilityLabel="Incident evidence photo"
-                    />
-                ) : null)}
-            </ScrollView>
-        </View>
+    return ( <View style = { styles.container } >
+        <Text style = { styles.heading } > Evidence </Text> <ScrollView horizontal showsHorizontalScrollIndicator = { false }
+        contentContainerStyle = { styles.photos } > {
+            references.map((uri) => token ? ( <Image key = { uri }
+                source = {
+                    { uri, headers: { Authorization: `Bearer ${token}` } } }
+                style = { styles.image }
+                accessibilityLabel = "Incident evidence photo"/>
+            ) : null)
+        } </ScrollView> </View>
     );
 };
 

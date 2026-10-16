@@ -55,9 +55,16 @@ test('returns online and available for a web-connected officer without valid loc
     User.findAll = async() => [officer({ latitude: null, longitude: null, availability_status: 'available', location_updated_at: null })];
     Response.findAll = async() => [];
     const response = makeResponse();
-    const req = { app: { get: () => ({ presence: new Map([
+    const req = {
+        app: {
+            get: () => ({
+                presence: new Map([
                     ['officer-1', { count: 1, lastSeen: Date.now() }]
-                ]) }) }, user: { role: 'security' } };
+                ])
+            })
+        },
+        user: { role: 'security' }
+    };
 
     await securityOfficerHandler(req, response);
 
@@ -70,9 +77,16 @@ test('keeps an officer online while another authenticated socket for the same us
     User.findAll = async() => [officer({ availability_status: 'available' })];
     Response.findAll = async() => [];
     const response = makeResponse();
-    const req = { app: { get: () => ({ presence: new Map([
+    const req = {
+        app: {
+            get: () => ({
+                presence: new Map([
                     ['officer-1', { count: 2, lastSeen: Date.now() }]
-                ]) }) }, user: { role: 'admin' } };
+                ])
+            })
+        },
+        user: { role: 'admin' }
+    };
 
     await securityOfficerHandler(req, response);
 

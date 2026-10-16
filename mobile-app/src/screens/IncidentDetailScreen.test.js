@@ -45,11 +45,10 @@ beforeEach(() => {
 test('fetches the current incident and displays protected evidence after refresh', async() => {
     let renderer;
     await act(async() => {
-        renderer = TestRenderer.create(
-            <IncidentDetailScreen
-                route={{ params: { id: 'incident-1' } }}
-                navigation={{ goBack: jest.fn() }}
-            />,
+        renderer = TestRenderer.create( <IncidentDetailScreen route = {
+                { params: { id: 'incident-1' } } }
+            navigation = {
+                { goBack: jest.fn() } }/>,
         );
     });
 
