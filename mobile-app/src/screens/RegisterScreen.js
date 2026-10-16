@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useDispatch } from 'react-redux';
+import CampusSecurityBackground from '../assets/images/campus-security-background.svg';
 import { Icon } from '../components/ui';
 import { register } from '../store/authSlice';
 
@@ -74,18 +76,22 @@ const RegisterScreen = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F8F7" />
+      <CampusSecurityBackground style={styles.backgroundImage} width="100%" height="100%" />
+      <View style={styles.overlay} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
-            <Icon name="arrow-back" size={24} color="#333" />
+            <Icon name="arrow-back" size={24} color="#116B5F" />
           </TouchableOpacity>
+          <View style={styles.brandMark}><Icon name="person-add" size={26} color="#116B5F" /></View>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join the Campus Security System</Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="person" size={20} color="#116B5F" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Full Name *"
@@ -96,7 +102,7 @@ const RegisterScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="email" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="email" size={20} color="#116B5F" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Email *"
@@ -109,7 +115,7 @@ const RegisterScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="phone" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="phone" size={20} color="#116B5F" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Phone Number"
@@ -121,7 +127,7 @@ const RegisterScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="school" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="school" size={20} color="#116B5F" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Student ID (Optional)"
@@ -132,7 +138,7 @@ const RegisterScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="lock" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="lock" size={20} color="#116B5F" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Password * (min 8 characters)"
@@ -150,13 +156,13 @@ const RegisterScreen = ({ navigation }) => {
               <Icon
                 name={showPassword ? 'visibility' : 'visibility-off'}
                 size={20}
-                color="#666"
+                color="#116B5F"
               />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputContainer}>
-            <Icon name="lock" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="lock" size={20} color="#116B5F" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Confirm Password *"
@@ -174,7 +180,7 @@ const RegisterScreen = ({ navigation }) => {
               <Icon
                 name={showConfirmPassword ? 'visibility' : 'visibility-off'}
                 size={20}
-                color="#666"
+                color="#116B5F"
               />
             </TouchableOpacity>
           </View>
@@ -206,50 +212,78 @@ const RegisterScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F8F7',
   },
+  backgroundImage: { ...StyleSheet.absoluteFillObject },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(245, 248, 247, 0.9)' },
   scrollContainer: {
     flexGrow: 1,
     padding: 20,
   },
   header: {
-    marginBottom: 30,
+    marginBottom: 24,
     marginTop: 10,
   },
   backButton: {
     marginBottom: 16,
+    alignSelf: 'flex-start',
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  brandMark: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 50,
+    height: 50,
+    marginBottom: 14,
+    borderRadius: 15,
+    backgroundColor: '#E4F3EE',
+    borderWidth: 1,
+    borderColor: '#C8DED6',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#24343A',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#718083',
     marginTop: 4,
   },
   form: {
     width: '100%',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E0EAE6',
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#17313A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 7,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
+    borderColor: '#D6E2DE',
+    borderRadius: 10,
     marginBottom: 16,
     paddingHorizontal: 12,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8FBFA',
   },
   inputIcon: {
     marginRight: 10,
+    marginLeft: 2,
   },
   input: {
     flex: 1,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#333',
+    color: '#293B40',
   },
   eyeIcon: {
     alignItems: 'center',
@@ -259,7 +293,7 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     backgroundColor: '#116B5F',
-    borderRadius: 12,
+    borderRadius: 11,
     minHeight: 52,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -281,11 +315,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginText: {
-    color: '#666',
+    color: '#718083',
     fontSize: 14,
   },
   loginLink: {
-    color: '#2196F3',
+    color: '#116B5F',
     fontSize: 14,
     fontWeight: '600',
   },
