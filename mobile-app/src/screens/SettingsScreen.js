@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, useColorScheme
 import { useDispatch, useSelector } from 'react-redux';
 import { Icon } from '../components/ui';
 import AppText from '../components/AppText';
+import { isOfficerLocationRole } from '../services/officerLocation';
 import { hydrateSettings, resetSettings, updateSetting } from '../store/settingsSlice';
 import { useMobileTranslation } from '../utils/translations';
 
@@ -16,12 +17,28 @@ const notificationOptions = [
 
 const SettingsScreen = () => {
   const dispatch = useDispatch();
-  const { preferences, hydrated } = useSelector((state) => state.settings);
+  const { preferences, hydrated, officerLocationStatus } = useSelector((state) => state.settings);
+  const userRole = useSelector((state) => state.auth.user?.role);
+  const isOfficer = isOfficerLocationRole(userRole);
   const [saving, setSaving] = useState(false);
   const t = useMobileTranslation();
   const deviceColorScheme = useColorScheme();
   const isDark = preferences.theme === 'dark'
     || (preferences.theme === 'system' && deviceColorScheme === 'dark');
+  const locationStatusMessages = {
+    loading: 'Getting current GPS location',
+    enabled: 'Location sharing enabled',
+    disabled: 'Location sharing disabled',
+    'permission-denied': 'Location permission denied',
+    'gps-unavailable': 'Unable to retrieve GPS location',
+    'update-failed': 'Location update failed',
+  };
+  const locationStatusMessage = locationStatusMessages[officerLocationStatus?.status] || 'Location sharing disabled';
+  const locationStatusColor = officerLocationStatus?.status === 'enabled'
+    ? '#2D8A61'
+    : officerLocationStatus?.status === 'disabled' ? '#788588'
+      : officerLocationStatus?.status === 'loading' ? '#2D6CDF'
+        : officerLocationStatus?.status === 'gps-unavailable' ? '#B7791F' : '#C34B40';
 
   useEffect(() => {
     if (!hydrated) dispatch(hydrateSettings());
@@ -120,7 +137,9 @@ const SettingsScreen = () => {
       </View>
       <View style={[styles.card, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
         {[
-          ['shareLocation', 'Share location by default', 'Disables automatic location sharing for incident reports and officer updates. SOS still includes location for emergency response.'],
+          ['shareLocation', isOfficer ? 'Share My Location' : 'Share location by default', isOfficer
+            ? 'Share your actual GPS location with authorized security operations and incident reports while enabled. SOS still includes location for emergency response.'
+            : 'Disables automatic location sharing for incident reports and officer updates. SOS still includes location for emergency response.'],
           ['confirmSOS', 'Confirm before sending SOS', 'Show a confirmation before submitting a critical emergency report.'],
           ['dataSaving', 'Data saving', 'Reduce nonessential officer location refreshes while keeping SOS and emergency delivery unchanged.'],
         ].map(([key, label, description], index, options) => (
@@ -132,6 +151,7 @@ const SettingsScreen = () => {
             <Switch
               accessibilityLabel={t(label)}
               accessibilityRole="switch"
+              accessibilityState={{ checked: preferences[key], disabled: saving || !hydrated }}
               value={preferences[key]}
               onValueChange={(value) => savePreference(key, value)}
               disabled={saving || !hydrated}
@@ -139,6 +159,18 @@ const SettingsScreen = () => {
           </View>
         ))}
       </View>
+      {isOfficer && (
+        <View
+          style={[styles.locationStatusCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}
+          accessibilityLiveRegion="polite"
+        >
+          <View style={[styles.locationStatusDot, { backgroundColor: locationStatusColor }]} />
+          <View style={styles.locationStatusCopy}>
+            <Text style={[styles.locationStatusTitle, { color: isDark ? '#F1F5F9' : '#293B40' }]}>{t(locationStatusMessage)}</Text>
+            {officerLocationStatus?.message ? <Text style={styles.optionDescription}>{t(officerLocationStatus.message)}</Text> : null}
+          </View>
+        </View>
+      )}
 
       <View style={styles.sectionHeading}>
         <Text style={[styles.sectionTitle, { color: isDark ? '#F1F5F9' : '#24343A' }]}>{t('Theme')}</Text>
@@ -234,6 +266,10 @@ const styles = StyleSheet.create({
   infoCopy: { flex: 1 },
   infoTitle: { color: '#435257', fontSize: 13, fontWeight: '600' },
   infoDescription: { marginTop: 4, color: '#7A8789', fontSize: 11, lineHeight: 16 },
+  locationStatusCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12, padding: 14, borderRadius: 12, elevation: 1, shadowColor: '#17313A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
+  locationStatusDot: { width: 9, height: 9, marginTop: 4, borderRadius: 5 },
+  locationStatusCopy: { flex: 1 },
+  locationStatusTitle: { fontSize: 13, fontWeight: '700' },
   resetButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, marginTop: 24, borderWidth: 1, borderColor: '#C8DED6', borderRadius: 12, backgroundColor: '#FFFFFF' },
   resetText: { color: '#116B5F', fontSize: 13, fontWeight: '700' },
   disabledButton: { opacity: 0.55 },

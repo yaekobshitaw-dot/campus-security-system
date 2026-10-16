@@ -90,8 +90,13 @@ const settingsSlice = createSlice({
   initialState: {
     preferences: defaultSettings,
     hydrated: false,
+    officerLocationStatus: { status: 'disabled', message: '', code: null },
   },
-  reducers: {},
+  reducers: {
+    setOfficerLocationStatus: (state, action) => {
+      state.officerLocationStatus = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(hydrateSettings.fulfilled, (state, action) => {
@@ -107,4 +112,5 @@ const settingsSlice = createSlice({
   },
 });
 
+export const { setOfficerLocationStatus } = settingsSlice.actions;
 export default settingsSlice.reducer;

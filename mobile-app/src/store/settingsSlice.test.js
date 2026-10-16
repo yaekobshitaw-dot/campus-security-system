@@ -14,6 +14,7 @@ import settingsReducer, {
   hydrateSettings,
   resetSettings,
   SETTINGS_STORAGE_KEY,
+  setOfficerLocationStatus,
   updateSetting,
 } from './settingsSlice';
 
@@ -49,6 +50,28 @@ describe('settingsSlice', () => {
       JSON.stringify({ ...defaultSettings, showEmergencyBanners: false })
     );
     expect(store.getState().settings.preferences.showEmergencyBanners).toBe(false);
+  });
+
+  it('persists the officer location-sharing preference locally', async () => {
+    const store = createStore();
+
+    await store.dispatch(updateSetting({ key: 'shareLocation', value: false }));
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ ...defaultSettings, shareLocation: false })
+    );
+    expect(store.getState().settings.preferences.shareLocation).toBe(false);
+  });
+
+  it('stores the current officer location-sharing status without persisting it as a preference', () => {
+    const store = createStore();
+    const status = { status: 'permission-denied', message: 'Allow location access.', code: 'LOCATION_PERMISSION_DENIED' };
+
+    store.dispatch(setOfficerLocationStatus(status));
+
+    expect(store.getState().settings.officerLocationStatus).toEqual(status);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
   });
 
   it('restores persisted defaults', async () => {

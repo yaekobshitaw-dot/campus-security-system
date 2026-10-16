@@ -4,7 +4,7 @@ import { ActivityIndicator, StatusBar, Text, TouchableOpacity, useColorScheme, V
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AppNavigator from './navigation/AppNavigator';
 import { clearAuthSession, setAuthInvalidationHandler } from './services/api';
-import { isOfficerLocationRole, startOfficerLocationUpdates } from './services/officerLocation';
+import { canShareOfficerLocation, officerLocationStatusFor, startOfficerLocationUpdates } from './services/officerLocation';
 import { LOCATION_PERMISSION_DENIED, LOCATION_SERVICES_DISABLED, openLocationSettings } from './services/location';
 import { getPendingSms, sendSmsResult } from './services/smsService';
 import { store } from './store';
@@ -12,7 +12,7 @@ import { hydrateAuth, sessionExpired, sessionRevoked } from './store/authSlice';
 import { socketService } from './services/socket';
 import NotificationBanner from './components/NotificationBanner';
 import { addRealtimeNotification } from './store/notificationSlice';
-import { getNotificationBannerPreference, hydrateSettings } from './store/settingsSlice';
+import { getNotificationBannerPreference, hydrateSettings, setOfficerLocationStatus } from './store/settingsSlice';
 
 function AppContent() {
   const dispatch = useDispatch();
@@ -69,16 +69,25 @@ function AppContent() {
   }, [dispatch, notificationPreferences]);
 
   useEffect(() => {
-    if (!isAuthenticated || !isOfficerLocationRole(userRole) || !notificationPreferences.shareLocation) {
+    if (!canShareOfficerLocation({
+      isAuthenticated,
+      role: userRole,
+      shareLocation: notificationPreferences.shareLocation,
+    })) {
       setOfficerLocationError(null);
+      dispatch(setOfficerLocationStatus({ status: 'disabled', message: '', code: null }));
       return undefined;
     }
+    dispatch(setOfficerLocationStatus(officerLocationStatusFor(null)));
     return startOfficerLocationUpdates({
       shareLocation: notificationPreferences.shareLocation,
       dataSaving: notificationPreferences.dataSaving,
-      onStatusChange: setOfficerLocationError,
+      onStatusChange: (error) => {
+        setOfficerLocationError(error?.status === 'loading' ? null : error);
+        dispatch(setOfficerLocationStatus(officerLocationStatusFor(error)));
+      },
     });
-  }, [isAuthenticated, userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
+  }, [dispatch, isAuthenticated, userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
