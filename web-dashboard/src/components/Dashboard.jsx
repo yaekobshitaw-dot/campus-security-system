@@ -40,6 +40,7 @@ import webSocket from '../services/socket';
 import { getUserPreferences } from '../utils/appearance';
 import { downloadCsv } from '../utils/downloadCsv';
 import { useTranslate } from '../utils/language';
+import { enableNotificationSound, playNotificationSound } from '../utils/notificationSound';
 
 const activeStatuses = ['reported', 'assigned', 'accepted', 'in_progress', 'investigating', 'dispatched', 'on_scene', 'declined', 'unassigned'];
 const incidentStatusColors = {
@@ -343,6 +344,13 @@ const notificationType = (item) => {
   if (type.includes('response') || type.includes('assignment')) return 'response';
   return 'alert';
 };
+const notificationSoundKeys = (item) => [...new Set([
+  item?.notification_id,
+  item?.id,
+  item?.incident_id,
+  item?.alert_id,
+].filter((value) => value !== null && value !== undefined && String(value) !== '')
+  .map(String))];
 const normalizeNotification = (item) => {
   let data = item.data || {};
   if (typeof data === 'string') {
@@ -433,6 +441,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const user = authenticatedUser || {};
   const [notifications, setNotifications] = useState(() => readNotificationHistory(user.user_id));
   const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+  const notificationsLoadedRef = useRef(false);
   const [notificationCountError, setNotificationCountError] = useState('');
   const notificationRequestVersion = useRef(0);
   const notificationClearInProgress = useRef(false);
@@ -444,6 +453,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       .filter((notification) => notification.type === 'sos')
       .map((notification) => String(notification.id)),
   ));
+  const playedNotificationSoundIds = useRef(new Set(notifications.flatMap(notificationSoundKeys)));
   const [userPreferences, setUserPreferences] = useState(() => getUserPreferences(user.user_id));
   const [error, setError] = useState('');
   const [incidentExportError, setIncidentExportError] = useState('');
@@ -511,7 +521,11 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       if (requestVersion !== notificationRequestVersion.current) return;
       const items = Array.isArray(response.data?.data) ? response.data.data : [];
       const serverNotifications = items.map(normalizeNotification);
+      serverNotifications.forEach((notification) => {
+        notificationSoundKeys(notification).forEach((soundKey) => playedNotificationSoundIds.current.add(soundKey));
+      });
       setNotifications((current) => mergeNotifications(serverNotifications, current));
+      notificationsLoadedRef.current = true;
       setNotificationsLoaded(true);
       setNotificationCountError('');
     } catch (requestError) {
@@ -560,6 +574,17 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     window.addEventListener('campussecure:preferences-changed', refreshPreferences);
     return () => window.removeEventListener('campussecure:preferences-changed', refreshPreferences);
   }, [user.user_id]);
+
+  useEffect(() => {
+    if (!userPreferences.notificationSoundEnabled) return undefined;
+    const unlockSound = () => { void enableNotificationSound(); };
+    window.addEventListener('pointerdown', unlockSound);
+    window.addEventListener('keydown', unlockSound);
+    return () => {
+      window.removeEventListener('pointerdown', unlockSound);
+      window.removeEventListener('keydown', unlockSound);
+    };
+  }, [userPreferences.notificationSoundEnabled]);
 
   const loadData = useCallback(async ({ silent = false } = {}) => {
     const officerRequestId = canViewOperations ? ++officerRequestSequence.current : null;
@@ -676,11 +701,36 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   useEffect(() => {
     webSocket.connect();
     const refreshOperationalData = () => loadData();
+    const soundForIncomingNotification = (notification) => {
+      const soundKeys = notificationSoundKeys(notification);
+      if (!soundKeys.length || soundKeys.some((soundKey) => playedNotificationSoundIds.current.has(soundKey))) return;
+      soundKeys.forEach((soundKey) => playedNotificationSoundIds.current.add(soundKey));
+      if (!notificationsLoadedRef.current) return;
+
+      const type = notificationType(notification);
+      const data = notification.data && typeof notification.data === 'object' ? notification.data : {};
+      const severity = String(notification.severity || data.severity || '').toLowerCase();
+      const isPriority = type === 'sos' || type === 'response' || ['high', 'critical'].includes(severity);
+      const categoryEnabled = type === 'sos'
+        ? userPreferences.sosNotifications
+        : type === 'incident'
+          ? userPreferences.incidentNotifications
+          : type === 'response'
+            ? userPreferences.responseNotifications
+            : userPreferences.alertNotifications;
+      if (
+        isPriority
+        && userPreferences.notificationSoundEnabled
+        && userPreferences.inAppNotifications
+        && categoryEnabled
+      ) playNotificationSound();
+    };
     const addNotification = (payload, type) => {
       const incidentId = payload?.incident_id || payload?.incident?.incident_id || payload?.alert?.incident_id;
       const notificationId = incidentId || payload?.alert_id || Date.now();
       const isSOS = type === 'sos' || payload?.is_sos || payload?.type === 'sos_alert';
       const notificationType = isSOS ? 'sos' : type === 'alert' ? 'alert' : 'incident';
+      soundForIncomingNotification({ ...payload, incident_id: incidentId, type: notificationType, is_sos: isSOS });
       if (!userPreferences.inAppNotifications
         || (isSOS && !userPreferences.sosNotifications)
         || (!isSOS && type === 'alert' && !userPreferences.alertNotifications)
@@ -767,6 +817,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     const handleAlert = (alert) => addNotification(alert, alert?.type === 'sos_alert' ? 'sos' : 'alert');
     const handlePrivateNotification = (notification) => {
       if (!notification?.notification_id || String(notification.user_id) !== String(user.user_id)) return;
+      soundForIncomingNotification(notification);
       const normalized = normalizeNotification(notification);
       setNotifications((current) => [
         normalized,
@@ -1492,7 +1543,11 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     user={user}
     onNotificationsChange={(items) => {
       const serverNotifications = items.map(normalizeNotification);
+      serverNotifications.forEach((notification) => {
+        notificationSoundKeys(notification).forEach((soundKey) => playedNotificationSoundIds.current.add(soundKey));
+      });
       setNotifications((current) => mergeNotifications(serverNotifications, current));
+      notificationsLoadedRef.current = true;
       setNotificationsLoaded(true);
     }}
     onHistoryCleared={() => setNotifications([])}

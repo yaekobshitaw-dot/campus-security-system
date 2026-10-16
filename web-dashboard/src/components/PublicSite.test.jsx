@@ -139,21 +139,45 @@ describe('Public site', () => {
       ] } } });
     });
 
-    renderPublicSite();
+    const { unmount } = renderPublicSite();
 
     expect(await screen.findByRole('heading', { name: 'Campus notice' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'How do I report?' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Safety guide' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '+251 900 000 000' })).toHaveAttribute('href', 'tel:+251900000000');
     expect(screen.getByRole('heading', { name: 'Walk-home service' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Campus announcements' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Campus information' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Campus security' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '+251 900 000 000' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Draft notice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Private notice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Expired notice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Hidden entry' })).not.toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith('/announcements/public');
     expect(api.get).toHaveBeenCalledWith('/public-content');
+
+    unmount();
+    api.get.mockImplementation((url) => {
+      if (url === '/public-content/contact') {
+        return Promise.resolve({ data: { data: { phone: '+251 900 000 000', email: 'verified@example.edu', location: 'Security office' } } });
+      }
+      return Promise.resolve({ data: { data: { items: [
+        { content_id: 'contact-1', type: 'emergency_contact', title: 'Campus security', contact_name: 'Security desk', phone: '+251 900 000 000', is_active: true },
+        { content_id: 'inactive-contact', type: 'emergency_contact', title: 'Inactive contact', phone: '555-0100', is_active: false },
+      ] } } });
+    });
+    renderPublicSite('contact');
+
+    expect(await screen.findByRole('heading', { name: 'Campus security' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: '+251 900 000 000' })).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'verified@example.edu' })).toHaveAttribute('href', 'mailto:verified@example.edu');
+    expect(screen.getByText('Security office')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Inactive contact' })).not.toBeInTheDocument();
+    const contactCarousel = document.querySelector('.contact-page > .page-image-band .page-image-carousel');
+    const contactHeading = document.querySelector('.contact-page .page-heading');
+    const contactDetails = document.querySelector('.contact-page .contact-details');
+    expect(contactCarousel.compareDocumentPosition(contactHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(contactCarousel.compareDocumentPosition(contactDetails) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('does not duplicate public requests when StrictMode replays effects', async () => {
@@ -434,10 +458,13 @@ describe('Public site', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Our purpose' }));
     expect(screen.getByRole('heading', { name: /Designed for people/ })).toBeInTheDocument();
-    const aboutCarousel = document.querySelector('.about-grid > .page-image-carousel');
+    const aboutCarousel = document.querySelector('.about-page > .page-image-band .page-image-carousel');
     expect(aboutCarousel).toHaveClass('page-image-carousel');
     expect(aboutCarousel).toHaveAttribute('aria-label', 'About campus images');
-    expect(aboutCarousel.nextElementSibling).toHaveClass('about-copy');
+    const aboutHeading = document.querySelector('.about-page .page-heading');
+    const aboutCopy = document.querySelector('.about-page .about-copy');
+    expect(aboutCarousel.compareDocumentPosition(aboutHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(aboutCarousel.compareDocumentPosition(aboutCopy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(aboutCarousel.querySelectorAll('.page-image-slide img')).toHaveLength(2);
     expect(aboutCarousel.querySelector('.page-image-slide img[src="/images/campus-security-about-1.jpg"]')).toHaveAccessibleName(
       'Campus footpaths and landscaped grounds around a university building.'
@@ -573,11 +600,11 @@ describe('Public site', () => {
     expect(await screen.findByRole('link', { name: '0123456789' })).toHaveAttribute('href', 'tel:0123456789');
     expect(screen.getByRole('link', { name: 'saved@example.com' })).toHaveAttribute('href', 'mailto:saved@example.com');
     expect(screen.getByText('Updated campus')).toBeInTheDocument();
-    const contactCarousel = document.querySelector('.contact-grid > .page-image-carousel');
+    const contactCarousel = document.querySelector('.contact-page > .page-image-band .page-image-carousel');
     expect(contactCarousel).toHaveClass('page-image-carousel');
     expect(contactCarousel).toHaveAttribute('aria-label', 'Contact campus images');
     expect(contactCarousel.querySelectorAll('.page-image-slide img')).toHaveLength(3);
-    expect(contactCarousel.nextElementSibling).toHaveClass('contact-details');
+    expect(contactCarousel.compareDocumentPosition(document.querySelector('.contact-page .contact-details')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelector('.contact-grid + .contact-form')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Campus location collage with two campus views and Amharic map notes.' }))
       .toHaveAttribute('src', '/images/campus-security-contact.jpg');

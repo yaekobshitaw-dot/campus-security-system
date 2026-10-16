@@ -406,7 +406,7 @@ export function DashboardLayout({
             {mobileMenuOpen && (
               <nav className="border-t border-slate-200 bg-[#f7fafd] px-4 py-3 shadow-inner lg:hidden" aria-label={t('Mobile navigation')}>
                 <div className="grid gap-1 sm:grid-cols-2">
-                  {navigationItems.filter(({ path }) => canAccessNavigation(path, user?.role)).map(({ label, path, icon: Icon }) => {
+                  {navigationItems.filter(({ path }) => path !== '/profile' && canAccessNavigation(path, user?.role)).map(({ label, path, icon: Icon }) => {
                     const normalized = path.replace('/', '').split('/')[0] || 'overview';
                     const isActive = activeSection === normalized || (activeSection === 'overview' && path === '/dashboard');
                     return (
@@ -426,6 +426,16 @@ export function DashboardLayout({
                     );
                   })}
                 </div>
+                <div className="dashboard-mobile-account-actions mt-3 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => { setMobileMenuOpen(false); navigateFromLayout('/profile'); }} aria-current={activeSection === 'profile' ? 'page' : undefined} className="dashboard-account-profile flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
+                    <AccountCircleOutlined aria-hidden="true" />
+                    <span>{t('Profile')}</span>
+                  </button>
+                  <button type="button" onClick={() => { setMobileMenuOpen(false); onLogout(); }} className="dashboard-account-logout flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
+                    <Logout aria-hidden="true" />
+                    <span>{t('Log out')}</span>
+                  </button>
+                </div>
               </nav>
             )}
           </header>
@@ -436,6 +446,8 @@ export function DashboardLayout({
               language={language}
               selectedGroupId={selectedNavigationGroup}
               onSelectGroup={setSelectedNavigationGroup}
+              onNavigate={navigateFromLayout}
+              onLogout={onLogout}
             />
           <div className={cn('dashboard-content min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8', activeSection === 'overview' && !selectedNavigationGroup && 'dashboard-overview-content')}>
             {(activeSection !== 'overview' && activeSection !== 'detail' || selectedNavigationGroup) && (
@@ -455,7 +467,7 @@ export function DashboardLayout({
   );
 }
 
-function Sidebar({ user, activeSection, language, selectedGroupId, onSelectGroup }) {
+function Sidebar({ user, activeSection, language, selectedGroupId, onSelectGroup, onNavigate, onLogout }) {
   const t = (text) => translateDashboardText(text, language);
   const visibleGroups = navigationGroups.filter(({ paths }) =>
     paths.some((path) => canAccessNavigation(path, user?.role)),
@@ -484,6 +496,25 @@ function Sidebar({ user, activeSection, language, selectedGroupId, onSelectGroup
             </button>
           );
         })}
+      </div>
+      <div className="dashboard-sidebar-actions shrink-0 border-t border-white/15 px-3 py-3">
+        <button
+          type="button"
+          onClick={() => onNavigate('/profile')}
+          aria-current={activeSection === 'profile' ? 'page' : undefined}
+          className="dashboard-account-profile flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+        >
+          <AccountCircleOutlined aria-hidden="true" className="text-[20px]" />
+          <span>{t('Profile')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="dashboard-account-logout mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+        >
+          <Logout aria-hidden="true" className="text-[18px]" />
+          <span>{t('Log out')}</span>
+        </button>
       </div>
     </aside>
   );

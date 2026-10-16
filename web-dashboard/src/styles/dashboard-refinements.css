@@ -1038,3 +1038,93 @@
         translate: none;
     }
 }
+
+.dashboard-sidebar-actions {
+    display: grid;
+    gap: 8px;
+}
+
+.dashboard-account-profile {
+    border: 1px solid rgba(111, 199, 209, .32);
+    background: rgba(111, 199, 209, .13);
+    color: #bcecf1;
+}
+
+.dashboard-account-profile:hover,
+.dashboard-account-profile[aria-current="page"] {
+    background: #16435a;
+    color: #fff;
+}
+
+.dashboard-account-logout {
+    border: 1px solid rgba(248, 113, 113, .42);
+    background: rgba(185, 28, 28, .2);
+    color: #fecaca;
+}
+
+.dashboard-account-logout:hover {
+    border-color: #ef4444;
+    background: #991b1b;
+    color: #fff;
+}
+
+.dashboard-mobile-account-actions .dashboard-account-profile {
+    background: #e6f7f9;
+    color: #155a66;
+}
+
+.dashboard-mobile-account-actions .dashboard-account-profile:hover,
+.dashboard-mobile-account-actions .dashboard-account-profile[aria-current="page"] {
+    background: #d0f0f3;
+    color: #0e4650;
+}
+
+.dashboard-mobile-account-actions .dashboard-account-logout {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.dashboard-mobile-account-actions .dashboard-account-logout:hover {
+    background: #fee2e2;
+}
+
+.dashboard-header nav[aria-label="Mobile navigation"] {
+    display: flex;
+    min-height: min(70svh, 640px);
+    max-height: calc(100svh - 76px);
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.dashboard-mobile-account-actions {
+    position: sticky;
+    bottom: 0;
+    flex-shrink: 0;
+    margin-top: auto;
+    background: #f7fafd;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-mobile-account-actions {
+    border-color: #334155;
+    background: #111b2c;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-mobile-account-actions .dashboard-account-profile {
+    border-color: #2f666d;
+    background: #18343a;
+    color: #bcecf1;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-mobile-account-actions .dashboard-account-logout {
+    border-color: #7f1d1d;
+    background: #3f1d24;
+    color: #fecaca;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-account-profile,
+    .dashboard-account-logout {
+        transition: none;
+    }
+}

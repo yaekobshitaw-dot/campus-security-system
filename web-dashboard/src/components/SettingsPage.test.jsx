@@ -9,6 +9,8 @@ import api from '../services/api';
 vi.mock('./ProfilePage', () => ({ default: () => <div>Profile tools</div> }));
 vi.mock('./AdminPages', () => ({ SystemSettingsPage: () => <div>System settings controls</div> }));
 vi.mock('../services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
+const { enableNotificationSoundMock } = vi.hoisted(() => ({ enableNotificationSoundMock: vi.fn() }));
+vi.mock('../utils/notificationSound', () => ({ enableNotificationSound: enableNotificationSoundMock }));
 
 const renderSettings = (role, userOverrides = {}) => render(
   <MemoryRouter>
@@ -52,6 +54,12 @@ describe('centralized settings', () => {
       incidentNotifications: false,
       sosNotifications: true,
     });
+
+    const soundPreference = screen.getByRole('checkbox', { name: /Notification sound/ });
+    expect(soundPreference).not.toBeChecked();
+    fireEvent.click(soundPreference);
+    expect(JSON.parse(localStorage.getItem('campussecure-preferences:user-student')).notificationSoundEnabled).toBe(true);
+    expect(enableNotificationSoundMock).toHaveBeenCalledOnce();
   });
 
   it('shows operational recommendations only to administrators', () => {

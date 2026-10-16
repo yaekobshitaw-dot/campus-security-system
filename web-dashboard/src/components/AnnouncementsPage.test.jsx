@@ -107,7 +107,9 @@ describe('AnnouncementsPage', () => {
 
     const groupNames = ['Overview / Dashboard', 'Incidents & Emergency', 'Live Map & Location', 'Security Officers / Response', 'Users & Communication', 'Reports & Analytics', 'Administration / System'];
     const sidebar = container.querySelector('.dashboard-sidebar');
-    expect(sidebar.querySelectorAll('button')).toHaveLength(7);
+    expect(sidebar.querySelectorAll('button')).toHaveLength(9);
+    expect(within(sidebar).getByRole('button', { name: 'Profile' })).toBeInTheDocument();
+    expect(within(sidebar).getByRole('button', { name: 'Log out' })).toBeInTheDocument();
     groupNames.forEach((name) => expect(screen.getByRole('button', { name })).toBeInTheDocument());
     expect(within(sidebar).queryByRole('button', { name: 'Announcements' })).not.toBeInTheDocument();
 
@@ -117,7 +119,9 @@ describe('AnnouncementsPage', () => {
     fireEvent.click(announcementsButton);
     expect(onNavigate).toHaveBeenCalledWith('/announcements');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Profile' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/profile');
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Log out' }));
     expect(onLogout).toHaveBeenCalledOnce();
   });
 
@@ -127,10 +131,10 @@ describe('AnnouncementsPage', () => {
 
     const communicationGroup = screen.getByRole('button', { name: 'Users & Communication' });
     fireEvent.click(communicationGroup);
-    expect(screen.getByRole('button', { name: 'Profile' })).toBeInTheDocument();
+    expect(within(container.querySelector('.dashboard-content')).getByRole('button', { name: 'Profile' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'User management' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'SMS Broadcast' })).not.toBeInTheDocument();
-    expect(container.querySelector('.dashboard-sidebar').querySelectorAll('button')).toHaveLength(6);
+    expect(container.querySelector('.dashboard-sidebar').querySelectorAll('button')).toHaveLength(8);
 
     fireEvent.click(screen.getByRole('button', { name: 'Incidents & Emergency' }));
     const activeIncidentsButton = screen.getByRole('button', { name: 'Active incidents' });
@@ -165,13 +169,14 @@ describe('AnnouncementsPage', () => {
         expect(onNavigate).toHaveBeenLastCalledWith(path);
         fireEvent.click(within(sidebar).getByRole('button', { name: groupLabel }));
       }
-      expect(sidebar.querySelectorAll('button')).toHaveLength(7);
+      expect(sidebar.querySelectorAll('button')).toHaveLength(9);
     }
   });
 
   it('shows students alerts, zones, and notifications without privileged sidebar features', () => {
     const onNavigate = vi.fn();
-    const { container } = render(<MemoryRouter><DashboardLayout user={{ role: 'student', name: 'Student' }} onNavigate={onNavigate} /></MemoryRouter>);
+    const onLogout = vi.fn();
+    const { container } = render(<MemoryRouter><DashboardLayout user={{ role: 'student', name: 'Student' }} onNavigate={onNavigate} onLogout={onLogout} /></MemoryRouter>);
     const sidebar = container.querySelector('.dashboard-sidebar');
 
     expect(within(sidebar).queryByRole('button', { name: 'Security Officers / Response' })).not.toBeInTheDocument();
@@ -195,8 +200,15 @@ describe('AnnouncementsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const mobileNavigation = screen.getByRole('navigation', { name: 'Mobile navigation' });
     expect(within(mobileNavigation).getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+    expect(within(mobileNavigation).getByRole('button', { name: 'Profile' })).toBeInTheDocument();
+    expect(within(mobileNavigation).getByRole('button', { name: 'Log out' })).toBeInTheDocument();
     expect(within(mobileNavigation).queryByRole('button', { name: 'Live Map' })).not.toBeInTheDocument();
     expect(within(mobileNavigation).queryByRole('button', { name: 'Campus locations' })).not.toBeInTheDocument();
+    fireEvent.click(within(mobileNavigation).getByRole('button', { name: 'Profile' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/profile');
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Mobile navigation' })).getByRole('button', { name: 'Log out' }));
+    expect(onLogout).toHaveBeenCalledOnce();
   });
 
   it.each(['student', 'faculty', 'staff'])('%s cannot see or open Live Map from dashboard navigation', (role) => {

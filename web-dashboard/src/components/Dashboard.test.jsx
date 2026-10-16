@@ -8,12 +8,17 @@ import { DashboardLayout, IncidentStatusBadge, IncidentTable } from './Dashboard
 import webSocket from '../services/socket';
 
 const { apiGet, apiPost, apiPatch, apiDelete, downloadCsvMock } = vi.hoisted(() => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiDelete: vi.fn(), downloadCsvMock: vi.fn() }));
+const { playNotificationSoundMock, enableNotificationSoundMock } = vi.hoisted(() => ({ playNotificationSoundMock: vi.fn(), enableNotificationSoundMock: vi.fn() }));
 
 vi.mock('../services/api', () => ({
   default: { get: apiGet, post: apiPost, patch: apiPatch, delete: apiDelete }
 }));
 
 vi.mock('../utils/downloadCsv', () => ({ downloadCsv: downloadCsvMock }));
+vi.mock('../utils/notificationSound', () => ({
+  enableNotificationSound: enableNotificationSoundMock,
+  playNotificationSound: playNotificationSoundMock,
+}));
 
 vi.mock('../services/socket', () => {
   const listeners = {};
@@ -66,6 +71,8 @@ describe('Dashboard', () => {
     apiPatch.mockReset();
     apiDelete.mockReset();
     downloadCsvMock.mockReset();
+    playNotificationSoundMock.mockReset();
+    enableNotificationSoundMock.mockReset();
     localStorage.removeItem('campussecure-language');
     sessionStorage.clear();
     apiGet.mockImplementation(() => Promise.resolve({ data: { data: [] } }));
@@ -278,6 +285,54 @@ describe('Dashboard', () => {
 
     expect(await screen.findByText('Officer A assignment')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Notifications' })).toHaveTextContent('1');
+  });
+
+  it('plays one sound for each new priority notification and stays silent for history and low priority', async () => {
+    localStorage.setItem('campussecure-preferences:officer-a', JSON.stringify({
+      notificationSoundEnabled: true,
+      inAppNotifications: true,
+      incidentNotifications: true,
+      alertNotifications: true,
+      sosNotifications: true,
+      responseNotifications: true,
+    }));
+    sessionStorage.setItem('campus-security:notifications:officer-a', JSON.stringify([
+      { notification_id: 'old-n', incident_id: 'old-i', type: 'incident_reported', severity: 'critical' },
+    ]));
+    apiGet.mockImplementation((url) => (url === '/notifications'
+      ? Promise.resolve({ data: { data: [{ notification_id: 'old-n', incident_id: 'old-i', type: 'incident_reported', severity: 'critical', is_read: false }] } })
+      : Promise.resolve({ data: { data: [] } })));
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: 'officer-a', role: 'security', name: 'Officer A' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Campus overview' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Notifications' })).toHaveTextContent('1'));
+    expect(playNotificationSoundMock).not.toHaveBeenCalled();
+    act(() => {
+      webSocket.emit('notification-created', {
+        notification_id: 'old-n', user_id: 'officer-a', incident_id: 'old-i',
+        type: 'incident_reported', severity: 'critical',
+      });
+      webSocket.emit('notification-created', {
+        notification_id: 'new-n', user_id: 'officer-a', incident_id: 'new-i',
+        type: 'incident_reported', severity: 'critical',
+      });
+      webSocket.emit('notification-created', {
+        notification_id: 'new-n', user_id: 'officer-a', incident_id: 'new-i',
+        type: 'incident_reported', severity: 'critical',
+      });
+      webSocket.emit('notification-created', {
+        notification_id: 'low-n', user_id: 'officer-a', type: 'alert', severity: 'low',
+      });
+      webSocket.emit('notification-created', {
+        notification_id: 'system-n', user_id: 'officer-a', type: 'content_changed',
+      });
+    });
+
+    expect(playNotificationSoundMock).toHaveBeenCalledOnce();
   });
 
   it('shows a bundled MAU campus image and falls back to another bundled image', async () => {

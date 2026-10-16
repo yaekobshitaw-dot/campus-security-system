@@ -689,7 +689,7 @@ const isPublicAnnouncement = (announcement, now) => announcement && typeof annou
   && announcement.is_public === true
   && (!announcement.expires_at || new Date(announcement.expires_at).getTime() > now);
 
-const publicContentTypes = ['faq', 'safety_resource', 'emergency_contact', 'service'];
+const publicContentTypes = ['faq', 'safety_resource', 'service'];
 
 let publicHomeRequest;
 const loadPublicHomeData = () => {
@@ -1166,8 +1166,14 @@ function FeatureImageGallery({ language, featureId }) {
 
 function AboutPage({ copy }) {
   return <>
-    <PageFrame eyebrow={copy.aboutEyebrow} title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>} intro={copy.aboutIntro} pageClass="about-page">
-      <div className="about-grid"><PageImageCarousel images={aboutPageImages} label="About campus images" /><div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div></div>
+    <PageFrame
+      eyebrow={copy.aboutEyebrow}
+      title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>}
+      intro={copy.aboutIntro}
+      pageClass="about-page"
+      hero={<PageImageCarousel images={aboutPageImages} label="About campus images" />}
+    >
+      <div className="about-copy"><p id="about-purpose" tabIndex="-1">{copy.aboutParagraphOne}</p><p>{copy.aboutParagraphTwo}</p><div id="about-principles" className="about-points" tabIndex="-1"><span><CheckCircle2 size={17} /> {copy.aboutPointOne}</span><span><CheckCircle2 size={17} /> {copy.aboutPointTwo}</span><span><CheckCircle2 size={17} /> {copy.aboutPointThree}</span></div></div>
     </PageFrame>
   </>;
 }
@@ -1179,6 +1185,8 @@ function FeaturesPage({ language, copy, featureId }) {
 function ContactPage({ copy }) {
   const [contactInformation, setContactInformation] = useState(null);
   const [contactError, setContactError] = useState('');
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
+  const [emergencyContactsError, setEmergencyContactsError] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -1189,6 +1197,17 @@ function ContactPage({ copy }) {
       .catch((error) => {
         if (mounted) setContactError(error.response?.data?.message || 'Unable to load contact information.');
       });
+    api.get('/public-content', { params: { type: 'emergency_contact' } })
+      .then((response) => {
+        if (!mounted) return;
+        const items = (findResponseArray(response.data) || []).filter((item) => (
+          item?.is_active === true && item.title !== 'Contact Us Information'
+        ));
+        setEmergencyContacts(items);
+      })
+      .catch((error) => {
+        if (mounted) setEmergencyContactsError(error.response?.data?.message || 'Unable to load emergency contacts.');
+      });
     return () => { mounted = false; };
   }, []);
 
@@ -1198,17 +1217,26 @@ function ContactPage({ copy }) {
 
   return (
     <>
-      <PageFrame eyebrow={copy.contactEyebrow} title={<>{copy.contactTitle} <em>{copy.contactTitleAccent}</em></>} intro={copy.contactIntro} pageClass="contact-page">
+      <PageFrame
+        eyebrow={copy.contactEyebrow}
+        title={<>{copy.contactTitle} <em>{copy.contactTitleAccent}</em></>}
+        intro={copy.contactIntro}
+        pageClass="contact-page"
+        hero={<PageImageCarousel images={contactPageImages} label="Contact campus images" />}
+      >
         <div className="contact-grid">
-          <PageImageCarousel images={contactPageImages} label="Contact campus images" />
           <div className="contact-details">
             {contactError && <p className="form-error" role="alert">{contactError}</p>}
-            <div className="contact-card"><span className="feature-icon"><Phone size={19} /></span><div><small>{copy.phone}</small><strong><a href={phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined}>{phone || '—'}</a></strong></div></div>
-            <div className="contact-card"><span className="feature-icon"><Mail size={19} /></span><div><small>{copy.email}</small><strong><a href={email ? `mailto:${email}` : undefined}>{email || '—'}</a></strong></div></div>
-            <div className="contact-card"><span className="feature-icon"><MapPin size={19} /></span><div><small>{copy.location}</small><strong>{location || '—'}</strong></div></div>
+            {(phone || email || location) && <div className="contact-configured-details">
+              {phone && <div className="contact-card"><span className="feature-icon"><Phone size={19} /></span><div><small>{copy.phone}</small><strong><a href={`tel:${phone.replace(/[^\d+]/g, '')}`}>{phone}</a></strong></div></div>}
+              {email && <div className="contact-card"><span className="feature-icon"><Mail size={19} /></span><div><small>{copy.email}</small><strong><a href={`mailto:${email}`}>{email}</a></strong></div></div>}
+              {location && <div className="contact-card"><span className="feature-icon"><MapPin size={19} /></span><div><small>{copy.location}</small><strong>{location}</strong></div></div>}
+            </div>}
             <div className="emergency-note"><Siren size={21} /><div><strong>{copy.immediateEmergency}</strong><p>{copy.emergencyInstructions}</p></div></div>
           </div>
         </div>
+        {emergencyContactsError && <p className="form-error" role="alert">{emergencyContactsError}</p>}
+        {emergencyContacts.length > 0 && <PublicContentGroup title={copy.emergencyContacts} type="emergency_contact" items={emergencyContacts} />}
         <ContactForm copy={copy} />
         <section className="contact-map-section">
           <div className="contact-map-heading"><h2>{copy.location}</h2><p>{CONTACT_CAMPUS.name}</p></div>
@@ -1273,8 +1301,8 @@ function ContactForm({ copy }) {
   return <form className="contact-form" onSubmit={submit}><div className="form-row"><label>{copy.name}<input name="name" required placeholder={copy.yourName} /></label><label>{copy.email}<input name="email" required type="email" placeholder={copy.emailPlaceholder} /></label></div><label>{copy.howHelp}<select name="topic" required defaultValue=""><option value="" disabled>{copy.selectTopic}</option><option value="platform_information">{copy.platformInformation}</option><option value="campus_partnership">{copy.campusPartnership}</option><option value="technical_support">{copy.technicalSupport}</option></select></label><label>{copy.message}<textarea name="message" required rows="5" placeholder={copy.messagePlaceholder} /></label>{error && <p className="form-error" role="alert">{error}</p>}{sent && <p className="form-success"><CheckCircle2 size={16} /> {copy.messageCaptured}</p>}<button className="button button-primary" type="submit" disabled={submitting}>{copy.sendMessage} <ArrowRight size={17} /></button></form>;
 }
 
-function PageFrame({ eyebrow, title, intro, pageClass, children }) {
-  return <main className={`inner-page ${pageClass}`}><div id={pageClass === 'about-page' ? 'about-overview' : undefined} className="page-heading" tabIndex="-1"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{intro}</p></div>{children}</main>;
+function PageFrame({ eyebrow, title, intro, pageClass, hero, children }) {
+  return <main className={`inner-page ${pageClass}`}>{hero && <div className="page-image-band">{hero}</div>}<div id={pageClass === 'about-page' ? 'about-overview' : undefined} className="page-heading" tabIndex="-1"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{intro}</p></div>{children}</main>;
 }
 
 export default function PublicSite({ user, onLogout, page = 'home' }) {

@@ -31,6 +31,7 @@ export function useAppearanceTheme(userId) {
 
 export const defaultUserPreferences = {
   inAppNotifications: true,
+  notificationSoundEnabled: false,
   incidentNotifications: true,
   alertNotifications: true,
   sosNotifications: true,

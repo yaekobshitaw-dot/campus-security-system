@@ -6,6 +6,7 @@ import { defaultUserPreferences, getUserPreferences, setAppearanceTheme, saveUse
 import ProfilePage from './ProfilePage';
 import { SystemSettingsPage } from './AdminPages';
 import api from '../services/api';
+import { enableNotificationSound } from '../utils/notificationSound';
 
 const Section = ({ title, description, children, className = '' }) => (
   <section className={`dashboard-panel settings-section ${className}`}>
@@ -263,6 +264,9 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
     const nextPreferences = { ...preferences, [key]: event.target.checked };
     setPreferences(nextPreferences);
     saveUserPreferences(user?.user_id, nextPreferences);
+    if (key === 'notificationSoundEnabled' && event.target.checked) {
+      void enableNotificationSound();
+    }
   };
 
   const updatePreferenceValue = (key) => (event) => {
@@ -330,6 +334,7 @@ export default function SettingsPage({ user, onUpdated, onLogout }) {
       <Section title={`Recommended for ${settingsProfile.title}`} description={settingsProfile.description} className="settings-section-preferences">
         <div className="grid gap-3 sm:grid-cols-2">
           <Preference label="In-app notifications" description="Show live notifications in the dashboard header." checked={preferences.inAppNotifications} onChange={updatePreference('inAppNotifications')} />
+          <Preference label="Notification sound" description="Play a brief tone for new high-priority alerts. Turn this on to enable audio in this browser." checked={preferences.notificationSoundEnabled} onChange={updatePreference('notificationSoundEnabled')} />
           <Preference label="Incident notifications" description="Show new incident reports." checked={preferences.incidentNotifications} onChange={updatePreference('incidentNotifications')} />
           <Preference label="Alert notifications" description="Show non-SOS alerts." checked={preferences.alertNotifications} onChange={updatePreference('alertNotifications')} />
           <Preference label="SOS / emergency notifications" description="Enabled by default. Disabling affects only the optional in-app card; emergency processing remains active." checked={preferences.sosNotifications} onChange={updatePreference('sosNotifications')} />

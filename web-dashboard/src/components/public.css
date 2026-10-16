@@ -3836,3 +3836,104 @@ em {
         transition: none;
     }
 }
+
+.page-image-band {
+    position: relative;
+    z-index: 1;
+    width: 100vw;
+    margin: 0 calc(50% - 50vw) 42px;
+}
+
+.page-image-band .page-image-carousel {
+    position: relative;
+    left: auto;
+    width: 100%;
+    height: clamp(240px, 34vw, 460px);
+    border-radius: 0;
+    background: transparent;
+    transform: none;
+}
+
+.page-image-band .page-image-carousel::after {
+    display: none;
+}
+
+.page-image-band .page-image-slide img {
+    object-fit: contain;
+}
+
+.about-page .about-grid {
+    min-height: 0;
+}
+
+.about-page .about-copy,
+.public-app .inner-page.about-page .about-copy p,
+.public-app .inner-page.about-page .about-points {
+    max-width: 900px;
+    margin-right: auto;
+    margin-left: auto;
+    color: var(--muted);
+    text-shadow: none;
+}
+
+.public-app .inner-page.about-page .about-copy p {
+    margin-bottom: 20px;
+}
+
+.public-app .inner-page.about-page .about-points {
+    margin-top: 26px;
+    color: var(--ink);
+}
+
+.about-page .page-heading .eyebrow,
+.contact-page .page-heading .eyebrow,
+.about-page .page-heading h1,
+.contact-page .page-heading h1,
+.public-app .inner-page.about-page .page-heading p:last-child,
+.public-app .inner-page.contact-page .page-heading p:last-child {
+    color: var(--ink);
+    text-shadow: none;
+}
+
+.contact-page .contact-grid {
+    min-height: 0;
+}
+
+.contact-page .contact-details {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.contact-page .contact-form {
+    max-width: 900px;
+    margin: 42px auto 0;
+}
+
+.contact-page .contact-grid > .page-image-carousel {
+    position: relative;
+    left: auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    transform: none;
+}
+
+.contact-page .page-image-carousel img[src*="campus-security-contact"] {
+    object-fit: contain;
+    background: transparent;
+}
+
+.contact-page .page-image-band .page-image-slide img[src*="campus-security-contact"] {
+    object-fit: contain;
+    background: transparent;
+}
+
+@media (max-width: 680px) {
+    .page-image-band {
+        margin-bottom: 30px;
+    }
+
+    .page-image-band .page-image-carousel {
+        height: clamp(220px, 48vw, 340px);
+    }
+}
