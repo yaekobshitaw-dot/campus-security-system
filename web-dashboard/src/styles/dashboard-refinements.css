@@ -710,21 +710,22 @@
     min-width: 0;
     min-height: 58px;
     padding: 12px 14px;
-    border: 1px solid #d8e1e7;
+    border: 1px solid transparent;
     border-radius: 10px;
-    background: #fff;
-    color: #173247;
+    background: var(--quick-access-color);
+    color: #fff;
     font: inherit;
     font-size: 13px;
     font-weight: 750;
     text-align: left;
     cursor: pointer;
-    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, .14);
+    transition: filter .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 
 .dashboard-quick-access-item svg {
     flex: 0 0 auto;
-    color: #176a73;
+    color: currentColor;
 }
 
 .dashboard-quick-access-item span {
@@ -733,14 +734,43 @@
 }
 
 .dashboard-quick-access-item:hover {
-    transform: translateY(-1px);
-    border-color: #61aeb0;
-    background: #f3faf9;
+    transform: translateY(-2px);
+    filter: brightness(.92);
+    box-shadow: 0 9px 19px rgba(15, 23, 42, .2);
 }
 
 .dashboard-quick-access-item:focus-visible {
-    outline: 3px solid #287b80;
-    outline-offset: 2px;
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 5px #0b1f3a, 0 8px 18px rgba(15, 23, 42, .2);
+}
+
+.dashboard-quick-access-item--incident {
+    --quick-access-color: #b42318;
+}
+
+.dashboard-quick-access-item--incidents {
+    --quick-access-color: #175a91;
+}
+
+.dashboard-quick-access-item--emergency {
+    --quick-access-color: #c2410c;
+}
+
+.dashboard-quick-access-item--officers {
+    --quick-access-color: #0f766e;
+}
+
+.dashboard-quick-access-item--announcements {
+    --quick-access-color: #6d28d9;
+}
+
+.dashboard-quick-access-item--notifications {
+    --quick-access-color: #a16207;
+}
+
+.dashboard-quick-access-item--reports {
+    --quick-access-color: #15803d;
 }
 
 .dashboard-report-actions {
@@ -770,17 +800,6 @@
     color: #e2e8f0;
 }
 
-[data-theme="dark"].dashboard-app .dashboard-quick-access-item {
-    border-color: #475569;
-    background: #1e293b;
-    color: #e2e8f0;
-}
-
-[data-theme="dark"].dashboard-app .dashboard-quick-access-item:hover {
-    border-color: #6fc7c1;
-    background: #20383e;
-}
-
 @media (max-width: 520px) {
     .dashboard-quick-access-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -791,6 +810,16 @@
         min-height: 56px;
         padding: 10px;
         font-size: 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-quick-access-item {
+        transition: none;
+    }
+
+    .dashboard-quick-access-item:hover {
+        transform: none;
     }
 }
 

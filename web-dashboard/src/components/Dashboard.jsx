@@ -1113,13 +1113,13 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     },
   ];
   const quickAccessItems = [
-    ...(canReportIncident ? [{ label: 'Report incident', icon: ReportProblemOutlined, action: () => setCreateOpen(true) }] : []),
-    { label: 'View incidents', icon: ReportProblemOutlined, action: () => navigate('/incidents/active') },
-    { label: 'Emergency / SOS', icon: WarningAmberOutlined, action: () => navigate('/sos') },
-    ...(canViewOperations ? [{ label: 'Officers', icon: PeopleAltOutlined, action: () => navigate('/officers') }] : []),
-    { label: 'Announcements', icon: CampaignOutlined, action: () => navigate('/announcements') },
-    { label: 'Notifications', icon: NotificationsOutlined, action: () => navigate('/notifications') },
-    ...((canViewOperations || isStudent) ? [{ label: 'Reports', icon: InsightsOutlined, action: () => navigate('/analytics') }] : []),
+    ...(canReportIncident ? [{ label: 'Report incident', tone: 'incident', icon: ReportProblemOutlined, action: () => setCreateOpen(true) }] : []),
+    { label: 'View incidents', tone: 'incidents', icon: ReportProblemOutlined, action: () => navigate('/incidents/active') },
+    { label: 'Emergency / SOS', tone: 'emergency', icon: WarningAmberOutlined, action: () => navigate('/sos') },
+    ...(canViewOperations ? [{ label: 'Officers', tone: 'officers', icon: PeopleAltOutlined, action: () => navigate('/officers') }] : []),
+    { label: 'Announcements', tone: 'announcements', icon: CampaignOutlined, action: () => navigate('/announcements') },
+    { label: 'Notifications', tone: 'notifications', icon: NotificationsOutlined, action: () => navigate('/notifications') },
+    ...((canViewOperations || isStudent) ? [{ label: 'Reports', tone: 'reports', icon: InsightsOutlined, action: () => navigate('/analytics') }] : []),
   ];
   const exportRecentIncidents = () => {
     try {
@@ -1243,8 +1243,8 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
           <h2>Quick access</h2>
         </div>
         <div className="dashboard-quick-access-grid">
-          {quickAccessItems.map(({ label, icon: Icon, action }) => (
-            <button key={label} type="button" className="dashboard-quick-access-item" onClick={action}>
+          {quickAccessItems.map(({ label, tone, icon: Icon, action }) => (
+            <button key={label} type="button" className={`dashboard-quick-access-item dashboard-quick-access-item--${tone}`} onClick={action}>
               <Icon aria-hidden="true" />
               <span>{label}</span>
             </button>

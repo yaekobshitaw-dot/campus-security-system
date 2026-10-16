@@ -3717,3 +3717,122 @@ em {
 [data-theme="dark"].public-app .feature-gallery-item img {
     background-color: #152126;
 }
+
+.inner-page.about-page,
+.inner-page.contact-page {
+    position: relative;
+    isolation: isolate;
+}
+
+.about-page .page-heading,
+.contact-page .page-heading,
+.contact-page .contact-form {
+    position: relative;
+    z-index: 1;
+}
+
+.about-page .about-grid,
+.contact-page .contact-grid {
+    display: block;
+}
+
+.about-page .about-grid {
+    min-height: clamp(620px, 82svh, 820px);
+}
+
+.contact-page .contact-grid {
+    min-height: clamp(640px, 86svh, 900px);
+}
+
+.about-page .about-copy,
+.contact-page .contact-details {
+    position: relative;
+    z-index: 1;
+    max-width: 540px;
+    margin-left: auto;
+}
+
+.about-page .about-grid > .page-image-carousel,
+.contact-page .contact-grid > .page-image-carousel {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    z-index: 0;
+    width: 100vw;
+    height: clamp(700px, 100svh, 940px);
+    border-radius: 0;
+    background: #152b39;
+    transform: translateX(-50%);
+}
+
+.contact-page .contact-grid > .page-image-carousel {
+    height: clamp(820px, 122svh, 1180px);
+}
+
+.about-page .page-image-carousel::after,
+.contact-page .page-image-carousel::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(8, 20, 28, .82), rgba(8, 20, 28, .58) 58%, rgba(8, 20, 28, .48)), linear-gradient(0deg, rgba(8, 20, 28, .62), transparent 46%, rgba(8, 20, 28, .28));
+    content: '';
+    pointer-events: none;
+}
+
+.about-page .page-image-carousel .page-image-slide img,
+.contact-page .page-image-carousel .page-image-slide img {
+    object-fit: cover;
+}
+
+.about-page .page-image-carousel img[src*="campus-security-about-"] {
+    object-position: center 45%;
+}
+
+.contact-page .page-image-carousel img[src*="campus-security-contact"] {
+    object-fit: contain;
+    background: #152b39;
+}
+
+.about-page .page-heading .eyebrow,
+.contact-page .page-heading .eyebrow,
+.about-page .page-heading h1,
+.contact-page .page-heading h1,
+.public-app .inner-page.about-page .page-heading p:last-child,
+.public-app .inner-page.contact-page .page-heading p:last-child {
+    color: #fff;
+}
+
+.public-app .inner-page.about-page .about-copy,
+.public-app .inner-page.about-page .about-copy p,
+.public-app .inner-page.about-page .about-points {
+    color: #fff;
+}
+
+.about-page .page-heading h1,
+.contact-page .page-heading h1,
+.public-app .inner-page.about-page .page-heading p:last-child,
+.public-app .inner-page.contact-page .page-heading p:last-child,
+.public-app .inner-page.about-page .about-copy p {
+    text-shadow: 0 1px 12px rgba(0, 0, 0, .52);
+}
+
+.about-page .page-image-control,
+.about-page .page-image-indicators,
+.contact-page .page-image-control,
+.contact-page .page-image-indicators {
+    z-index: 2;
+}
+
+.contact-page .contact-form {
+    margin-top: 42px;
+    box-shadow: 0 12px 32px rgba(8, 20, 28, .2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .about-page .page-image-slide,
+    .contact-page .page-image-slide,
+    .about-page .page-image-indicators,
+    .contact-page .page-image-indicators {
+        transition: none;
+    }
+}
