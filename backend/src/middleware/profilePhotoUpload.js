@@ -41,13 +41,13 @@ const uploadProfilePhoto = multer({
     limits: { files: 1, fileSize: 5 * 1024 * 1024 }
 });
 
-const validateProfilePhotoContent = (req, res, next) => Promise.resolve().then(async () => {
+const validateProfilePhotoContent = (req, res, next) => Promise.resolve().then(async() => {
     if (!req.file || await hasValidImageSignature(req.file.path, req.file.mimetype)) return;
     const error = new Error('Profile photo content does not match its image type');
     error.statusCode = 400;
     error.code = 'INVALID_PROFILE_PHOTO_CONTENT';
     throw error;
-}).then(() => next()).catch(async (error) => {
+}).then(() => next()).catch(async(error) => {
     if (req.file?.path && path.resolve(req.file.path) === path.resolve(profilePhotoDirectory, req.file.filename)) {
         await fs.promises.unlink(req.file.path).catch(() => undefined);
     }

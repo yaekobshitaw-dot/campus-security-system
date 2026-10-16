@@ -11,8 +11,10 @@ import Mail from '@mui/icons-material/Email';
 import MapPin from '@mui/icons-material/LocationOn';
 import LockKeyhole from '@mui/icons-material/Lock';
 import Menu from '@mui/icons-material/Menu';
+import Pause from '@mui/icons-material/Pause';
 import BellRing from '@mui/icons-material/NotificationsActive';
 import Phone from '@mui/icons-material/Phone';
+import PlayArrow from '@mui/icons-material/PlayArrow';
 import BrainCircuit from '@mui/icons-material/Psychology';
 import Radar from '@mui/icons-material/Radar';
 import Siren from '@mui/icons-material/ReportProblem';
@@ -335,6 +337,12 @@ const translations = {
 const featureTitle = (feature, language) => language === 'am' ? feature.amTitle : feature.title;
 const featureText = (feature, language) => language === 'am' ? feature.amText : feature.text;
 const featureImagesPath = (filename) => `/images/features/${filename}`;
+const featureGalleryImages = [0, 1, 2].flatMap((index) => features.map((feature) => ({
+  feature,
+  filename: feature.images[index],
+  imageNumber: index + 1,
+})));
+const featureGalleryPageSize = (viewportWidth) => viewportWidth >= 1200 ? 8 : viewportWidth >= 768 ? 6 : 4;
 
 // Real campus photos used in the rotating hero carousel.
 // Place the matching image files in your project's public/images/ folder
@@ -1041,18 +1049,102 @@ function FeatureCard({ feature, index, language, revealIndex }) {
   );
 }
 
-function FeatureImageGallery({ feature, language }) {
-  const title = featureTitle(feature, language);
+function FeatureImageGallery({ language, featureId }) {
+  const [firstImageIndex, setFirstImageIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(() => featureGalleryPageSize(window.innerWidth));
+  const [paused, setPaused] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => (
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ));
+
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      const nextCount = featureGalleryPageSize(window.innerWidth);
+      setVisibleCount((currentCount) => currentCount === nextCount ? currentCount : nextCount);
+      setFirstImageIndex((currentIndex) => Math.floor(currentIndex / nextCount) * nextCount);
+    };
+    window.addEventListener('resize', updateVisibleCount);
+    return () => window.removeEventListener('resize', updateVisibleCount);
+  }, []);
+
+  useEffect(() => {
+    const targetIndex = featureGalleryImages.findIndex((image) => (
+      image.feature.id === featureId && image.imageNumber === 1
+    ));
+    if (targetIndex < 0) return;
+    setFirstImageIndex(Math.floor(targetIndex / visibleCount) * visibleCount);
+  }, [featureId, visibleCount]);
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!motionPreference) return undefined;
+    const updateMotionPreference = () => setPrefersReducedMotion(motionPreference.matches);
+    if (motionPreference.addEventListener) motionPreference.addEventListener('change', updateMotionPreference);
+    else motionPreference.addListener?.(updateMotionPreference);
+    return () => {
+      if (motionPreference.removeEventListener) motionPreference.removeEventListener('change', updateMotionPreference);
+      else motionPreference.removeListener?.(updateMotionPreference);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (paused || prefersReducedMotion) return undefined;
+    const intervalId = window.setInterval(() => {
+      setFirstImageIndex((currentIndex) => (currentIndex + visibleCount) % featureGalleryImages.length);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [paused, prefersReducedMotion, visibleCount]);
+
+  const visibleImages = Array.from({ length: visibleCount }, (_, index) => (
+    featureGalleryImages[(firstImageIndex + index) % featureGalleryImages.length]
+  ));
+  const visibleFeatureIds = new Set(visibleImages
+    .filter((image) => image.imageNumber === 1)
+    .map((image) => image.feature.id));
+  const moveImages = (direction) => setFirstImageIndex((currentIndex) => (
+    (currentIndex + direction * visibleCount + featureGalleryImages.length) % featureGalleryImages.length
+  ));
+  const pauseLabel = prefersReducedMotion
+    ? 'Automatic rotation disabled by reduced motion preference'
+    : paused ? 'Resume automatic image rotation' : 'Pause automatic image rotation';
+
   return (
-    <section className="feature-gallery-group" aria-labelledby={`feature-gallery-${feature.id}`}>
-      <h2 id={`feature-gallery-${feature.id}`}>{title}</h2>
-      <div className="feature-gallery-grid">
-        {feature.images.map((image, index) => (
-          <figure className="feature-gallery-item" key={image}>
-            <img src={featureImagesPath(image)} alt={`${title}, image ${index + 1}`} loading="lazy" />
-            <figcaption><span>{title}</span><span>Image {index + 1}</span></figcaption>
-          </figure>
+    <section className="feature-gallery" aria-label="Feature image gallery" aria-roledescription="carousel">
+      <div className="sr-only" aria-hidden="true">
+        {features.filter((feature) => !visibleFeatureIds.has(feature.id)).map((feature) => (
+          <span id={feature.id} key={feature.id} />
         ))}
+      </div>
+      <div className="feature-gallery-grid" data-visible-count={visibleCount} aria-live="off">
+        {visibleImages.map(({ feature, filename, imageNumber }, index) => {
+          const title = featureTitle(feature, language);
+          return (
+            <figure id={imageNumber === 1 ? feature.id : undefined} className="feature-gallery-item" key={filename} style={{ animationDelay: `${index * 24}ms` }}>
+              <img src={featureImagesPath(filename)} alt={`${title}, image ${imageNumber}`} />
+              <figcaption><span>{title}</span><span>Image {imageNumber} of {feature.images.length}</span></figcaption>
+            </figure>
+          );
+        })}
+      </div>
+      <div className="feature-gallery-controls" role="group" aria-label="Feature image controls">
+        <button className="feature-gallery-control" type="button" aria-label="Previous images" onClick={() => moveImages(-1)}>
+          <ChevronLeft aria-hidden="true" />
+        </button>
+        <span className="feature-gallery-count">{firstImageIndex + 1}-{firstImageIndex + visibleCount} / {featureGalleryImages.length}</span>
+        <button className="feature-gallery-control" type="button" aria-label="Next images" onClick={() => moveImages(1)}>
+          <ChevronRight aria-hidden="true" />
+        </button>
+        <button
+          className="feature-gallery-control"
+          type="button"
+          aria-label={pauseLabel}
+          aria-pressed={paused || prefersReducedMotion}
+          title={pauseLabel}
+          disabled={prefersReducedMotion}
+          onClick={() => setPaused((currentPaused) => !currentPaused)}
+        >
+          {paused ? <PlayArrow aria-hidden="true" /> : <Pause aria-hidden="true" />}
+        </button>
       </div>
     </section>
   );
@@ -1066,8 +1158,8 @@ function AboutPage({ copy }) {
   </>;
 }
 
-function FeaturesPage({ language, copy }) {
-  return <PageFrame eyebrow={copy.featuresEyebrow} title={<>{copy.featuresTitle} <em>{copy.featuresTitleAccent}</em></>} intro={copy.featuresIntro} pageClass="features-page"><div className="feature-gallery">{features.map((feature) => <FeatureImageGallery key={feature.id} feature={feature} language={language} />)}</div></PageFrame>;
+function FeaturesPage({ language, copy, featureId }) {
+  return <PageFrame eyebrow={copy.featuresEyebrow} title={<>{copy.featuresTitle} <em>{copy.featuresTitleAccent}</em></>} intro={copy.featuresIntro} pageClass="features-page"><FeatureImageGallery language={language} featureId={featureId} /></PageFrame>;
 }
 
 function ContactPage({ copy }) {
@@ -1222,7 +1314,7 @@ export default function PublicSite({ user, onLogout, page = 'home' }) {
     };
   }, [page]);
 
-  const content = page === 'about' ? <AboutPage copy={copy} /> : page === 'features' ? <FeaturesPage language={language} copy={copy} /> : page === 'contact' ? <ContactPage copy={copy} /> : <HomePage language={language} copy={copy} />;
+  const content = page === 'about' ? <AboutPage copy={copy} /> : page === 'features' ? <FeaturesPage language={language} copy={copy} featureId={location.hash.slice(1)} /> : page === 'contact' ? <ContactPage copy={copy} /> : <HomePage language={language} copy={copy} />;
   const pageClass = page === 'home' ? ' public-app-home' : page === 'about' || page === 'contact' ? ` public-app-${page}` : '';
   return <div ref={publicAppRef} className={`public-app${pageClass}${language === 'am' ? ' language-am' : ''}`} lang={language}><PublicNav user={user} onLogout={onLogout} language={language} onLanguageChange={setCurrentLanguage} copy={copy} />{content}<PublicFooter copy={copy} /></div>;
 }

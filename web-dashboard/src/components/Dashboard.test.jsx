@@ -97,6 +97,22 @@ describe('Dashboard', () => {
     expect(footer.children[2]).toHaveClass('dashboard-footer-version');
   });
 
+  it('keeps sidebar navigation inside an independently scrollable area', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <DashboardLayout user={{ user_id: 'admin-1', role: 'admin', name: 'Admin Test' }}>
+          <div>Dashboard content</div>
+        </DashboardLayout>
+      </MemoryRouter>,
+    );
+    const sidebar = container.querySelector('.dashboard-sidebar');
+    const navigation = sidebar.querySelector('.dashboard-sidebar-navigation');
+
+    expect(sidebar).toHaveClass('overflow-hidden', 'lg:flex', 'lg:flex-col');
+    expect(navigation).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');
+    expect(navigation.querySelectorAll('.dashboard-nav-item').length).toBeGreaterThan(0);
+  });
+
   it('makes Contacts available to authenticated non-admin users without exposing User management', () => {
     render(
       <MemoryRouter>

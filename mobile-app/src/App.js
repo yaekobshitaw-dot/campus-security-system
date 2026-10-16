@@ -69,7 +69,7 @@ function AppContent() {
   }, [dispatch, notificationPreferences]);
 
   useEffect(() => {
-    if (!isOfficerLocationRole(userRole) || !notificationPreferences.shareLocation) {
+    if (!isAuthenticated || !isOfficerLocationRole(userRole) || !notificationPreferences.shareLocation) {
       setOfficerLocationError(null);
       return undefined;
     }
@@ -78,7 +78,7 @@ function AppContent() {
       dataSaving: notificationPreferences.dataSaving,
       onStatusChange: setOfficerLocationError,
     });
-  }, [userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
+  }, [isAuthenticated, userRole, notificationPreferences.shareLocation, notificationPreferences.dataSaving]);
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;

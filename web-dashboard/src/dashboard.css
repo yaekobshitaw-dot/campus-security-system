@@ -2921,6 +2921,7 @@
 @media (min-width: 1024px) {
     .dashboard-app {
         height: 100vh;
+        height: 100dvh;
         min-height: 0;
         overflow: hidden;
     }

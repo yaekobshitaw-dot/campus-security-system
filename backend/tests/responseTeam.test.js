@@ -7,240 +7,244 @@ const { authorize } = require('../src/middleware/auth');
 const originalUserFindAll = User.findAll;
 const originalResponseFindAll = Response.findAll;
 const securityOfficerHandler = userRoutes.stack
-  .find((layer) => layer.route?.path === '/security-officers')
-  .route.stack.at(-1).handle;
+    .find((layer) => layer.route?.path === '/security-officers')
+    .route.stack.at(-1).handle;
 const locationHandler = userRoutes.stack
-  .find((layer) => layer.route?.path === '/me/location')
-  .route.stack.at(-1).handle;
+    .find((layer) => layer.route?.path === '/me/location')
+    .route.stack.at(-1).handle;
 
 const makeResponse = () => ({
-  statusCode: null,
-  payload: null,
-  status(code) { this.statusCode = code; return this; },
-  json(payload) { this.payload = payload; return payload; }
+    statusCode: null,
+    payload: null,
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return payload; }
 });
 
 const officer = (overrides = {}) => {
-  const value = {
-    user_id: 'officer-1',
-    name: 'Officer Test',
-    role: 'security',
-    latitude: 9.02,
-    longitude: 38.75,
-    availability_status: 'available',
-    location_updated_at: new Date(),
-    ...overrides
-  };
-  return { ...value, toJSON: () => ({ ...value }) };
+    const value = {
+        user_id: 'officer-1',
+        name: 'Officer Test',
+        role: 'security',
+        latitude: 9.02,
+        longitude: 38.75,
+        availability_status: 'available',
+        location_updated_at: new Date(),
+        ...overrides
+    };
+    return {...value, toJSON: () => ({...value }) };
 };
 
 test.afterEach(() => {
-  User.findAll = originalUserFindAll;
-  Response.findAll = originalResponseFindAll;
+    User.findAll = originalUserFindAll;
+    Response.findAll = originalResponseFindAll;
 });
 
-test('returns active security officers with live and responding state', async () => {
-  User.findAll = async () => [officer()];
-  Response.findAll = async () => [{ responder_id: 'officer-1' }];
-  const response = makeResponse();
+test('returns active security officers with live and responding state', async() => {
+    User.findAll = async() => [officer()];
+    Response.findAll = async() => [{ responder_id: 'officer-1' }];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(response.payload.data[0].availability_status, 'responding');
-  assert.equal(response.payload.data[0].location_status, 'live');
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.payload.data[0].availability_status, 'responding');
+    assert.equal(response.payload.data[0].location_status, 'live');
 });
 
-test('returns online and available for a web-connected officer without valid location', async () => {
-  User.findAll = async () => [officer({ latitude: null, longitude: null, availability_status: 'available', location_updated_at: null })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
-  const req = { app: { get: () => ({ presence: new Map([[ 'officer-1', { count: 1, lastSeen: Date.now() } ]]) }) }, user: { role: 'security' } };
+test('returns online and available for a web-connected officer without valid location', async() => {
+    User.findAll = async() => [officer({ latitude: null, longitude: null, availability_status: 'available', location_updated_at: null })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
+    const req = { app: { get: () => ({ presence: new Map([
+                    ['officer-1', { count: 1, lastSeen: Date.now() }]
+                ]) }) }, user: { role: 'security' } };
 
-  await securityOfficerHandler(req, response);
+    await securityOfficerHandler(req, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].presence, true);
-  assert.equal(response.payload.data[0].location_status, 'unavailable');
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].presence, true);
+    assert.equal(response.payload.data[0].location_status, 'unavailable');
 });
 
-test('keeps an officer online while another authenticated socket for the same user remains connected', async () => {
-  User.findAll = async () => [officer({ availability_status: 'available' })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
-  const req = { app: { get: () => ({ presence: new Map([[ 'officer-1', { count: 2, lastSeen: Date.now() } ]]) }) }, user: { role: 'admin' } };
+test('keeps an officer online while another authenticated socket for the same user remains connected', async() => {
+    User.findAll = async() => [officer({ availability_status: 'available' })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
+    const req = { app: { get: () => ({ presence: new Map([
+                    ['officer-1', { count: 2, lastSeen: Date.now() }]
+                ]) }) }, user: { role: 'admin' } };
 
-  await securityOfficerHandler(req, response);
+    await securityOfficerHandler(req, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].presence, true);
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].presence, true);
 });
 
-test('marks stale valid coordinates as last known and keeps available officer available', async () => {
-  User.findAll = async () => [officer({ location_updated_at: new Date(Date.now() - 10 * 60 * 1000) })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('marks stale valid coordinates as last known and keeps available officer available', async() => {
+    User.findAll = async() => [officer({ location_updated_at: new Date(Date.now() - 10 * 60 * 1000) })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  // DB availability 'available' should not be overridden by stale location
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].location_status, 'last_known');
-  assert.equal(response.payload.data[0].location_is_stale, true);
+    // DB availability 'available' should not be overridden by stale location
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].location_status, 'last_known');
+    assert.equal(response.payload.data[0].location_is_stale, true);
 });
 
-test('does not mark a recent offline location as stale', async () => {
-  User.findAll = async () => [officer({ availability_status: 'offline', location_updated_at: new Date() })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('does not mark a recent offline location as stale', async() => {
+    User.findAll = async() => [officer({ availability_status: 'offline', location_updated_at: new Date() })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].location_status, 'last_known');
-  assert.equal(response.payload.data[0].location_is_stale, false);
+    assert.equal(response.payload.data[0].location_status, 'last_known');
+    assert.equal(response.payload.data[0].location_is_stale, false);
 });
 
-test('rejects invalid coordinates from being shown as current', async () => {
-  User.findAll = async () => [officer({ latitude: 999, longitude: 38.75 })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('rejects invalid coordinates from being shown as current', async() => {
+    User.findAll = async() => [officer({ latitude: 999, longitude: 38.75 })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  // Invalid coordinates should not make an otherwise-available officer offline
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].location_status, 'unavailable');
+    // Invalid coordinates should not make an otherwise-available officer offline
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].location_status, 'unavailable');
 });
 
-test('does not mark an officer responding after the incident is resolved', async () => {
-  User.findAll = async () => [officer()];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('does not mark an officer responding after the incident is resolved', async() => {
+    User.findAll = async() => [officer()];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].availability_status, 'available');
 });
 
 // Assignable flag tests
-test('available officer → assignable === true', async () => {
-  User.findAll = async () => [officer({ availability_status: 'available' })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('available officer → assignable === true', async() => {
+    User.findAll = async() => [officer({ availability_status: 'available' })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].assignable, true);
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].assignable, true);
 });
 
-test('responding officer → assignable === false', async () => {
-  User.findAll = async () => [officer({ availability_status: 'responding' })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('responding officer → assignable === false', async() => {
+    User.findAll = async() => [officer({ availability_status: 'responding' })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'responding');
-  assert.equal(response.payload.data[0].assignable, false);
+    assert.equal(response.payload.data[0].availability_status, 'responding');
+    assert.equal(response.payload.data[0].assignable, false);
 });
 
-test('busy officer → assignable === false', async () => {
-  User.findAll = async () => [officer({ availability_status: 'busy' })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('busy officer → assignable === false', async() => {
+    User.findAll = async() => [officer({ availability_status: 'busy' })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'busy');
-  assert.equal(response.payload.data[0].assignable, false);
+    assert.equal(response.payload.data[0].availability_status, 'busy');
+    assert.equal(response.payload.data[0].assignable, false);
 });
 
-test('offline officer → assignable === false', async () => {
-  User.findAll = async () => [officer({ availability_status: 'offline', latitude: null, longitude: null, location_updated_at: null })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('offline officer → assignable === false', async() => {
+    User.findAll = async() => [officer({ availability_status: 'offline', latitude: null, longitude: null, location_updated_at: null })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'offline');
-  assert.equal(response.payload.data[0].assignable, false);
+    assert.equal(response.payload.data[0].availability_status, 'offline');
+    assert.equal(response.payload.data[0].assignable, false);
 });
 
-test('stale/missing location does NOT change assignable', async () => {
-  User.findAll = async () => [officer({ availability_status: 'available', location_updated_at: new Date(Date.now() - 10 * 60 * 1000) })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('stale/missing location does NOT change assignable', async() => {
+    User.findAll = async() => [officer({ availability_status: 'available', location_updated_at: new Date(Date.now() - 10 * 60 * 1000) })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].assignable, true);
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].assignable, true);
 });
 
-test('missing Socket.IO presence does NOT change assignable', async () => {
-  User.findAll = async () => [officer({ availability_status: 'available' })];
-  Response.findAll = async () => [];
-  const response = makeResponse();
+test('missing Socket.IO presence does NOT change assignable', async() => {
+    User.findAll = async() => [officer({ availability_status: 'available' })];
+    Response.findAll = async() => [];
+    const response = makeResponse();
 
-  await securityOfficerHandler({ app: { get: () => null }, user: { role: 'admin' } }, response);
+    await securityOfficerHandler({ app: { get: () => null }, user: { role: 'admin' } }, response);
 
-  assert.equal(response.payload.data[0].availability_status, 'available');
-  assert.equal(response.payload.data[0].assignable, true);
+    assert.equal(response.payload.data[0].availability_status, 'available');
+    assert.equal(response.payload.data[0].assignable, true);
 });
 
 test('requires security or admin authorization for officer operations', () => {
-  const response = makeResponse();
-  let nextCalled = false;
-  authorize('security', 'admin')({ user: { role: 'student' } }, response, () => { nextCalled = true; });
+    const response = makeResponse();
+    let nextCalled = false;
+    authorize('security', 'admin')({ user: { role: 'student' } }, response, () => { nextCalled = true; });
 
-  assert.equal(nextCalled, false);
-  assert.equal(response.statusCode, 403);
+    assert.equal(nextCalled, false);
+    assert.equal(response.statusCode, 403);
 });
 
-test('rejects invalid GPS coordinates and persists a valid update for the second security officer', async () => {
-  const invalidResponse = makeResponse();
-  await locationHandler({ body: { latitude: 91, longitude: 38.75 }, user: { availability_status: 'responding' } }, invalidResponse);
-  assert.equal(invalidResponse.statusCode, 400);
+test('rejects invalid GPS coordinates and persists a valid update for the second security officer', async() => {
+    const invalidResponse = makeResponse();
+    await locationHandler({ body: { latitude: 91, longitude: 38.75 }, user: { availability_status: 'responding' } }, invalidResponse);
+    assert.equal(invalidResponse.statusCode, 400);
 
-  const user = {
-    user_id: 'officer-1',
-    name: 'secureOffline',
-    role: 'security',
-    availability_status: 'responding',
-    latitude: null,
-    longitude: null,
-    location_updated_at: null,
-    async update(values) { Object.assign(this, values); }
-  };
-  const validResponse = makeResponse();
-  const capturedAt = new Date();
-  await locationHandler({ body: { latitude: 9.02, longitude: 38.75, location_timestamp: capturedAt.toISOString() }, user, app: { get: () => null } }, validResponse);
-  assert.equal(validResponse.statusCode, 200);
-  assert.equal(validResponse.payload.data.availability_status, 'responding');
-  assert.equal(validResponse.payload.data.latitude, 9.02);
-  assert.equal(new Date(validResponse.payload.data.location_updated_at).getTime(), capturedAt.getTime());
+    const user = {
+        user_id: 'officer-1',
+        name: 'secureOffline',
+        role: 'security',
+        availability_status: 'responding',
+        latitude: null,
+        longitude: null,
+        location_updated_at: null,
+        async update(values) { Object.assign(this, values); }
+    };
+    const validResponse = makeResponse();
+    const capturedAt = new Date();
+    await locationHandler({ body: { latitude: 9.02, longitude: 38.75, location_timestamp: capturedAt.toISOString() }, user, app: { get: () => null } }, validResponse);
+    assert.equal(validResponse.statusCode, 200);
+    assert.equal(validResponse.payload.data.availability_status, 'responding');
+    assert.equal(validResponse.payload.data.latitude, 9.02);
+    assert.equal(new Date(validResponse.payload.data.location_updated_at).getTime(), capturedAt.getTime());
 });
 
-test('rejects stale device coordinates without persisting them as current', async () => {
-  let updateCalled = false;
-  const user = {
-    user_id: 'officer-1',
-    availability_status: 'available',
-    latitude: null,
-    longitude: null,
-    location_updated_at: null,
-    async update() { updateCalled = true; }
-  };
-  const response = makeResponse();
+test('rejects stale device coordinates without persisting them as current', async() => {
+    let updateCalled = false;
+    const user = {
+        user_id: 'officer-1',
+        availability_status: 'available',
+        latitude: null,
+        longitude: null,
+        location_updated_at: null,
+        async update() { updateCalled = true; }
+    };
+    const response = makeResponse();
 
-  await locationHandler({
-    body: { latitude: 9.02, longitude: 38.75, location_timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString() },
-    user,
-    app: { get: () => null }
-  }, response);
+    await locationHandler({
+        body: { latitude: 9.02, longitude: 38.75, location_timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString() },
+        user,
+        app: { get: () => null }
+    }, response);
 
-  assert.equal(response.statusCode, 400);
-  assert.equal(response.payload.message, 'Location fix is stale. Please try again.');
-  assert.equal(updateCalled, false);
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.payload.message, 'Location fix is stale. Please try again.');
+    assert.equal(updateCalled, false);
 });

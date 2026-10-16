@@ -462,7 +462,7 @@ function Sidebar({ user, activeSection, language, selectedGroupId, onSelectGroup
   );
   return (
     <aside className="dashboard-sidebar hidden min-h-0 w-[280px] shrink-0 overflow-hidden text-white lg:flex lg:flex-col">
-      <div className="dashboard-sidebar-navigation flex min-h-0 flex-1 flex-col gap-1 px-3 py-4">
+      <div className="dashboard-sidebar-navigation flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
         {visibleGroups.map((group) => {
           const { id, icon: Icon } = group;
           const isSelected = selectedGroupId === id;

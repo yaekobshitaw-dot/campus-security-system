@@ -54,6 +54,7 @@ const featureIds = [
   'incident-tracking',
   'analytics-monitoring'
 ];
+const defaultViewportWidth = window.innerWidth;
 
 function renderPublicSite(page = 'home') {
   const initialPath = page === 'home' ? '/' : `/${page}`;
@@ -84,6 +85,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  window.innerWidth = defaultViewportWidth;
 });
 
 describe('Public site', () => {
@@ -316,16 +318,80 @@ describe('Public site', () => {
     expect(new Set([...seenByFeature.values()].flatMap((images) => [...images]))).toHaveLength(24);
   });
 
-  it('renders all 24 feature images together in the responsive features gallery', () => {
-    const { container } = renderPublicSite('features');
-    const images = Array.from(container.querySelectorAll('.feature-gallery-item img'));
-    const expectedSources = featureIds.flatMap((id) => [1, 2, 3].map((index) => `/images/features/${id}-${index}.jpg`));
+  it('shows eight desktop images and rotates through all 24 every second', () => {
+    vi.useFakeTimers();
+    window.innerWidth = 1440;
+    const { container, unmount } = renderPublicSite('features');
+    const gallery = container.querySelector('.feature-gallery-grid');
+    const visibleImages = () => Array.from(gallery.querySelectorAll('img')).map((image) => image.getAttribute('src'));
+    const seenImages = new Set(visibleImages());
+    const firstGroup = visibleImages();
 
-    expect(images).toHaveLength(24);
-    expect(images.map((image) => image.getAttribute('src'))).toEqual(expectedSources);
-    expect(new Set(images.map((image) => image.getAttribute('src'))).size).toBe(24);
-    expect(container.querySelectorAll('.feature-gallery-item figcaption')).toHaveLength(24);
-    expect(container.querySelectorAll('.feature-gallery-group')).toHaveLength(8);
+    expect(gallery).toHaveAttribute('data-visible-count', '8');
+    expect(firstGroup).toHaveLength(8);
+    expect(screen.getByRole('button', { name: 'Previous images' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next images' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pause automatic image rotation' })).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(999));
+    expect(visibleImages()).toEqual(firstGroup);
+    for (let group = 0; group < 3; group += 1) {
+      act(() => vi.advanceTimersByTime(1000));
+      expect(visibleImages()).toHaveLength(8);
+      visibleImages().forEach((source) => seenImages.add(source));
+    }
+
+    expect(visibleImages()).toEqual(firstGroup);
+    expect(seenImages).toHaveLength(24);
+    featureIds.flatMap((id) => [1, 2, 3].map((index) => `/images/features/${id}-${index}.jpg`))
+      .forEach((source) => expect(seenImages.has(source)).toBe(true));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause automatic image rotation' }));
+    const pausedGroup = visibleImages();
+    expect(screen.getByRole('button', { name: 'Resume automatic image rotation' })).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(visibleImages()).toEqual(pausedGroup);
+    fireEvent.click(screen.getByRole('button', { name: 'Resume automatic image rotation' }));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(visibleImages()).not.toEqual(pausedGroup);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('reduces visible image count for phone and tablet widths', () => {
+    window.innerWidth = 390;
+    const { container } = renderPublicSite('features');
+    const gallery = container.querySelector('.feature-gallery-grid');
+
+    expect(gallery.querySelectorAll('img')).toHaveLength(4);
+    expect(gallery).toHaveAttribute('data-visible-count', '4');
+    window.innerWidth = 900;
+    fireEvent(window, new Event('resize'));
+    expect(gallery.querySelectorAll('img')).toHaveLength(6);
+    expect(gallery).toHaveAttribute('data-visible-count', '6');
+    window.innerWidth = 1440;
+    fireEvent(window, new Event('resize'));
+    expect(gallery.querySelectorAll('img')).toHaveLength(8);
+    expect(gallery).toHaveAttribute('data-visible-count', '8');
+  });
+
+  it('does not auto-rotate when reduced motion is preferred but keeps manual controls', () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
+    window.innerWidth = 1440;
+    const { container } = renderPublicSite('features');
+    const gallery = container.querySelector('.feature-gallery-grid');
+    const initialImages = Array.from(gallery.querySelectorAll('img')).map((image) => image.getAttribute('src'));
+
+    expect(screen.getByRole('button', { name: 'Automatic rotation disabled by reduced motion preference' })).toBeDisabled();
+    act(() => vi.advanceTimersByTime(3000));
+    expect(Array.from(gallery.querySelectorAll('img')).map((image) => image.getAttribute('src'))).toEqual(initialImages);
+    fireEvent.click(screen.getByRole('button', { name: 'Next images' }));
+    expect(Array.from(gallery.querySelectorAll('img')).map((image) => image.getAttribute('src'))).not.toEqual(initialImages);
   });
 
   it('keeps feature slides still when reduced motion is preferred', () => {
@@ -371,7 +437,8 @@ describe('Public site', () => {
     featureIds.forEach((id) => expect(featureMenuItems.some((item) => item.getAttribute('href') === `/features#${id}`)).toBe(true));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Emergency Response' }));
     expect(screen.getByRole('heading', { name: /A complete picture of/ })).toBeInTheDocument();
-    expect(document.querySelectorAll('.features-page .feature-card')).toHaveLength(8);
+    expect(document.getElementById('emergency-response')).toBeInTheDocument();
+    expect(document.querySelectorAll('.features-page .feature-gallery-item')).toHaveLength(6);
   });
 
 
