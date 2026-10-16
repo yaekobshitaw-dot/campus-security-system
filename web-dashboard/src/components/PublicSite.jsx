@@ -1041,6 +1041,23 @@ function FeatureCard({ feature, index, language, revealIndex }) {
   );
 }
 
+function FeatureImageGallery({ feature, language }) {
+  const title = featureTitle(feature, language);
+  return (
+    <section className="feature-gallery-group" aria-labelledby={`feature-gallery-${feature.id}`}>
+      <h2 id={`feature-gallery-${feature.id}`}>{title}</h2>
+      <div className="feature-gallery-grid">
+        {feature.images.map((image, index) => (
+          <figure className="feature-gallery-item" key={image}>
+            <img src={featureImagesPath(image)} alt={`${title}, image ${index + 1}`} loading="lazy" />
+            <figcaption><span>{title}</span><span>Image {index + 1}</span></figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function AboutPage({ copy }) {
   return <>
     <PageFrame eyebrow={copy.aboutEyebrow} title={<>{copy.aboutTitleStart} <em>{copy.aboutTitleAccent}</em> {copy.aboutTitleEnd}</>} intro={copy.aboutIntro} pageClass="about-page">
@@ -1050,7 +1067,7 @@ function AboutPage({ copy }) {
 }
 
 function FeaturesPage({ language, copy }) {
-  return <PageFrame eyebrow={copy.featuresEyebrow} title={<>{copy.featuresTitle} <em>{copy.featuresTitleAccent}</em></>} intro={copy.featuresIntro} pageClass="features-page"><div className="feature-grid feature-grid-all">{features.map((feature, index) => <FeatureCard key={feature.id} feature={feature} index={index} language={language} />)}</div></PageFrame>;
+  return <PageFrame eyebrow={copy.featuresEyebrow} title={<>{copy.featuresTitle} <em>{copy.featuresTitleAccent}</em></>} intro={copy.featuresIntro} pageClass="features-page"><div className="feature-gallery">{features.map((feature) => <FeatureImageGallery key={feature.id} feature={feature} language={language} />)}</div></PageFrame>;
 }
 
 function ContactPage({ copy }) {
@@ -1206,7 +1223,7 @@ export default function PublicSite({ user, onLogout, page = 'home' }) {
   }, [page]);
 
   const content = page === 'about' ? <AboutPage copy={copy} /> : page === 'features' ? <FeaturesPage language={language} copy={copy} /> : page === 'contact' ? <ContactPage copy={copy} /> : <HomePage language={language} copy={copy} />;
-  const pageClass = page === 'about' || page === 'contact' ? ` public-app-${page}` : '';
+  const pageClass = page === 'home' ? ' public-app-home' : page === 'about' || page === 'contact' ? ` public-app-${page}` : '';
   return <div ref={publicAppRef} className={`public-app${pageClass}${language === 'am' ? ' language-am' : ''}`} lang={language}><PublicNav user={user} onLogout={onLogout} language={language} onLanguageChange={setCurrentLanguage} copy={copy} />{content}<PublicFooter copy={copy} /></div>;
 }
 

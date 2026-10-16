@@ -224,3 +224,119 @@
         top: auto;
     }
 }
+
+.public-app .inner-page.features-page {
+    width: 100%;
+    max-width: none;
+    padding-inline: clamp(20px, 4vw, 64px);
+}
+
+.feature-gallery {
+    display: grid;
+    width: 100%;
+    gap: clamp(28px, 4vw, 48px);
+}
+
+.feature-gallery-group h2 {
+    margin: 0 0 16px;
+    color: var(--ink);
+    font-size: 21px;
+    line-height: 1.3;
+}
+
+.feature-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 18px;
+}
+
+.feature-gallery-item {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: #fff;
+}
+
+.feature-gallery-item img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    background: #f1f5f4;
+}
+
+.feature-gallery-item figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding: 11px 13px;
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.feature-gallery-item figcaption span:last-child {
+    color: var(--muted);
+}
+
+.public-app .home-page .hero-section {
+    height: auto;
+    min-height: clamp(40rem, 82vh, 48rem);
+    padding-block: 112px 52px;
+}
+
+.public-app .home-page .hero-proof {
+    margin-top: 32px;
+}
+
+.public-app .home-page .section {
+    padding-block: clamp(48px, 6vw, 76px);
+}
+
+.public-app .home-page .section-heading {
+    margin-bottom: clamp(22px, 3vw, 32px);
+}
+
+.public-app .home-page .home-public-information {
+    padding-top: clamp(36px, 4vw, 52px);
+}
+
+.public-app .home-page .home-final-cta {
+    min-height: 320px;
+}
+
+.public-app .home-page .final-cta-content {
+    padding-block: 48px;
+}
+
+.public-app-home > .public-footer {
+    padding-top: 44px;
+}
+
+.public-app-home > .public-footer .footer-grid {
+    gap: 32px;
+    padding-bottom: 32px;
+}
+
+@media (max-width: 640px) {
+    .public-app .home-page .hero-section {
+        min-height: clamp(38rem, 84vh, 44rem);
+        padding-block: 100px 36px;
+    }
+
+    .public-app .home-page .hero-proof {
+        gap: 18px;
+        margin-top: 20px;
+    }
+
+    .feature-gallery-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .public-app .home-page .home-final-cta {
+        min-height: 300px;
+    }
+}

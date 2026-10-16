@@ -274,7 +274,59 @@ describe('SecurityMap Phase 1 features', () => {
     render(<SecurityMap officers={[{ user_id: 'no-gps', name: 'No GPS Officer', latitude: null, longitude: null }]} />);
 
     expect(screen.queryByTestId('marker-officer-no-gps')).not.toBeInTheDocument();
-    expect(screen.getByText('1 officer location unavailable')).toBeInTheDocument();
+    expect(screen.getByText('1 officer location not shared yet')).toBeInTheDocument();
+  });
+
+  test('marks last-known officer positions as potentially out of date', async () => {
+    render(<SecurityMap officers={[{
+      user_id: 'stale-officer',
+      name: 'Stale Officer',
+      latitude: '10.9858',
+      longitude: '39.2636',
+      location_status: 'last_known',
+      location_is_stale: true,
+    }]} />);
+
+    expect(screen.getByText('1 last-known officer location may be out of date')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('marker-officer-stale-officer'));
+    expect(await screen.findByText('Location: Last known; may be out of date')).toBeInTheDocument();
+  });
+
+  test('distinguishes a recent last-reported position from a stale fix', async () => {
+    render(<SecurityMap officers={[{
+      user_id: 'offline-officer',
+      name: 'Offline Officer',
+      latitude: '10.9858',
+      longitude: '39.2636',
+      availability_status: 'offline',
+      location_status: 'last_known',
+      location_is_stale: false,
+    }]} />);
+
+    expect(screen.queryByText(/last-known officer location/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('marker-officer-offline-officer'));
+    expect(await screen.findByText('Location: Last reported; not live')).toBeInTheDocument();
+  });
+
+  test('renders a fresh location when the officer data receives new coordinates', () => {
+    const { rerender } = render(<SecurityMap officers={[{
+      user_id: 'updating-officer',
+      name: 'Updating Officer',
+      latitude: null,
+      longitude: null,
+    }]} />);
+
+    expect(screen.queryByTestId('marker-officer-updating-officer')).not.toBeInTheDocument();
+    rerender(<SecurityMap officers={[{
+      user_id: 'updating-officer',
+      name: 'Updating Officer',
+      latitude: '10.9858',
+      longitude: '39.2636',
+      location_status: 'live',
+      location_updated_at: new Date().toISOString(),
+    }]} />);
+
+    expect(screen.getByTestId('marker-officer-updating-officer')).toBeInTheDocument();
   });
 
   test('Officer availability filter works', async () => {

@@ -316,6 +316,18 @@ describe('Public site', () => {
     expect(new Set([...seenByFeature.values()].flatMap((images) => [...images]))).toHaveLength(24);
   });
 
+  it('renders all 24 feature images together in the responsive features gallery', () => {
+    const { container } = renderPublicSite('features');
+    const images = Array.from(container.querySelectorAll('.feature-gallery-item img'));
+    const expectedSources = featureIds.flatMap((id) => [1, 2, 3].map((index) => `/images/features/${id}-${index}.jpg`));
+
+    expect(images).toHaveLength(24);
+    expect(images.map((image) => image.getAttribute('src'))).toEqual(expectedSources);
+    expect(new Set(images.map((image) => image.getAttribute('src'))).size).toBe(24);
+    expect(container.querySelectorAll('.feature-gallery-item figcaption')).toHaveLength(24);
+    expect(container.querySelectorAll('.feature-gallery-group')).toHaveLength(8);
+  });
+
   it('keeps feature slides still when reduced motion is preferred', () => {
     vi.useFakeTimers();
     vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({

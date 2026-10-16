@@ -97,6 +97,7 @@ const coordinatesFor = (latitude, longitude) => {
     ? [lat, lng]
     : null;
 };
+const hasStaleOfficerLocation = (officer) => officer?.location_is_stale === true;
 
 const polygonCoordinatesFor = (coordinates) => {
   let geometry = coordinates;
@@ -352,6 +353,7 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
   ], [displayableCampusLocations, effectiveZones]);
   const invalidSOSCount = incidents.filter((incident) => incident.is_sos && !coordinatesFor(incident.latitude, incident.longitude)).length;
   const unavailableOfficerCount = officers.filter((officer) => !coordinatesFor(officer.latitude, officer.longitude)).length;
+  const staleOfficerCount = officers.filter((officer) => coordinatesFor(officer.latitude, officer.longitude) && hasStaleOfficerLocation(officer)).length;
 
   // Derived filtered incident and officer lists according to layer toggles and filters
   const filteredIncidents = useMemo(() => incidents.filter((incident) => {
@@ -633,12 +635,17 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
             const officerAssignmentStatus = activeAssignment?.assignment_status;
             const displayStatus = officerAssignmentStatus === 'pending' ? 'Assignment pending' : officerAssignmentStatus === 'accepted' ? 'Responding' : (officer.availability_status || 'unavailable');
             const incidentPosition = assignment && coordinatesFor(assignment.latitude, assignment.longitude);
-            const officerIcon = markerIcon('#2d8a61', 'S', `marker-officer-${officer.user_id}`);
+            const officerColor = hasStaleOfficerLocation(officer) ? '#a16207' : officer.location_status === 'last_known' ? '#64748b' : '#2d8a61';
+            const officerLocationLabel = hasStaleOfficerLocation(officer)
+              ? 'Last known; may be out of date'
+              : officer.location_status === 'last_known' ? 'Last reported; not live' : 'Live';
+            const officerIcon = markerIcon(officerColor, 'S', `marker-officer-${officer.user_id}`);
             return (
               <Marker key={`officer-${officer.user_id}`} position={position} icon={officerIcon}>
                 <Popup>
                   <span className="inline-flex items-center gap-2"><UserAvatar user={officer} size="h-7 w-7" /><strong>{officer.name}</strong></span>
                   <br />Status: {displayStatus}
+                  <br />Location: {officerLocationLabel}
                   <br />Assignment: {officerAssignmentStatus === 'pending' ? 'Assignment pending' : assignment?.type || 'None'}
                   {incidentPosition && <><br />Distance: {formatDistance(distanceMeters(position, incidentPosition))}</>}
                   <br />Last update: {officer.location_updated_at ? new Date(officer.location_updated_at).toLocaleString() : 'Unavailable'}
@@ -756,7 +763,12 @@ export default function SecurityMap({ incidents = [], officers = [], zones = [],
           )}
           {unavailableOfficerCount > 0 && (
             <div className="campus-map-status-notice" hidden={fullscreenActive} style={{ position: 'absolute', top: invalidSOSCount ? 52 : 12, left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#68757a', border: '1px solid #cbd5d6', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
-              {unavailableOfficerCount} officer location{unavailableOfficerCount === 1 ? '' : 's'} unavailable
+              {unavailableOfficerCount} officer location{unavailableOfficerCount === 1 ? '' : 's'} not shared yet
+            </div>
+          )}
+          {staleOfficerCount > 0 && (
+            <div className="campus-map-status-notice" hidden={fullscreenActive} style={{ position: 'absolute', top: (invalidSOSCount ? 52 : 12) + (unavailableOfficerCount > 0 ? 40 : 0), left: 12, zIndex: 1000, padding: '8px 10px', background: '#fff', color: '#8a5a12', border: '1px solid #e7c98e', borderRadius: 4, boxShadow: '0 1px 4px rgba(0,0,0,.2)' }}>
+              {staleOfficerCount} last-known officer location{staleOfficerCount === 1 ? ' may be' : 's may be'} out of date
             </div>
           )}
         </MapContainer>

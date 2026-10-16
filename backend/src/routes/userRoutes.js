@@ -98,6 +98,8 @@ router.get('/security-officers', authorize('security', 'security_officer', 'admi
             const locationUpdatedAt = officer.location_updated_at ? new Date(officer.location_updated_at).getTime() : NaN;
             const hasFreshLocation = hasValidLocation && Number.isFinite(locationUpdatedAt) &&
                 locationUpdatedAt <= now && now - locationUpdatedAt <= LOCATION_STALE_AFTER_MS;
+            const isLocationStale = hasValidLocation && (!Number.isFinite(locationUpdatedAt) ||
+                locationUpdatedAt > now || now - locationUpdatedAt > LOCATION_STALE_AFTER_MS);
             const isResponding = respondingOfficerIds.has(officer.user_id) || normalizeRole(officer.availability_status) === 'responding';
             const presenceEntry = presence.get(officer.user_id);
             const isPresent = Boolean(presenceEntry && Number(presenceEntry.count) > 0);
@@ -123,7 +125,7 @@ router.get('/security-officers', authorize('security', 'security_officer', 'admi
                 availability_status: availabilityStatus,
                 assignable: availabilityStatus === 'available',
                 location_status: !hasValidLocation ? 'unavailable' : isLiveLocation ? 'live' : 'last_known',
-                location_is_stale: hasValidLocation && !isLiveLocation,
+                location_is_stale: isLocationStale,
                 presence: isPresent
             };
         });

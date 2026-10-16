@@ -1004,7 +1004,7 @@ describe('Dashboard', () => {
     render(<MemoryRouter initialEntries={['/officers']}><Dashboard user={{ role: 'security', name: 'Security Test' }} /></MemoryRouter>);
 
     expect((await screen.findAllByText('Officer Test')).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Location unavailable|Location:/)).toBeInTheDocument();
+    expect(screen.getByText('Location not shared yet')).toBeInTheDocument();
   });
 
   it('renders real officer coordinates from the security-officers response', async () => {
@@ -1510,6 +1510,51 @@ describe('Dashboard', () => {
       availability_status: 'available',
     }));
     expect(await screen.findByText('Online · Available')).toBeInTheDocument();
+  });
+
+  it('refreshes officer coordinates when a location event arrives', async () => {
+    const officer = {
+      user_id: 'officer-location-live',
+      name: 'Officer Location Live',
+      role: 'security',
+      availability_status: 'available',
+      location_status: 'unavailable',
+      latitude: null,
+      longitude: null,
+    };
+    let officerRequestCount = 0;
+    apiGet.mockImplementation((url) => {
+      if (url === '/users/security-officers') {
+        officerRequestCount += 1;
+        const currentOfficer = officerRequestCount === 1
+          ? officer
+          : {
+            ...officer,
+            location_status: 'live',
+            latitude: '9.02000',
+            longitude: '38.75000',
+            location_updated_at: new Date().toISOString(),
+          };
+        return Promise.resolve({ data: { data: [currentOfficer] } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/officers']}>
+        <Dashboard user={{ user_id: 'admin-location', role: 'admin', name: 'Admin' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Location not shared yet')).toBeInTheDocument();
+    act(() => webSocket.emit('officer-location-updated', {
+      user_id: officer.user_id,
+      latitude: '9.02000',
+      longitude: '38.75000',
+    }));
+
+    expect(await screen.findByText('Location: 9.02000, 38.75000')).toBeInTheDocument();
+    expect(officerRequestCount).toBe(2);
   });
 
   it('does not let an earlier officer-list response overwrite a newer availability refresh', async () => {

@@ -86,8 +86,12 @@ const validIncidentCoordinates = (incident) => incident?.latitude !== null && in
   && Number.isFinite(Number(incident.longitude))
   && Number(incident.longitude) >= -180 && Number(incident.longitude) <= 180;
 const officerLocationLabel = (officer) => {
-  if (!validOfficerCoordinates(officer) || officer.location_status === 'unavailable') return 'Location unavailable';
-  const label = officer.location_status === 'last_known' ? 'Last known location' : 'Location';
+  if (!validOfficerCoordinates(officer) || officer.location_status === 'unavailable') {
+    return officer.location_updated_at ? 'No valid location available' : 'Location not shared yet';
+  }
+  const label = officer.location_is_stale === true
+    ? 'Last known location (stale)'
+    : officer.location_status === 'last_known' ? 'Last reported location' : 'Location';
   return `${label}: ${Number(officer.latitude).toFixed(5)}, ${Number(officer.longitude).toFixed(5)}`;
 };
 

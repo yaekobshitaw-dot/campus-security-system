@@ -89,6 +89,17 @@ test('marks stale valid coordinates as last known and keeps available officer av
   assert.equal(response.payload.data[0].location_is_stale, true);
 });
 
+test('does not mark a recent offline location as stale', async () => {
+  User.findAll = async () => [officer({ availability_status: 'offline', location_updated_at: new Date() })];
+  Response.findAll = async () => [];
+  const response = makeResponse();
+
+  await securityOfficerHandler({ user: { role: 'admin' } }, response);
+
+  assert.equal(response.payload.data[0].location_status, 'last_known');
+  assert.equal(response.payload.data[0].location_is_stale, false);
+});
+
 test('rejects invalid coordinates from being shown as current', async () => {
   User.findAll = async () => [officer({ latitude: 999, longitude: 38.75 })];
   Response.findAll = async () => [];
