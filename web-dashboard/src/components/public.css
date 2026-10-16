@@ -1496,8 +1496,9 @@ em {
 /* ---------- Inner pages ---------- */
 
 .inner-page {
+    --inner-page-gutter: max(30px, calc((100% - 1180px) / 2));
     min-height: 620px;
-    padding: 150px max(30px, calc((100vw - 1180px) / 2)) 96px;
+    padding: 150px var(--inner-page-gutter) 96px;
 }
 
 .public-app-about .inner-page,
@@ -2411,6 +2412,7 @@ em {
         line-height: 1.8;
     }
     .inner-page {
+        --inner-page-gutter: 20px;
         padding: 120px 20px 65px;
     }
     .page-image-carousel {
@@ -3840,15 +3842,17 @@ em {
 .page-image-band {
     position: relative;
     z-index: 1;
-    width: 100vw;
-    margin: 0 calc(50% - 50vw) 42px;
+    width: auto;
+    margin: 0 calc(0px - var(--inner-page-gutter)) 42px;
 }
 
 .page-image-band .page-image-carousel {
     position: relative;
     left: auto;
     width: 100%;
-    height: clamp(240px, 56.25vw, 720px);
+    height: auto;
+    min-height: 180px;
+    aspect-ratio: 16 / 9;
     border-radius: 0;
     background: #152b39;
     transform: none;
@@ -3859,7 +3863,7 @@ em {
 }
 
 .page-image-band .page-image-carousel .page-image-slide img {
-    object-fit: contain;
+    object-fit: cover;
     object-position: center;
 }
 
@@ -3935,6 +3939,6 @@ em {
     }
 
     .page-image-band .page-image-carousel {
-        height: clamp(240px, 56.25vw, 420px);
+        min-height: 180px;
     }
 }
