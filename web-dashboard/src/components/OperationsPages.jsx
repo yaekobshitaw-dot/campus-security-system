@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircleOutline, Refresh, WarningAmberOutlined } from '@mui/icons-material';
+import { CheckCircleOutline, DownloadOutlined, PrintOutlined, Refresh, WarningAmberOutlined } from '@mui/icons-material';
 import {
   Bar as RechartsBar,
   BarChart,
@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { formatIncidentStatus, UserAvatar } from './DashboardLayout';
 import { translateDashboardText, useLanguage, useTranslate } from '../utils/language';
+import { downloadCsv } from '../utils/downloadCsv';
 
 const titleCase = formatIncidentStatus;
 const Heading = ({ eyebrow, title, description, action }) => {
@@ -63,6 +64,7 @@ function AnalyticsSummaryCard({ label, value, color, index }) {
 
 export function AnalyticsPage({ analytics, incidents = [], responses = [], loading, error, onRefresh }) {
   const t = useTranslate();
+  const [exportError, setExportError] = useState('');
   const [reduceMotion, setReduceMotion] = useState(() => typeof window !== 'undefined'
     && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {
@@ -107,7 +109,24 @@ export function AnalyticsPage({ analytics, incidents = [], responses = [], loadi
     ['Average response time', averageResponseTime, '#7c3aed'],
     ['Open / closed', `${open} / ${closed}`, '#0891b2'],
   ];
-  return <div className="analytics-dashboard min-w-0 max-w-full space-y-6"><Heading eyebrow="Decision support" title="Incident analytics" description="Live aggregates from the incident service." action={<button type="button" className="dashboard-button" onClick={onRefresh}><Refresh className="text-[18px]" /> {t('Refresh')}</button>} />{error && <div className="dashboard-error" role="alert">{t(error)}</div>}{loading ? <div className="inline-loading">{t('Loading analytics...')}</div> : !hasData ? <EmptyState title="No analytics data" message="Incident analytics will appear when the service has records to report." /> : <><div className="analytics-summary-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{summary.map(([label, value, color], index) => <AnalyticsSummaryCard key={label} label={label} value={value} color={color} index={index} />)}</div><div className="grid min-w-0 gap-5 md:grid-cols-2 2xl:grid-cols-3">
+  const exportRows = [
+    ...summary.map(([label, value]) => ['Summary', label, value, '']),
+    ...severity.map(({ name, value }) => ['Severity', name, value, '']),
+    ...status.map(({ name, value }) => ['Status', name, value, '']),
+    ...types.map(({ name, value }) => ['Incident category', name, value, '']),
+    ...locations.map(({ name, value }) => ['Location', name, value, '']),
+    ...incidentTrend.map(({ date, count }) => ['Incident trend', 'Incidents', count, date]),
+    ...responseTrend.map(({ date, count }) => ['Response activity', 'Responses', count, date]),
+  ];
+  const exportAnalytics = () => {
+    try {
+      downloadCsv('campus-incident-analytics.csv', ['Section', 'Metric', 'Value', 'Date'], exportRows);
+      setExportError('');
+    } catch (downloadError) {
+      setExportError(downloadError.message || 'Unable to export analytics data.');
+    }
+  };
+  return <div className="analytics-dashboard min-w-0 max-w-full space-y-6"><Heading eyebrow="Decision support" title="Incident analytics" description="Live aggregates from the incident service." action={<div className="dashboard-report-actions"><button type="button" className="dashboard-button print-action" onClick={() => window.print()}><PrintOutlined aria-hidden="true" /> {t('Print')}</button><button type="button" className="dashboard-button print-action" onClick={exportAnalytics} disabled={loading || !hasData}><DownloadOutlined aria-hidden="true" /> {t('Export CSV')}</button><button type="button" className="dashboard-button" onClick={onRefresh}><Refresh className="text-[18px]" /> {t('Refresh')}</button></div>} />{exportError && <div className="dashboard-error" role="alert">{t(exportError)}</div>}{error && <div className="dashboard-error" role="alert">{t(error)}</div>}{loading ? <div className="inline-loading">{t('Loading analytics...')}</div> : !hasData ? <EmptyState title="No analytics data" message="Incident analytics will appear when the service has records to report." /> : <><div className="analytics-summary-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{summary.map(([label, value, color], index) => <AnalyticsSummaryCard key={label} label={label} value={value} color={color} index={index} />)}</div><div className="grid min-w-0 gap-5 md:grid-cols-2 2xl:grid-cols-3">
     <AnalyticsChartPanel title="Incident trends" empty={!incidentTrend.length}><LineChart data={incidentTrend} margin={{ top: 8, right: 12, left: -18, bottom: 4 }}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={16} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Line type="monotone" dataKey="count" name={t('Incidents')} stroke="#155a91" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={!reduceMotion} animationDuration={650} /></LineChart></AnalyticsChartPanel>
     <AnalyticsChartPanel title="Incidents by category" empty={!types.length}><BarChart data={types} margin={{ top: 8, right: 12, left: -18, bottom: 4 }}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-18} textAnchor="end" height={48} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><RechartsBar dataKey="value" name={t('Incidents')} radius={[6, 6, 0, 0]} isAnimationActive={!reduceMotion} animationDuration={650}>{types.map((entry, index) => <Cell key={entry.key} fill={chartColors[index % chartColors.length]} />)}</RechartsBar></BarChart></AnalyticsChartPanel>
     <AnalyticsChartPanel title="Status distribution" empty={!status.length}><PieChart><Tooltip /><Legend /><Pie data={status} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={54} outerRadius={88} paddingAngle={2} isAnimationActive={!reduceMotion} animationDuration={650}>{status.map((entry, index) => <Cell key={entry.key} fill={statusColors[entry.key] || chartColors[index % chartColors.length]} />)}</Pie></PieChart></AnalyticsChartPanel>
@@ -119,7 +138,23 @@ export function AnalyticsPage({ analytics, incidents = [], responses = [], loadi
 
 export function ResponsesPage({ responses, loading, error, onRefresh }) {
   const t = useTranslate();
-  return <div className="space-y-8"><Heading eyebrow="Field coordination" title="Response management" description="Assignments and response status from the response service." action={<button type="button" className="dashboard-button" onClick={onRefresh}><Refresh className="text-[18px]" /> {t('Refresh')}</button>} />{error && <div className="dashboard-error" role="alert">{t(error)}</div>}{loading ? <div className="inline-loading">{t('Loading responses...')}</div> : responses.length ? <div className="dashboard-panel overflow-x-auto border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><table className="dashboard-table"><thead><tr><th>{t('Incident')}</th><th>{t('Responder')}</th><th>{t('Status')}</th><th>{t('Response time')}</th><th>{t('Assigned')}</th></tr></thead><tbody>{responses.map((response) => <tr key={response.response_id}><td className="font-bold">{t(titleCase(response.incident?.type || 'Incident'))}<span className="block text-xs font-normal text-slate-500">{response.incident?.location_name || t('Campus')}</span></td><td>{response.responder ? <div className="flex items-center gap-2"><UserAvatar user={response.responder} size="h-8 w-8" /><span>{response.responder.name || response.responder_id}</span></div> : response.responder_id}</td><td><span className="status-badge">{t(titleCase(response.status))}</span></td><td>{response.response_time_seconds == null ? t('Pending') : `${response.response_time_seconds}s`}</td><td>{response.created_at ? new Date(response.created_at).toLocaleString() : t('Unknown')}</td></tr>)}</tbody></table></div> : <EmptyState title="No responses" message="No response assignments are currently available." />}</div>;
+  const [exportError, setExportError] = useState('');
+  const exportResponses = () => {
+    try {
+      downloadCsv('campus-response-assignments.csv', ['Incident', 'Location', 'Responder', 'Status', 'Response time', 'Assigned on'], responses.map((response) => [
+        titleCase(response.incident?.type || 'Incident'),
+        response.incident?.location_name || t('Campus'),
+        response.responder?.name || response.responder_id || t('Unknown'),
+        titleCase(response.status),
+        response.response_time_seconds == null ? t('Pending') : `${response.response_time_seconds}s`,
+        response.created_at ? new Date(response.created_at).toLocaleString() : t('Unknown'),
+      ]));
+      setExportError('');
+    } catch (downloadError) {
+      setExportError(downloadError.message || 'Unable to export response data.');
+    }
+  };
+  return <div className="space-y-8"><Heading eyebrow="Field coordination" title="Response management" description="Assignments and response status from the response service." action={<div className="dashboard-report-actions"><button type="button" className="dashboard-button print-action" onClick={() => window.print()}><PrintOutlined aria-hidden="true" /> {t('Print')}</button><button type="button" className="dashboard-button print-action" onClick={exportResponses} disabled={loading || !responses.length}><DownloadOutlined aria-hidden="true" /> {t('Export CSV')}</button><button type="button" className="dashboard-button" onClick={onRefresh}><Refresh className="text-[18px]" /> {t('Refresh')}</button></div>} />{exportError && <div className="dashboard-error" role="alert">{t(exportError)}</div>}{error && <div className="dashboard-error" role="alert">{t(error)}</div>}{loading ? <div className="inline-loading">{t('Loading responses...')}</div> : responses.length ? <div className="dashboard-panel overflow-x-auto border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]"><table className="dashboard-table"><thead><tr><th>{t('Incident')}</th><th>{t('Responder')}</th><th>{t('Status')}</th><th>{t('Response time')}</th><th>{t('Assigned')}</th></tr></thead><tbody>{responses.map((response) => <tr key={response.response_id}><td className="font-bold">{t(titleCase(response.incident?.type || 'Incident'))}<span className="block text-xs font-normal text-slate-500">{response.incident?.location_name || t('Campus')}</span></td><td>{response.responder ? <div className="flex items-center gap-2"><UserAvatar user={response.responder} size="h-8 w-8" /><span>{response.responder.name || response.responder_id}</span></div> : response.responder_id}</td><td><span className="status-badge">{t(titleCase(response.status))}</span></td><td>{response.response_time_seconds == null ? t('Pending') : `${response.response_time_seconds}s`}</td><td>{response.created_at ? new Date(response.created_at).toLocaleString() : t('Unknown')}</td></tr>)}</tbody></table></div> : <EmptyState title="No responses" message="No response assignments are currently available." />}</div>;
 }
 
 export function AlertsZonesPage({ alerts, zones, loading, error, onRefresh, onReadAlert, canManage, showClear = true, selectedAlertId }) {

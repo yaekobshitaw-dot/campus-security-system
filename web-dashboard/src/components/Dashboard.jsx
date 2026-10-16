@@ -1,8 +1,13 @@
 ﻿import {
+  CampaignOutlined,
   CheckCircleOutline,
   Close,
+  DownloadOutlined,
   ErrorOutline,
+  InsightsOutlined,
   PeopleAltOutlined,
+  NotificationsOutlined,
+  PrintOutlined,
   Refresh,
   ReportProblemOutlined,
   ShieldOutlined,
@@ -33,6 +38,7 @@ import { AuditLogsPage, ContentManagementPage, NotificationsPage } from './Admin
 import { readAlert } from '../services/operations';
 import webSocket from '../services/socket';
 import { getUserPreferences } from '../utils/appearance';
+import { downloadCsv } from '../utils/downloadCsv';
 import { useTranslate } from '../utils/language';
 
 const activeStatuses = ['reported', 'assigned', 'accepted', 'in_progress', 'investigating', 'dispatched', 'on_scene', 'declined', 'unassigned'];
@@ -440,6 +446,7 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   ));
   const [userPreferences, setUserPreferences] = useState(() => getUserPreferences(user.user_id));
   const [error, setError] = useState('');
+  const [incidentExportError, setIncidentExportError] = useState('');
   const [, setOperationsError] = useState('');
   const [resourceState, setResourceState] = useState(initialResourceState);
   const [createOpen, setCreateOpen] = useState(false);
@@ -1105,6 +1112,30 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
       icon: PeopleAltOutlined,
     },
   ];
+  const quickAccessItems = [
+    ...(canReportIncident ? [{ label: 'Report incident', icon: ReportProblemOutlined, action: () => setCreateOpen(true) }] : []),
+    { label: 'View incidents', icon: ReportProblemOutlined, action: () => navigate('/incidents/active') },
+    { label: 'Emergency / SOS', icon: WarningAmberOutlined, action: () => navigate('/sos') },
+    ...(canViewOperations ? [{ label: 'Officers', icon: PeopleAltOutlined, action: () => navigate('/officers') }] : []),
+    { label: 'Announcements', icon: CampaignOutlined, action: () => navigate('/announcements') },
+    { label: 'Notifications', icon: NotificationsOutlined, action: () => navigate('/notifications') },
+    ...((canViewOperations || isStudent) ? [{ label: 'Reports', icon: InsightsOutlined, action: () => navigate('/analytics') }] : []),
+  ];
+  const exportRecentIncidents = () => {
+    try {
+      const visibleIncidents = active.slice(0, 6);
+      downloadCsv('recent-campus-incidents.csv', ['Incident type', 'Severity', 'Status', 'Location', 'Reported on'], visibleIncidents.map((incident) => [
+        titleCase(incident.type),
+        titleCase(incident.severity),
+        statusLabel(incident.status),
+        incident.location_name || incident.building || 'Unavailable',
+        incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unknown',
+      ]));
+      setIncidentExportError('');
+    } catch (exportError) {
+      setIncidentExportError(exportError.message || 'Unable to export incident data.');
+    }
+  };
   const incidentStatusData = useMemo(
     () => countIncidentCategories(incidents, 'status', incidentStatusColors),
     [incidents],
@@ -1142,7 +1173,32 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
     }
   };
 
-  const table = (items, title, description, resource = 'incidents') => <><Heading eyebrow="Incident operations" title={title} description={description} action={<div className="flex gap-2">{createButton}{refreshButton}</div>} />{resourceState[resource].status === 'error' ? <RequestError message={resourceState[resource].error} onRetry={loadData} /> : <IncidentTable incidents={items} officers={canAssignIncidents ? officers : []} loading={loading || resourceState[resource].status === 'loading'} onView={view} onStatusChange={changeStatus} onAssign={assignOfficer} assignmentLoading={assignmentLoading} canAssign={canAssignIncidents} privileged={canChangeIncidentStatus} />}</>;
+  const table = (items, title, description, resource = 'incidents') => <>
+    <Heading
+      eyebrow="Incident operations"
+      title={title}
+      description={description}
+      action={<div className="dashboard-report-actions">{createButton}{refreshButton}
+        <button type="button" className="dashboard-button print-action" onClick={() => window.print()}><PrintOutlined aria-hidden="true" /> Print</button>
+        <button type="button" className="dashboard-button print-action" disabled={!items.length} onClick={() => {
+          try {
+            downloadCsv(`campus-${resource}-incidents.csv`, ['Incident type', 'Severity', 'Status', 'Location', 'Reported on'], items.map((incident) => [
+              titleCase(incident.type), titleCase(incident.severity), statusLabel(incident.status),
+              incident.location_name || incident.building || 'Unavailable',
+              incident.created_at ? new Date(incident.created_at).toLocaleString() : 'Unknown',
+            ]));
+            setIncidentExportError('');
+          } catch (exportError) {
+            setIncidentExportError(exportError.message || 'Unable to export incident data.');
+          }
+        }}><DownloadOutlined aria-hidden="true" /> Export CSV</button>
+      </div>}
+    />
+    {incidentExportError && <div className="dashboard-error" role="alert">{incidentExportError}</div>}
+    {resourceState[resource].status === 'error'
+      ? <RequestError message={resourceState[resource].error} onRetry={loadData} />
+      : <IncidentTable incidents={items} officers={canAssignIncidents ? officers : []} loading={loading || resourceState[resource].status === 'loading'} onView={view} onStatusChange={changeStatus} onAssign={assignOfficer} assignmentLoading={assignmentLoading} canAssign={canAssignIncidents} privileged={canChangeIncidentStatus} />}
+  </>;
   const assignmentRequestsView = showAssignmentRequests && (assignmentRequests.length > 0 || assignmentError) && (
     <section className="dashboard-panel space-y-4 border-slate-200/80 bg-white">
     <h2 className="text-lg font-black text-[#0b1f3a]">New assignment request</h2>
@@ -1181,6 +1237,20 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
   const overview = (
     <div className="space-y-8">
       {assignmentRequestsView}
+      <section className="dashboard-quick-access" aria-label="Quick access">
+        <div className="dashboard-quick-access-heading">
+          <p className="dashboard-eyebrow">Common tasks</p>
+          <h2>Quick access</h2>
+        </div>
+        <div className="dashboard-quick-access-grid">
+          {quickAccessItems.map(({ label, icon: Icon, action }) => (
+            <button key={label} type="button" className="dashboard-quick-access-item" onClick={action}>
+              <Icon aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
       <section className="dashboard-panel overflow-hidden border-slate-200/80 bg-white p-0 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
         <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(220px,30%)]">
           <div className="p-5 sm:p-6">
@@ -1216,11 +1286,14 @@ function Dashboard({ user: authenticatedUser, onUserUpdated = () => {}, onLogout
             eyebrow="Priority queue"
             title="Recent incidents"
             action={
-              <button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>
-                View queue
-              </button>
+              <div className="dashboard-report-actions">
+                <button type="button" className="dashboard-button print-action" onClick={() => window.print()}><PrintOutlined aria-hidden="true" /> Print</button>
+                <button type="button" className="dashboard-button print-action" onClick={exportRecentIncidents} disabled={!active.length}><DownloadOutlined aria-hidden="true" /> Export CSV</button>
+                <button type="button" className="dashboard-button" onClick={() => navigate('/incidents/active')}>View queue</button>
+              </div>
             }
           />
+          {incidentExportError && <p className="dashboard-error" role="alert">{incidentExportError}</p>}
           {resourceState.incidents.status === 'loading'
             ? <div className="inline-loading">Loading incidents...</div>
             : resourceState.incidents.status === 'error'

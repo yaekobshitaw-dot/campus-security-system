@@ -683,6 +683,195 @@
     }
 }
 
+.dashboard-quick-access {
+    display: grid;
+    gap: 14px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #dbe3e8;
+}
+
+.dashboard-quick-access-heading h2 {
+    margin: 3px 0 0;
+    color: #0b1f3a;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.dashboard-quick-access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+    gap: 10px;
+}
+
+.dashboard-quick-access-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 58px;
+    padding: 12px 14px;
+    border: 1px solid #d8e1e7;
+    border-radius: 10px;
+    background: #fff;
+    color: #173247;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+
+.dashboard-quick-access-item svg {
+    flex: 0 0 auto;
+    color: #176a73;
+}
+
+.dashboard-quick-access-item span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-quick-access-item:hover {
+    transform: translateY(-1px);
+    border-color: #61aeb0;
+    background: #f3faf9;
+}
+
+.dashboard-quick-access-item:focus-visible {
+    outline: 3px solid #287b80;
+    outline-offset: 2px;
+}
+
+.dashboard-report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.dashboard-report-actions .dashboard-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.dashboard-report-actions .dashboard-button svg {
+    width: 18px;
+    height: 18px;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-quick-access {
+    border-color: #334155;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-quick-access-heading h2 {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-quick-access-item {
+    border-color: #475569;
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"].dashboard-app .dashboard-quick-access-item:hover {
+    border-color: #6fc7c1;
+    background: #20383e;
+}
+
+@media (max-width: 520px) {
+    .dashboard-quick-access-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-quick-access-item {
+        gap: 8px;
+        min-height: 56px;
+        padding: 10px;
+        font-size: 12px;
+    }
+}
+
+@media print {
+    @page {
+        margin: 14mm;
+    }
+
+    html,
+    body,
+    #root,
+    .dashboard-app,
+    .dashboard-main,
+    .dashboard-content,
+    .dashboard-workspace {
+        width: 100% !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+        color: #111 !important;
+    }
+
+    .dashboard-header,
+    .dashboard-sidebar,
+    .dashboard-footer-compact,
+    .dashboard-quick-access,
+    .dashboard-report-actions,
+    .dashboard-button,
+    .table-action,
+    .dashboard-back-button,
+    .dashboard-mobile-overlay {
+        display: none !important;
+    }
+
+    .dashboard-main,
+    .dashboard-content,
+    .dashboard-workspace {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .dashboard-panel,
+    .detail-panel,
+    .analytics-chart-panel,
+    .analytics-summary-card,
+    .dashboard-table {
+        border-color: #888 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        color: #111 !important;
+        break-inside: avoid;
+    }
+
+    .dashboard-content :is(h1, h2, h3, h4, p, span, td, th, dt, dd) {
+        color: #111 !important;
+    }
+
+    .dashboard-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 9pt !important;
+    }
+
+    .dashboard-table thead {
+        display: table-header-group;
+    }
+
+    .dashboard-table th,
+    .dashboard-table td {
+        border: 1px solid #888 !important;
+        padding: 5px !important;
+    }
+
+    .dashboard-table tr {
+        break-inside: avoid;
+    }
+}
+
 @media (max-width: 640px) {
     .dashboard-app .dashboard-content h1 {
         font-size: 1.5rem;

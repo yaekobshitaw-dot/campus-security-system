@@ -89,6 +89,20 @@ afterEach(() => {
 });
 
 describe('Public site', () => {
+  it('toggles and persists the selected appearance from the public header', () => {
+    const { container } = renderPublicSite();
+    const publicApp = container.querySelector('.public-app');
+
+    expect(publicApp).toHaveAttribute('data-theme', 'light');
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to dark mode' }));
+    expect(publicApp).toHaveAttribute('data-theme', 'dark');
+    expect(localStorage.getItem('campussecure-theme:anonymous')).toBe('dark');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to light mode' }));
+    expect(publicApp).toHaveAttribute('data-theme', 'light');
+    expect(localStorage.getItem('campussecure-theme:anonymous')).toBe('light');
+  });
+
   it('renders all eight home feature cards and the existing home sections', () => {
     const { container } = renderPublicSite();
 

@@ -1,3 +1,4 @@
+import DarkMode from '@mui/icons-material/DarkMode';
 import ArrowRight from '@mui/icons-material/ArrowForward';
 import CheckCircle2 from '@mui/icons-material/CheckCircleOutline';
 import ChevronDown from '@mui/icons-material/KeyboardArrowDown';
@@ -19,12 +20,14 @@ import BrainCircuit from '@mui/icons-material/Psychology';
 import Radar from '@mui/icons-material/Radar';
 import Siren from '@mui/icons-material/ReportProblem';
 import ShieldCheck from '@mui/icons-material/Security';
+import LightMode from '@mui/icons-material/LightMode';
 import { useEffect, useRef, useState } from 'react';
 import { CircleMarker, LayersControl, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CAMPUS_LOCATIONS } from '../data/campusLocations';
 import api from '../services/api';
 import { OAuthButtons } from './AuthScreens';
+import { setAppearanceTheme, useAppearanceTheme } from '../utils/appearance';
 import { useLanguage } from '../utils/language';
 import 'leaflet/dist/leaflet.css';
 import './public.css';
@@ -368,6 +371,7 @@ const contactPageImages = [
 function PublicNav({ user, onLogout, language, onLanguageChange, copy }) {
   const [open, setOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const theme = useAppearanceTheme(user?.user_id);
 
   const closeMenu = () => {
     setOpen(false);
@@ -470,6 +474,16 @@ function PublicNav({ user, onLogout, language, onLanguageChange, copy }) {
             </>
           )}
         </div>
+        <button
+          className="nav-appearance"
+          type="button"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={() => setAppearanceTheme(user?.user_id, theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? <LightMode aria-hidden="true" /> : <DarkMode aria-hidden="true" />}
+          <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+        </button>
       </nav>
     </header>
   );
@@ -1316,7 +1330,8 @@ export default function PublicSite({ user, onLogout, page = 'home' }) {
 
   const content = page === 'about' ? <AboutPage copy={copy} /> : page === 'features' ? <FeaturesPage language={language} copy={copy} featureId={location.hash.slice(1)} /> : page === 'contact' ? <ContactPage copy={copy} /> : <HomePage language={language} copy={copy} />;
   const pageClass = page === 'home' ? ' public-app-home' : page === 'about' || page === 'contact' ? ` public-app-${page}` : '';
-  return <div ref={publicAppRef} className={`public-app${pageClass}${language === 'am' ? ' language-am' : ''}`} lang={language}><PublicNav user={user} onLogout={onLogout} language={language} onLanguageChange={setCurrentLanguage} copy={copy} />{content}<PublicFooter copy={copy} /></div>;
+  const theme = useAppearanceTheme(user?.user_id);
+  return <div ref={publicAppRef} className={`public-app${pageClass}${language === 'am' ? ' language-am' : ''}`} lang={language} data-theme={theme}><PublicNav user={user} onLogout={onLogout} language={language} onLanguageChange={setCurrentLanguage} copy={copy} />{content}<PublicFooter copy={copy} /></div>;
 }
 
 export function AuthPage({ mode, onLogin }) {

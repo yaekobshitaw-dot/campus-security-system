@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { DownloadOutlined, PrintOutlined } from '@mui/icons-material';
+import { downloadCsv } from '../utils/downloadCsv';
+
 const titleCase = (value) => String(value || 'other')
   .replace(/[_-]/g, ' ')
   .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -14,6 +18,7 @@ export default function StudentAnalyticsPage({
   error = '',
   onRefresh = () => {},
 }) {
+  const [exportError, setExportError] = useState('');
   const ownIncidents = incidents.filter((incident) => incident.user_id === userId);
   const counts = ownIncidents.reduce((result, incident) => {
     const status = String(incident.status || '').toLowerCase();
@@ -29,6 +34,20 @@ export default function StudentAnalyticsPage({
     .sort((left, right) => new Date(right.updated_at || right.created_at).getTime()
       - new Date(left.updated_at || left.created_at).getTime())
     .slice(0, 5);
+  const exportOwnIncidents = () => {
+    try {
+      downloadCsv('my-campus-incidents.csv', ['Incident type', 'Severity', 'Status', 'Location', 'Reported on'], ownIncidents.map((incident) => [
+        titleCase(incident.type),
+        titleCase(incident.severity),
+        titleCase(incident.status),
+        incident.location_name || incident.building || 'Unavailable',
+        formatDate(incident.created_at),
+      ]));
+      setExportError('');
+    } catch (downloadError) {
+      setExportError(downloadError.message || 'Unable to export your incident data.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -38,9 +57,14 @@ export default function StudentAnalyticsPage({
           <h2 className="mt-1 text-2xl font-black tracking-tight text-[#0b1f3a]">Personal analytics</h2>
           <p className="mt-1 text-sm text-slate-500">Statistics and activity for incidents you reported.</p>
         </div>
-        <button type="button" className="dashboard-button" onClick={onRefresh} disabled={loading}>Refresh</button>
+        <div className="dashboard-report-actions">
+          <button type="button" className="dashboard-button print-action" onClick={() => window.print()}><PrintOutlined aria-hidden="true" /> Print</button>
+          <button type="button" className="dashboard-button print-action" onClick={exportOwnIncidents} disabled={loading || ownIncidents.length === 0}><DownloadOutlined aria-hidden="true" /> Export CSV</button>
+          <button type="button" className="dashboard-button" onClick={onRefresh} disabled={loading}>Refresh</button>
+        </div>
       </div>
 
+      {exportError && <div className="dashboard-error" role="alert">{exportError}</div>}
       {error && <div className="dashboard-error" role="alert">{error}</div>}
       {loading && <div className="inline-loading">Loading your incident analytics...</div>}
 

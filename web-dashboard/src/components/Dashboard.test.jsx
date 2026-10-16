@@ -7,11 +7,13 @@ import Dashboard from './Dashboard';
 import { DashboardLayout, IncidentStatusBadge, IncidentTable } from './DashboardLayout';
 import webSocket from '../services/socket';
 
-const { apiGet, apiPost, apiPatch, apiDelete } = vi.hoisted(() => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiDelete: vi.fn() }));
+const { apiGet, apiPost, apiPatch, apiDelete, downloadCsvMock } = vi.hoisted(() => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiDelete: vi.fn(), downloadCsvMock: vi.fn() }));
 
 vi.mock('../services/api', () => ({
   default: { get: apiGet, post: apiPost, patch: apiPatch, delete: apiDelete }
 }));
+
+vi.mock('../utils/downloadCsv', () => ({ downloadCsv: downloadCsvMock }));
 
 vi.mock('../services/socket', () => {
   const listeners = {};
@@ -63,6 +65,7 @@ describe('Dashboard', () => {
     apiPost.mockReset();
     apiPatch.mockReset();
     apiDelete.mockReset();
+    downloadCsvMock.mockReset();
     localStorage.removeItem('campussecure-language');
     sessionStorage.clear();
     apiGet.mockImplementation(() => Promise.resolve({ data: { data: [] } }));
@@ -150,6 +153,60 @@ describe('Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Contacts', hidden: true }));
     expect(await screen.findByRole('heading', { name: 'Users & Contacts' })).toBeInTheDocument();
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/users/presence'));
+  });
+
+  it('shows student-accessible quick actions and navigates Reports to personal analytics', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: 'student-1', role: 'student', name: 'Student Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Quick access' })).toBeInTheDocument();
+    const quickAccess = screen.getByRole('region', { name: 'Quick access' });
+    expect(within(quickAccess).getByRole('button', { name: 'Report incident' })).toBeInTheDocument();
+    expect(within(quickAccess).getByRole('button', { name: 'View incidents' })).toBeInTheDocument();
+    expect(within(quickAccess).getByRole('button', { name: 'Emergency / SOS' })).toBeInTheDocument();
+    expect(within(quickAccess).getByRole('button', { name: 'Announcements' })).toBeInTheDocument();
+    expect(within(quickAccess).getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+    expect(within(quickAccess).getByRole('button', { name: 'Reports' })).toBeInTheDocument();
+    expect(within(quickAccess).queryByRole('button', { name: 'Officers' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(quickAccess).getByRole('button', { name: 'Reports' }));
+    expect(await screen.findByRole('heading', { name: 'Personal analytics' })).toBeInTheDocument();
+  });
+
+  it('exports only visible recent incident fields and prints the overview report', async () => {
+    const visibleIncident = {
+      incident_id: 'incident-1',
+      type: 'theft',
+      severity: 'high',
+      status: 'reported',
+      location_name: 'Library',
+      created_at: '2026-10-12T12:00:00.000Z',
+      reporter: { email: 'private@example.test' },
+    };
+    apiGet.mockImplementation((url) => (url === '/incidents'
+      ? Promise.resolve({ data: { data: [visibleIncident] } })
+      : Promise.resolve({ data: { data: [] } })));
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard user={{ user_id: 'admin-1', role: 'admin', name: 'Admin Test' }} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Recent incidents' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    expect(downloadCsvMock).toHaveBeenCalledWith(
+      'recent-campus-incidents.csv',
+      ['Incident type', 'Severity', 'Status', 'Location', 'Reported on'],
+      [['Theft', 'High', 'Reported', 'Library', expect.any(String)]],
+    );
+    expect(JSON.stringify(downloadCsvMock.mock.calls[0])).not.toContain('private@example.test');
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+    expect(print).toHaveBeenCalledOnce();
   });
 
   it('does not show assignment requests on the Admin Dashboard while retaining the request data path', async () => {
